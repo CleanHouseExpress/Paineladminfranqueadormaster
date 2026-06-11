@@ -5,7 +5,7 @@ import {
   BarChart3, Package, Receipt, ClipboardCheck, AlertCircle,
   BookOpen, MessageCircle, Bot, Zap, FileBarChart, Plug, Star, Boxes, Instagram
 } from "lucide-react";
-import { mockModules } from "../data/mockData";
+import { getModuleByIdOrAlias } from "../../services/moduleRegistry";
 
 const iconMap: Record<string, React.FC<any>> = {
   Building2, Users, DollarSign, TrendingUp, BarChart3, Package,
@@ -44,9 +44,31 @@ export function ModuleDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const module = mockModules.find(m => m.id === id) || mockModules[0];
+  const module = id ? getModuleByIdOrAlias(id) : undefined;
+
+  if (!module) {
+    return (
+      <div className="p-6 max-w-[700px] mx-auto">
+        <button onClick={() => navigate("/modules")}
+          className="flex items-center gap-2 mb-6 transition-opacity hover:opacity-70"
+          style={{ fontSize: "13px", color: "#64748B" }}>
+          <ArrowLeft size={16} />
+          Voltar para MÃ³dulos
+        </button>
+        <div className="bg-white rounded-2xl p-8 text-center" style={{ border: "1px solid rgba(0,0,0,0.06)" }}>
+          <h2 style={{ color: "#0F172A", marginBottom: "8px" }}>MÃ³dulo nÃ£o encontrado</h2>
+          <p style={{ fontSize: "14px", color: "#64748B", lineHeight: 1.6 }}>
+            O mÃ³dulo solicitado nÃ£o existe no catÃ¡logo atual da Orchestra.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const Icon = iconMap[module.icon] || Building2;
   const details = moduleDetails[module.id] || defaultDetails;
+  const category = module.marketplace?.category ?? "Sistema";
+  const price = module.marketplace?.price ?? module.price ?? "Sob consulta";
 
   const statusColors: Record<string, { color: string; bg: string; label: string }> = {
     active: { color: "#10B981", bg: "#ECFDF5", label: "Ativo" },
@@ -86,10 +108,10 @@ export function ModuleDetail() {
             <p style={{ fontSize: "14px", color: "#64748B", lineHeight: 1.6 }}>{module.description}</p>
             <div className="flex flex-wrap gap-3 mt-4">
               <span className="px-3 py-1 rounded-lg" style={{ background: "#F8FAFC", color: "#94A3B8", fontSize: "12px" }}>
-                {module.category}
+                {category}
               </span>
               <span className="px-3 py-1 rounded-lg" style={{ background: "#F8FAFC", color: "#94A3B8", fontSize: "12px" }}>
-                {module.price}
+                {price}
               </span>
             </div>
           </div>

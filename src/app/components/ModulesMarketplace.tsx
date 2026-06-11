@@ -4,9 +4,10 @@ import {
   Building2, Users, DollarSign, TrendingUp, BarChart3, Package,
   Receipt, ClipboardCheck, AlertCircle, BookOpen, MessageCircle,
   Instagram, Bot, Zap, FileBarChart, Plug, Star, Boxes,
-  Search, Filter, CheckCircle, Lock, Clock, ChevronRight
+  Search, CheckCircle, Lock, Clock, ChevronRight
 } from "lucide-react";
-import { mockModules, moduleCategories } from "../data/mockData";
+import { MARKETPLACE_MODULES } from "../../services/moduleRegistry";
+import type { ModuleDefinition } from "../../types";
 
 type ModuleStatus = "active" | "available" | "review" | "development" | "blocked";
 
@@ -24,10 +25,20 @@ const statusConfig: Record<ModuleStatus, { label: string; color: string; bg: str
   blocked: { label: "Bloqueado", color: "#EF4444", bg: "#FEF2F2", icon: <Lock size={11} /> },
 };
 
-function ModuleCard({ module }: { module: typeof mockModules[0] }) {
+function getModuleCategory(module: ModuleDefinition) {
+  return module.marketplace?.category ?? "Outros";
+}
+
+function getModulePrice(module: ModuleDefinition) {
+  return module.marketplace?.price ?? module.price ?? "Sob consulta";
+}
+
+function ModuleCard({ module }: { module: ModuleDefinition }) {
   const navigate = useNavigate();
   const Icon = iconMap[module.icon] || Building2;
   const status = statusConfig[module.status];
+  const category = getModuleCategory(module);
+  const price = getModulePrice(module);
 
   return (
     <div className="bg-white rounded-xl p-5 flex flex-col gap-4 hover:shadow-md transition-shadow cursor-pointer group"
@@ -52,10 +63,10 @@ function ModuleCard({ module }: { module: typeof mockModules[0] }) {
 
       <div className="flex items-center justify-between">
         <span className="px-2 py-1 rounded-md" style={{ background: "#F8FAFC", color: "#94A3B8", fontSize: "11px" }}>
-          {module.category}
+          {category}
         </span>
         <span style={{ fontSize: "12px", fontWeight: 600, color: module.status === "active" ? "#10B981" : "#64748B" }}>
-          {module.price}
+          {price}
         </span>
       </div>
 
@@ -103,19 +114,20 @@ export function ModulesMarketplace() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("Todos");
   const [statusFilter, setStatusFilter] = useState("Todos");
+  const moduleCategories = ["Todos", ...Array.from(new Set(MARKETPLACE_MODULES.map(getModuleCategory)))];
 
-  const filtered = mockModules.filter(m => {
+  const filtered = MARKETPLACE_MODULES.filter(m => {
     const matchSearch = m.name.toLowerCase().includes(search.toLowerCase()) ||
       m.description.toLowerCase().includes(search.toLowerCase());
-    const matchCat = category === "Todos" || m.category === category;
+    const matchCat = category === "Todos" || getModuleCategory(m) === category;
     const matchStatus = statusFilter === "Todos" || m.status === statusFilter;
     return matchSearch && matchCat && matchStatus;
   });
 
   const counts = {
-    active: mockModules.filter(m => m.status === "active").length,
-    available: mockModules.filter(m => m.status === "available").length,
-    development: mockModules.filter(m => m.status === "development").length,
+    active: MARKETPLACE_MODULES.filter(m => m.status === "active").length,
+    available: MARKETPLACE_MODULES.filter(m => m.status === "available").length,
+    development: MARKETPLACE_MODULES.filter(m => m.status === "development").length,
   };
 
   return (

@@ -1,92 +1,121 @@
-import { BrowserRouter, Routes, Route } from 'react-router';
+import { lazy, Suspense } from 'react';
 import type { ComponentType } from 'react';
+import { BrowserRouter, Route, Routes } from 'react-router';
 
 import { AppProvider } from '../shared/context/AppProvider';
-import { Layout } from './components/Layout';
-import { PlaceholderPage } from './components/PlaceholderPage';
+import { ModuleGate } from '../shared/components/ModuleGate';
+import { PermissionGate } from '../shared/components/PermissionGate';
+import { ProtectedRoute } from '../shared/components/ProtectedRoute';
 import { ALL_ROUTES } from '../services/moduleRegistry';
+import { AccessPermissionsPage, AccessRequestsPage } from '../modules/access';
+import { ClientsPage } from '../modules/clients';
+import { DashboardPage } from '../modules/dashboard';
+import { GeneralSettingsPage, MenuConfigPage, WhiteLabelPage } from '../modules/settings';
+import { Layout } from './components/Layout';
+import { LoginPage } from './components/LoginPage';
+import { PlaceholderPage } from './components/PlaceholderPage';
 import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
 import { ProductTour } from './components/onboarding/ProductTour';
 
-// ─── Module pages ─────────────────────────────────────────────────────────────
-import { DashboardPage } from '../modules/dashboard';
-import { ClientsPage } from '../modules/clients';
-import {
-  FinancialOverviewPage, CashFlowPage, DREPage, CMVPage, RoyaltiesPage,
-} from '../modules/financial';
-import {
-  MarketplacePage, ModuleDetailPage, RequestModuleAccessPage, RequestNewModulePage,
-} from '../modules/marketplace';
-import { AccessPermissionsPage, AccessRequestsPage } from '../modules/access';
-import { GeneralSettingsPage, MenuConfigPage, WhiteLabelPage } from '../modules/settings';
-import {
-  EntityCatalogPage, FieldManagementPage, FormOrganizerPage,
-  ChangeHistoryPage, VersionManagerPage,
-} from '../modules/form-builder';
+function lazyPage<T extends Record<string, ComponentType>>(
+  loader: () => Promise<T>,
+  exportName: keyof T,
+) {
+  return lazy(async () => ({ default: (await loader())[exportName] }));
+}
 
-// ─── Component map ────────────────────────────────────────────────────────────
-// Maps componentId strings from moduleRegistry to actual React components.
-// Only this map changes when adding a new page — no other files need updating.
+const FinancialOverviewPage = lazyPage(() => import('./components/FinancialOverview'), 'FinancialOverview');
+const CashFlowPage = lazyPage(() => import('./components/CashFlow'), 'CashFlow');
+const DREPage = lazyPage(() => import('./components/DRE'), 'DRE');
+const CMVPage = lazyPage(() => import('./components/CMV'), 'CMV');
+const RoyaltiesPage = lazyPage(() => import('./components/Royalties'), 'Royalties');
+
+const MarketplacePage = lazyPage(() => import('./components/ModulesMarketplace'), 'ModulesMarketplace');
+const ModuleDetailPage = lazyPage(() => import('./components/ModuleDetail'), 'ModuleDetail');
+const RequestModuleAccessPage = lazyPage(() => import('./components/RequestModuleAccess'), 'RequestModuleAccess');
+const RequestNewModulePage = lazyPage(() => import('./components/RequestNewModule'), 'RequestNewModule');
+
+const EntityCatalogPage = lazyPage(() => import('./components/form-builder/EntityCatalog'), 'EntityCatalog');
+const FieldManagementPage = lazyPage(() => import('./components/form-builder/FieldManagement'), 'FieldManagement');
+const FormOrganizerPage = lazyPage(() => import('./components/form-builder/FormOrganizer'), 'FormOrganizer');
+const ChangeHistoryPage = lazyPage(() => import('./components/form-builder/ChangeHistory'), 'ChangeHistory');
+const VersionManagerPage = lazyPage(() => import('./components/form-builder/VersionManager'), 'VersionManager');
 
 const COMPONENT_MAP: Record<string, ComponentType> = {
-  'dashboard':             DashboardPage,
-  'units':                 () => <PlaceholderPage title="Gestão de Unidades" description="Cadastro, monitoramento e controle de todas as unidades da rede em um único painel." />,
-  'clients':               ClientsPage,
-  'financial-overview':    FinancialOverviewPage,
-  'cashflow':              CashFlowPage,
-  'dre':                   DREPage,
-  'cmv':                   CMVPage,
-  'royalties':             RoyaltiesPage,
-  'operations':            () => <PlaceholderPage title="Operação" description="Checklists, pendências e diário de bordo para gestão operacional da rede." />,
-  'support':               () => <PlaceholderPage title="Atendimento" description="Central de atendimento multicanal. Ative o módulo WhatsApp ou Instagram para começar." />,
-  'automations':           () => <PlaceholderPage title="Automações" description="Fluxos automatizados para notificações, cobranças e processos repetitivos." />,
-  'reports':               () => <PlaceholderPage title="Relatórios" description="Relatórios customizados com exportação e agendamento automático." />,
-  'marketplace':           MarketplacePage,
-  'module-detail':         ModuleDetailPage,
+  dashboard: DashboardPage,
+  units: () => <PlaceholderPage title="Gestao de Unidades" description="Cadastro, monitoramento e controle de todas as unidades da rede em um unico painel." />,
+  clients: ClientsPage,
+  'financial-overview': FinancialOverviewPage,
+  cashflow: CashFlowPage,
+  dre: DREPage,
+  cmv: CMVPage,
+  royalties: RoyaltiesPage,
+  operations: () => <PlaceholderPage title="Operacao" description="Checklists, pendencias e diario de bordo para gestao operacional da rede." />,
+  support: () => <PlaceholderPage title="Atendimento" description="Central de atendimento multicanal. Ative o modulo WhatsApp ou Instagram para comecar." />,
+  automations: () => <PlaceholderPage title="Automacoes" description="Fluxos automatizados para notificacoes, cobrancas e processos repetitivos." />,
+  reports: () => <PlaceholderPage title="Relatorios" description="Relatorios customizados com exportacao e agendamento automatico." />,
+  marketplace: MarketplacePage,
+  'module-detail': ModuleDetailPage,
   'request-module-access': RequestModuleAccessPage,
-  'request-new-module':    RequestNewModulePage,
-  'access-permissions':    AccessPermissionsPage,
-  'access-requests':       AccessRequestsPage,
-  'settings':              GeneralSettingsPage,
-  'menu-config':           MenuConfigPage,
-  'white-label':           WhiteLabelPage,
-  'settings-placeholder':  () => <PlaceholderPage title="Em breve" description="Esta seção estará disponível em breve." />,
-  // Form Builder (Metadata Engine)
-  'form-builder-catalog':   EntityCatalogPage,
-  'form-builder-fields':    FieldManagementPage,
+  'request-new-module': RequestNewModulePage,
+  'access-permissions': AccessPermissionsPage,
+  'access-requests': AccessRequestsPage,
+  settings: GeneralSettingsPage,
+  'menu-config': MenuConfigPage,
+  'white-label': WhiteLabelPage,
+  'settings-placeholder': () => <PlaceholderPage title="Em breve" description="Esta secao estara disponivel em breve." />,
+  'form-builder-catalog': EntityCatalogPage,
+  'form-builder-fields': FieldManagementPage,
   'form-builder-organizer': FormOrganizerPage,
-  'form-builder-history':   ChangeHistoryPage,
-  'form-builder-versions':  VersionManagerPage,
+  'form-builder-history': ChangeHistoryPage,
+  'form-builder-versions': VersionManagerPage,
 };
 
-// ─── App ──────────────────────────────────────────────────────────────────────
-
-export default function App() {
+function ProtectedAppRoutes() {
   return (
-    <AppProvider>
-      <BrowserRouter>
-        <OnboardingWizard />
-        <ProductTour />
-        <Layout>
+    <ProtectedRoute>
+      <OnboardingWizard />
+      <ProductTour />
+      <Layout>
+        <Suspense fallback={null}>
           <Routes>
-            {/* Routes generated dynamically from the Module Registry */}
             {ALL_ROUTES.map(route => {
               const PageComponent = COMPONENT_MAP[route.componentId];
               if (!PageComponent) return null;
+              const page = (
+                <ModuleGate moduleId={route.moduleId ?? route.componentId}>
+                  <PermissionGate permissions={route.requiredPermissions ?? []}>
+                    <PageComponent />
+                  </PermissionGate>
+                </ModuleGate>
+              );
               return (
                 <Route
                   key={route.path}
                   path={route.path}
-                  element={<PageComponent />}
+                  element={page}
                 />
               );
             })}
             <Route
               path="*"
-              element={<PlaceholderPage title="Página não encontrada" description="A rota que você acessou não existe." />}
+              element={<PlaceholderPage title="Pagina nao encontrada" description="A rota que voce acessou nao existe." />}
             />
           </Routes>
-        </Layout>
+        </Suspense>
+      </Layout>
+    </ProtectedRoute>
+  );
+}
+
+export default function App() {
+  return (
+    <AppProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/*" element={<ProtectedAppRoutes />} />
+        </Routes>
       </BrowserRouter>
     </AppProvider>
   );

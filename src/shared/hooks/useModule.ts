@@ -1,5 +1,6 @@
 import { useModuleContext } from '../context/ModuleContext';
 import { useTenant } from '../context/TenantContext';
+import { useAuth } from '../context/AuthContext';
 import { getModule } from '../../services/moduleRegistry';
 import type { ModuleUIState } from '../../types';
 
@@ -14,9 +15,15 @@ import type { ModuleUIState } from '../../types';
 export function useModule(moduleId: string) {
   const { getModuleState, setModuleState, resetModuleState } = useModuleContext();
   const { isModuleEnabled, isModuleBlocked } = useTenant();
+  const { modules } = useAuth();
 
   const definition = getModule(moduleId);
   const imperativeState = getModuleState(moduleId);
+  const apiModule = modules.find(module => {
+    const id = module.moduleId ?? module.module_id ?? module.slug ?? module.id;
+    return String(id) === moduleId;
+  });
+  const hasApiModules = modules.length > 0;
 
   let effectiveState: ModuleUIState = 'active';
 
@@ -25,6 +32,14 @@ export function useModule(moduleId: string) {
     effectiveState = imperativeState;
   } else if (!definition) {
     effectiveState = 'error';
+  } else if (hasApiModules && !apiModule) {
+    effectiveState = 'available';
+  } else if (apiModule?.status === 'blocked') {
+    effectiveState = 'blocked';
+  } else if (apiModule?.status === 'review') {
+    effectiveState = 'review';
+  } else if (apiModule?.status === 'available' || apiModule?.status === 'development') {
+    effectiveState = 'available';
   } else if (isModuleBlocked(moduleId)) {
     effectiveState = 'blocked';
   } else if (!isModuleEnabled(moduleId)) {

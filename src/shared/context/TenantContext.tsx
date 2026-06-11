@@ -35,6 +35,8 @@ interface TenantContextValue {
   updateWhiteLabel: (patch: Partial<TenantConfig['whiteLabel']>) => void;
   /** Enable or disable a module for this tenant */
   setModuleEnabled: (moduleId: string, enabled: boolean) => void;
+  /** Hydrate tenant data from the authenticated API session */
+  hydrateTenant: (patch: Partial<TenantConfig>) => void;
 }
 
 const TenantContext = createContext<TenantContextValue | null>(null);
@@ -59,8 +61,22 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
         : t.enabledModuleIds.filter(id => id !== moduleId),
     }));
 
+  const hydrateTenant = (patch: Partial<TenantConfig>) =>
+    setTenant(t => ({
+      ...t,
+      ...patch,
+      whiteLabel: {
+        ...t.whiteLabel,
+        ...patch.whiteLabel,
+      },
+      enabledModuleIds: patch.enabledModuleIds ?? t.enabledModuleIds,
+      pendingModuleIds: patch.pendingModuleIds ?? t.pendingModuleIds,
+      blockedModuleIds: patch.blockedModuleIds ?? t.blockedModuleIds,
+      menuConfig: patch.menuConfig ?? t.menuConfig,
+    }));
+
   return (
-    <TenantContext.Provider value={{ tenant, isModuleEnabled, isModuleBlocked, updateWhiteLabel, setModuleEnabled }}>
+    <TenantContext.Provider value={{ tenant, isModuleEnabled, isModuleBlocked, updateWhiteLabel, setModuleEnabled, hydrateTenant }}>
       {children}
     </TenantContext.Provider>
   );

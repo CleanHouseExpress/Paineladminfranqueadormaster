@@ -20,9 +20,9 @@ export const mockModules = [
   { id: "whatsapp", name: "Atendimento WhatsApp", description: "Central de atendimento multicanal via WhatsApp com distribuição por unidade.", category: "Atendimento", icon: "MessageCircle", status: "available" as const, price: "R$ 297/mês" },
   { id: "instagram", name: "Atendimento Instagram", description: "Gestão de mensagens e comentários do Instagram de todas as unidades.", category: "Atendimento", icon: "Instagram", status: "review" as const, price: "R$ 197/mês" },
   { id: "agente-ia", name: "Agente IA", description: "Assistente inteligente para resposta automática, análise e sugestões operacionais.", category: "IA", icon: "Bot", status: "development" as const, price: "Em breve" },
-  { id: "automacoes", name: "Automações", description: "Fluxos automatizados para notificações, cobranças e processos repetitivos.", category: "Automações", icon: "Zap", status: "available" as const, price: "R$ 197/mês" },
-  { id: "relatorios", name: "Relatórios Avançados", description: "Relatórios customizados com exportação e agendamento automático.", category: "Relatórios", icon: "FileBarChart", status: "available" as const, price: "R$ 97/mês" },
-  { id: "integracoes", name: "Integrações", description: "Conexão com ERPs, gateways de pagamento, plataformas de delivery e mais.", category: "Integrações", icon: "Plug", status: "available" as const, price: "Sob consulta" },
+  { id: "automations", name: "Automações", description: "Fluxos automatizados para notificações, cobranças e processos repetitivos.", category: "Automações", icon: "Zap", status: "available" as const, price: "R$ 197/mês" },
+  { id: "reports", name: "Relatórios Avançados", description: "Relatórios customizados com exportação e agendamento automático.", category: "Relatórios", icon: "FileBarChart", status: "available" as const, price: "R$ 97/mês" },
+  { id: "integrations", name: "Integrações", description: "Conexão com ERPs, gateways de pagamento, plataformas de delivery e mais.", category: "Integrações", icon: "Plug", status: "available" as const, price: "Sob consulta" },
   { id: "nps", name: "NPS & Satisfação", description: "Pesquisas de satisfação automatizadas e acompanhamento de NPS por unidade.", category: "Clientes e CRM", icon: "Star", status: "development" as const, price: "Em breve" },
   { id: "supply", name: "Gestão de Insumos", description: "Controle de estoque, pedidos de reposição e centralização de compras.", category: "Operação", icon: "Boxes", status: "blocked" as const, price: "Sob consulta" },
 ];

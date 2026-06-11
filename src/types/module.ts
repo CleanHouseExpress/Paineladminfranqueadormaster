@@ -41,6 +41,10 @@ export interface RouteConfig {
   path: string;
   /** Key into COMPONENT_MAP in App.tsx */
   componentId: string;
+  /** Owning module id, filled by the registry helpers */
+  moduleId?: string;
+  /** Optional route-level permissions */
+  requiredPermissions?: string[];
 }
 
 export interface MarketplaceConfig {

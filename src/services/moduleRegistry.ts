@@ -356,7 +356,11 @@ export const MARKETPLACE_MODULES = MODULE_REGISTRY
 /** Flat list of all route configs across all modules */
 export const ALL_ROUTES = MODULE_REGISTRY
   .filter(m => m.routes?.length)
-  .flatMap(m => m.routes!);
+  .flatMap(m => m.routes!.map(route => ({
+    ...route,
+    moduleId: m.id,
+    requiredPermissions: route.requiredPermissions ?? m.requiredPermissions,
+  })));
 
 /** Resolve a path to a breadcrumb label using the registry */
 export function resolveBreadcrumb(pathname: string): Array<{ label: string; path: string }> {
@@ -391,6 +395,17 @@ export function resolveBreadcrumb(pathname: string): Array<{ label: string; path
 /** Look up a module by id */
 export function getModule(id: string): ModuleDefinition | undefined {
   return MODULE_REGISTRY.find(m => m.id === id);
+}
+
+const LEGACY_MODULE_ID_ALIASES: Record<string, string> = {
+  automacoes: 'automations',
+  relatorios: 'reports',
+  integracoes: 'integrations',
+};
+
+/** Look up a module by current id, accepting old front-end ids used by early mocks */
+export function getModuleByIdOrAlias(id: string): ModuleDefinition | undefined {
+  return getModule(LEGACY_MODULE_ID_ALIASES[id] ?? id);
 }
 
 /** Look up a module by its primary route path */

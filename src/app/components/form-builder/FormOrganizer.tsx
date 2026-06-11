@@ -1085,11 +1085,11 @@ export function FormOrganizer() {
       }}>
         {/* Breadcrumb */}
         <div style={{ paddingTop: '12px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#94a3b8' }}>
-          <Link to="/configuracoes" style={{ color: '#94a3b8', textDecoration: 'none' }}>Configurações</Link>
+          <Link to="/settings" style={{ color: '#94a3b8', textDecoration: 'none' }}>Configurações</Link>
           <span>/</span>
-          <Link to="/configuracoes/form-builder" style={{ color: '#94a3b8', textDecoration: 'none' }}>Form Builder</Link>
+          <Link to="/settings/form-builder" style={{ color: '#94a3b8', textDecoration: 'none' }}>Form Builder</Link>
           <span>/</span>
-          <Link to={`/configuracoes/form-builder/${entityId}`} style={{ color: '#94a3b8', textDecoration: 'none' }}>{entityName}</Link>
+          <Link to={`/settings/form-builder/${entityId}`} style={{ color: '#94a3b8', textDecoration: 'none' }}>{entityName}</Link>
           <span>/</span>
           <span style={{ color: '#0f172a', fontWeight: '600' }}>Organizar</span>
         </div>
@@ -1111,7 +1111,7 @@ export function FormOrganizer() {
               </span>
             </div>
             <Link
-              to={`/configuracoes/form-builder/${entityId}`}
+              to={`/settings/form-builder/${entityId}`}
               style={{ fontSize: '13px', color: '#6366f1', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}
             >
               <ArrowLeft size={13} /> Voltar para Campos

@@ -1,4 +1,5 @@
 import { TenantProvider } from './TenantContext';
+import { AuthProvider } from './AuthContext';
 import { ModuleProvider } from './ModuleContext';
 import { OnboardingProvider } from './OnboardingContext';
 
@@ -6,11 +7,13 @@ import { OnboardingProvider } from './OnboardingContext';
 export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <TenantProvider>
-      <ModuleProvider>
-        <OnboardingProvider>
-          {children}
-        </OnboardingProvider>
-      </ModuleProvider>
+      <AuthProvider>
+        <ModuleProvider>
+          <OnboardingProvider>
+            {children}
+          </OnboardingProvider>
+        </ModuleProvider>
+      </AuthProvider>
     </TenantProvider>
   );
 }
