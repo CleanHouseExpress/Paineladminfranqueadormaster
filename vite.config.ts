@@ -24,6 +24,18 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: false,
+      },
+      '/sanctum': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: false,
+      },
+    },
+  },
   resolve: {
     alias: {
       // Alias @ to the src directory

@@ -55,7 +55,7 @@ export interface LoginResponse {
 
 export const authService = {
   login: (email: string, password: string) =>
-    apiClient.post<LoginResponse>('/api/login', { email, password }),
+    apiClient.post<LoginResponse>('/api/company/login', { email, password }),
 
   logout: () =>
     apiClient.post<void>('/api/logout'),

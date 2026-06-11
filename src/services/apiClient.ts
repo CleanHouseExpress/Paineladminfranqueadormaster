@@ -24,7 +24,14 @@ export class ApiError extends Error {
   }
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
+function defaultApiBaseUrl() {
+  const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL;
+  if (configuredBaseUrl) return configuredBaseUrl;
+
+  return '';
+}
+
+const API_BASE_URL = defaultApiBaseUrl();
 export const AUTH_TOKEN_STORAGE_KEY = 'orchestra_auth_token';
 
 export const apiClientConfig: ApiClientConfig = {

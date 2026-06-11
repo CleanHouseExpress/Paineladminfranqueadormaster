@@ -13,7 +13,7 @@ import type { ModuleUIState } from '../../types';
  * Priority: imperative override > tenant blocked > registry status > tenant enabled
  */
 export function useModule(moduleId: string) {
-  const { getModuleState, setModuleState, resetModuleState } = useModuleContext();
+  const { getModuleState, setModuleState, resetModuleState, unlockAllModules } = useModuleContext();
   const { isModuleEnabled, isModuleBlocked } = useTenant();
   const { modules } = useAuth();
 
@@ -27,11 +27,13 @@ export function useModule(moduleId: string) {
 
   let effectiveState: ModuleUIState = 'active';
 
-  if (imperativeState !== 'active') {
+  if (!definition) {
+    effectiveState = 'error';
+  } else if (unlockAllModules) {
+    effectiveState = 'active';
+  } else if (imperativeState !== 'active') {
     // Explicit override wins
     effectiveState = imperativeState;
-  } else if (!definition) {
-    effectiveState = 'error';
   } else if (hasApiModules && !apiModule) {
     effectiveState = 'available';
   } else if (apiModule?.status === 'blocked') {
