@@ -41,13 +41,18 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   },
 
   {
-    id: 'clients',
+    id: 'customers',
     name: 'Clientes',
-    description: 'Visão consolidada de clientes, histórico de interações e segmentação por unidade.',
+    description: 'Cadastro configuravel de clientes, pacientes, alunos ou associados por tenant.',
     icon: 'Users',
     status: 'active',
     nav: { show: true, order: 2, group: 'main' },
-    routes: [{ path: '/clients', componentId: 'clients' }],
+    routes: [
+      { path: '/customers', componentId: 'customers', requiredPermissions: ['tenant.customers.view'] },
+      { path: '/customers/new', componentId: 'customer-new', requiredPermissions: ['tenant.customers.create'] },
+      { path: '/customers/:id', componentId: 'customer-detail', requiredPermissions: ['tenant.customers.update'] },
+      { path: '/customers/settings', componentId: 'customer-settings', requiredPermissions: ['tenant.customers.configure'] },
+    ],
     marketplace: { show: true, category: 'Clientes e CRM', price: 'Incluso' },
   },
 

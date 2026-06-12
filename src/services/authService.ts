@@ -67,7 +67,7 @@ export const authService = {
     apiClient.get<AuthCompany | { data: AuthCompany }>('/api/me/company'),
 
   getMeModules: () =>
-    apiClient.get<AuthModule[] | { data: AuthModule[] }>('/api/me/modules'),
+    apiClient.get<AuthModule[] | { data: AuthModule[] }>('/api/me/modules/sidebar'),
 
   getMeRoles: () =>
     apiClient.get<AuthRole[] | { data: AuthRole[] }>('/api/me/roles'),

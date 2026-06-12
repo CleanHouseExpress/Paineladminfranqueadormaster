@@ -343,9 +343,9 @@ export function UserFormPage() {
         ) : (
           <DynamicFormRenderer
             schema={schema}
-            value={form}
+            value={form as Record<string, unknown>}
             disabled={saving}
-            onChange={patch => setForm(current => ({ ...current, ...patch }))}
+            onChange={patch => setForm(current => ({ ...current, ...patch } as Partial<TenantUserPayload>))}
           />
         )}
 

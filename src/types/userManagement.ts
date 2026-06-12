@@ -38,10 +38,14 @@ export interface DynamicFieldOption {
 }
 
 export interface DynamicFieldSchema {
-  key: keyof TenantUserPayload;
+  key: string;
   label: string;
-  type: 'text' | 'email' | 'password' | 'boolean' | 'multiselect';
+  type: 'text' | 'email' | 'password' | 'boolean' | 'multiselect' | 'textarea' | 'date' | 'phone';
   required?: boolean;
+  visible?: boolean;
+  editable?: boolean;
+  order?: number;
+  section?: string;
   placeholder?: string;
   options?: DynamicFieldOption[];
 }

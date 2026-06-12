@@ -5,12 +5,13 @@ import {
   Bell, Search, Menu, X, LogOut, HelpCircle,
   ChevronDown, ChevronRight, Layers, Circle,
   LayoutDashboard, Building2, Users, DollarSign, ClipboardCheck,
-  MessageCircle, Zap, BarChart3, Puzzle, Shield, Settings,
+  MessageCircle, Zap, BarChart3, Puzzle, Shield, Settings, Lock, Unlock,
 } from 'lucide-react';
 
 import { ALL_ROUTES, NAV_MODULES } from '../../services/moduleRegistry';
 import { useTenant } from '../../shared/context/TenantContext';
 import { useAuth } from '../../shared/context/AuthContext';
+import { useModuleContext } from '../../shared/context/ModuleContext';
 import { usePermission } from '../../shared/hooks/usePermission';
 import type { AuthModule } from '../../services/authService';
 import type { ModuleDefinition } from '../../types';
@@ -76,12 +77,17 @@ function getApiOrder(module: AuthModule) {
   return typeof sidebar?.order === 'number' ? sidebar.order : null;
 }
 
+function getApiModuleName(module: AuthModule | undefined) {
+  return typeof module?.name === 'string' && module.name.trim() ? module.name : null;
+}
+
 // ─── Sidebar nav ───────────────────────────────────────────────────────────────
 
 function SidebarNav({ collapsed }: { collapsed: boolean }) {
   const location = useLocation();
   const { isModuleEnabled } = useTenant();
   const { modules } = useAuth();
+  const { unlockAllModules } = useModuleContext();
   const { hasAllPermissions } = usePermission();
   const [expanded, setExpanded] = useState<string[]>(['financial', 'access']);
   const hasApiModules = modules.length > 0;
@@ -96,6 +102,8 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
   };
 
   const canShowModule = (mod: ModuleDefinition) => {
+    if (unlockAllModules) return true;
+
     const apiModule = apiModuleById.get(mod.id);
     const enabled = hasApiModules
       ? Boolean(apiModule && isApiModuleVisible(apiModule) && isApiModuleActive(apiModule))
@@ -109,6 +117,8 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
   };
 
   const canShowChild = (path: string) => {
+    if (unlockAllModules) return true;
+
     const route = ALL_ROUTES.find(item => item.path === path);
     return hasAllPermissions(route?.requiredPermissions ?? []);
   };
@@ -126,6 +136,8 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
 
   function renderItem(mod: (typeof NAV_MODULES)[number]) {
     const primaryPath = mod.routes?.[0]?.path ?? '#';
+    const apiModule = apiModuleById.get(mod.id);
+    const moduleName = getApiModuleName(apiModule) ?? mod.nav!.label ?? mod.name;
     const active = isActive(primaryPath);
     const isExp = expanded.includes(mod.id);
     const enabled = true;
@@ -149,7 +161,7 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
             <DynIcon name={mod.icon} size={16} style={{ flexShrink: 0 }} />
             {!collapsed && (
               <>
-                <span style={{ fontSize: '13px', fontWeight: 500 }}>{mod.nav!.label ?? mod.name}</span>
+                <span style={{ fontSize: '13px', fontWeight: 500 }}>{moduleName}</span>
                 <ChevronDown
                   size={12}
                   className="ml-auto transition-transform"
@@ -204,7 +216,7 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
         <DynIcon name={mod.icon} size={16} style={{ flexShrink: 0 }} />
         {!collapsed && (
           <>
-            <span style={{ fontSize: '13px', fontWeight: active ? 500 : 400 }}>{mod.nav!.label ?? mod.name}</span>
+            <span style={{ fontSize: '13px', fontWeight: active ? 500 : 400 }}>{moduleName}</span>
             {active && <span className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: '#818CF8' }} />}
           </>
         )}
@@ -230,6 +242,7 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
 export function Layout({ children }: { children: React.ReactNode }) {
   const { tenant } = useTenant();
   const { logout } = useAuth();
+  const { unlockAllModules, toggleUnlockAllModules } = useModuleContext();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -238,6 +251,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: '#F8FAFC', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+      <button
+        type="button"
+        onClick={toggleUnlockAllModules}
+        className="fixed bottom-5 right-5 z-[70] flex items-center gap-2 rounded-full px-4 py-3 text-white shadow-lg transition-transform hover:scale-[1.02]"
+        style={{
+          background: unlockAllModules ? '#16A34A' : '#0F172A',
+          boxShadow: '0 16px 40px rgba(15, 23, 42, 0.24)',
+          fontSize: '12px',
+          fontWeight: 700,
+        }}
+        title={unlockAllModules ? 'Desativar liberacao de modulos' : 'Ativar liberacao de modulos'}
+      >
+        {unlockAllModules ? <Unlock size={16} /> : <Lock size={16} />}
+        {unlockAllModules ? 'Modulos liberados' : 'Liberar modulos'}
+      </button>
+
       {mobileOpen && (
         <div className="fixed inset-0 z-40 lg:hidden" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setMobileOpen(false)} />
       )}

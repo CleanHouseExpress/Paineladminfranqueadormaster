@@ -8,7 +8,7 @@ import { PermissionGate } from '../shared/components/PermissionGate';
 import { ProtectedRoute } from '../shared/components/ProtectedRoute';
 import { ALL_ROUTES } from '../services/moduleRegistry';
 import { AccessPermissionsPage, AccessRequestsPage } from '../modules/access';
-import { ClientsPage } from '../modules/clients';
+import { CustomerFormPage, CustomerSettingsPage, CustomersListPage } from '../modules/clients';
 import { DashboardPage } from '../modules/dashboard';
 import { GeneralSettingsPage, MenuConfigPage, WhiteLabelPage } from '../modules/settings';
 import { UserFormPage, UsersListPage } from '../modules/users';
@@ -45,7 +45,10 @@ const VersionManagerPage = lazyPage(() => import('./components/form-builder/Vers
 const COMPONENT_MAP: Record<string, ComponentType> = {
   dashboard: DashboardPage,
   units: () => <PlaceholderPage title="Gestao de Unidades" description="Cadastro, monitoramento e controle de todas as unidades da rede em um unico painel." />,
-  clients: ClientsPage,
+  customers: CustomersListPage,
+  'customer-new': CustomerFormPage,
+  'customer-detail': CustomerFormPage,
+  'customer-settings': CustomerSettingsPage,
   'financial-overview': FinancialOverviewPage,
   cashflow: CashFlowPage,
   dre: DREPage,

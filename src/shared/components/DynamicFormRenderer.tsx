@@ -1,14 +1,15 @@
-import type { DynamicFieldOption, DynamicFieldSchema, TenantUserPayload } from '../../types/userManagement';
+import type { DynamicFieldOption, DynamicFieldSchema } from '../../types/userManagement';
 import { Input } from '../../app/components/ui/input';
 import { Label } from '../../app/components/ui/label';
 import { Switch } from '../../app/components/ui/switch';
+import { Textarea } from '../../app/components/ui/textarea';
 
 type FormValue = string | number[] | boolean | undefined;
 
 interface DynamicFormRendererProps {
   schema: DynamicFieldSchema[];
-  value: Partial<TenantUserPayload>;
-  onChange: (patch: Partial<TenantUserPayload>) => void;
+  value: Record<string, unknown>;
+  onChange: (patch: Record<string, unknown>) => void;
   disabled?: boolean;
 }
 
@@ -24,7 +25,10 @@ export function DynamicFormRenderer({ schema, value, onChange, disabled }: Dynam
   return (
     <div className="grid gap-4 md:grid-cols-2">
       {schema.map(field => {
+        if (field.visible === false) return null;
+
         const fieldValue = value[field.key] as FormValue;
+        const fieldDisabled = disabled || field.editable === false;
 
         if (field.type === 'boolean') {
           return (
@@ -33,7 +37,7 @@ export function DynamicFormRenderer({ schema, value, onChange, disabled }: Dynam
               <Switch
                 id={String(field.key)}
                 checked={Boolean(fieldValue)}
-                disabled={disabled}
+                disabled={fieldDisabled}
                 onCheckedChange={checked => onChange({ [field.key]: checked })}
               />
             </div>
@@ -56,7 +60,7 @@ export function DynamicFormRenderer({ schema, value, onChange, disabled }: Dynam
                       type="checkbox"
                       className="size-4"
                       checked={optionChecked(selected, option)}
-                      disabled={disabled}
+                      disabled={fieldDisabled}
                       onChange={event => {
                         const optionValue = Number(option.value);
                         const roles = event.target.checked
@@ -73,16 +77,32 @@ export function DynamicFormRenderer({ schema, value, onChange, disabled }: Dynam
           );
         }
 
+        if (field.type === 'textarea') {
+          return (
+            <div key={field.key} className="grid gap-2 md:col-span-2">
+              <Label htmlFor={String(field.key)}>{field.label}</Label>
+              <Textarea
+                id={String(field.key)}
+                value={String(fieldValue ?? '')}
+                placeholder={field.placeholder}
+                required={field.required}
+                disabled={fieldDisabled}
+                onChange={event => onChange({ [field.key]: event.target.value })}
+              />
+            </div>
+          );
+        }
+
         return (
           <div key={field.key} className="grid gap-2">
             <Label htmlFor={String(field.key)}>{field.label}</Label>
             <Input
               id={String(field.key)}
-              type={field.type}
+              type={field.type === 'phone' ? 'tel' : field.type}
               value={String(fieldValue ?? '')}
               placeholder={field.placeholder}
               required={field.required}
-              disabled={disabled}
+              disabled={fieldDisabled}
               onChange={event => onChange({ [field.key]: event.target.value })}
             />
           </div>

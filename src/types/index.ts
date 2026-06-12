@@ -6,3 +6,5 @@ export type { FieldType, FieldOrigin, FieldStatus, EntityStatus, VersionStatus, 
 export { FIELD_TYPE_DEFINITIONS } from './formBuilder';
 export type { TenantRole, TenantUser, TenantUsersMeta, TenantUserPayload, DynamicFieldOption, DynamicFieldSchema, DynamicTableColumnSchema } from './userManagement';
 export { USER_FORM_SCHEMA, USER_TABLE_SCHEMA } from './userManagement';
+export type { Customer, CustomerFormSettings, CustomerPayload, CustomerTableColumn, CustomersMeta } from './customerManagement';
+export { DEFAULT_CUSTOMER_SETTINGS } from './customerManagement';
