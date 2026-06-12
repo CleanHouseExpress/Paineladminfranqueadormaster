@@ -11,6 +11,7 @@ import { AccessPermissionsPage, AccessRequestsPage } from '../modules/access';
 import { ClientsPage } from '../modules/clients';
 import { DashboardPage } from '../modules/dashboard';
 import { GeneralSettingsPage, MenuConfigPage, WhiteLabelPage } from '../modules/settings';
+import { UserFormPage, UsersListPage } from '../modules/users';
 import { Layout } from './components/Layout';
 import { LoginPage } from './components/LoginPage';
 import { PlaceholderPage } from './components/PlaceholderPage';
@@ -60,6 +61,9 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   'request-new-module': RequestNewModulePage,
   'access-permissions': AccessPermissionsPage,
   'access-requests': AccessRequestsPage,
+  users: UsersListPage,
+  'user-new': UserFormPage,
+  'user-detail': UserFormPage,
   settings: GeneralSettingsPage,
   'menu-config': MenuConfigPage,
   'white-label': WhiteLabelPage,

@@ -72,6 +72,20 @@ function extractUser(response: LoginResponse) {
   return response.user ?? response.data?.user ?? null;
 }
 
+function normalizeMePayload(payload: AuthUser | { data: AuthUser } | { user?: AuthUser; context?: AuthSessionContext }) {
+  if (payload && typeof payload === 'object' && 'user' in payload && payload.user) {
+    return {
+      user: payload.user,
+      context: 'context' in payload ? payload.context ?? null : null,
+    };
+  }
+
+  return {
+    user: unwrap(payload as AuthUser | { data: AuthUser }),
+    context: null,
+  };
+}
+
 function normalizeModuleId(module: AuthModule) {
   return String(module.moduleId ?? module.module_id ?? module.slug ?? module.id ?? '');
 }
@@ -149,7 +163,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         authService.getMePermissions(),
       ]);
 
-      const nextUser = unwrap(mePayload);
+      const normalizedMe = normalizeMePayload(mePayload);
+      const nextUser = normalizedMe.user;
       const nextCompany = unwrap(companyPayload);
       const nextModules = unwrap(modulesPayload);
       const nextRoles = unwrap(rolesPayload);
@@ -163,6 +178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setContext({
         userId: nextUser.id,
         companyId: nextCompany.id,
+        ...(normalizedMe.context ?? {}),
         hydratedAt: new Date().toISOString(),
       });
       hydrateTenant(buildTenantPatch(nextCompany, nextModules));

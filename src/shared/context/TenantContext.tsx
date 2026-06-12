@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import type { TenantConfig } from '../../types';
 
 /** Mock tenant — in a real app this comes from the auth session / API */
@@ -44,24 +44,26 @@ const TenantContext = createContext<TenantContextValue | null>(null);
 export function TenantProvider({ children }: { children: React.ReactNode }) {
   const [tenant, setTenant] = useState<TenantConfig>(DEFAULT_TENANT);
 
-  const isModuleEnabled = (moduleId: string) =>
-    tenant.enabledModuleIds.includes(moduleId);
+  const isModuleEnabled = useCallback((moduleId: string) =>
+    tenant.enabledModuleIds.includes(moduleId), [tenant.enabledModuleIds]);
 
-  const isModuleBlocked = (moduleId: string) =>
-    tenant.blockedModuleIds.includes(moduleId);
+  const isModuleBlocked = useCallback((moduleId: string) =>
+    tenant.blockedModuleIds.includes(moduleId), [tenant.blockedModuleIds]);
 
-  const updateWhiteLabel = (patch: Partial<TenantConfig['whiteLabel']>) =>
+  const updateWhiteLabel = useCallback((patch: Partial<TenantConfig['whiteLabel']>) => {
     setTenant(t => ({ ...t, whiteLabel: { ...t.whiteLabel, ...patch } }));
+  }, []);
 
-  const setModuleEnabled = (moduleId: string, enabled: boolean) =>
+  const setModuleEnabled = useCallback((moduleId: string, enabled: boolean) => {
     setTenant(t => ({
       ...t,
       enabledModuleIds: enabled
         ? [...t.enabledModuleIds, moduleId]
         : t.enabledModuleIds.filter(id => id !== moduleId),
     }));
+  }, []);
 
-  const hydrateTenant = (patch: Partial<TenantConfig>) =>
+  const hydrateTenant = useCallback((patch: Partial<TenantConfig>) => {
     setTenant(t => ({
       ...t,
       ...patch,
@@ -74,9 +76,19 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
       blockedModuleIds: patch.blockedModuleIds ?? t.blockedModuleIds,
       menuConfig: patch.menuConfig ?? t.menuConfig,
     }));
+  }, []);
+
+  const value = useMemo<TenantContextValue>(() => ({
+    tenant,
+    isModuleEnabled,
+    isModuleBlocked,
+    updateWhiteLabel,
+    setModuleEnabled,
+    hydrateTenant,
+  }), [tenant, isModuleEnabled, isModuleBlocked, updateWhiteLabel, setModuleEnabled, hydrateTenant]);
 
   return (
-    <TenantContext.Provider value={{ tenant, isModuleEnabled, isModuleBlocked, updateWhiteLabel, setModuleEnabled, hydrateTenant }}>
+    <TenantContext.Provider value={value}>
       {children}
     </TenantContext.Provider>
   );

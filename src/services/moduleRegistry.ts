@@ -284,12 +284,16 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
       order: 9,
       group: 'system',
       children: [
-        { label: 'Usuários & Perfis', path: '/access' },
+        { label: 'Usuarios', path: '/users' },
+        { label: 'Perfis', path: '/access' },
         { label: 'Permissões', path: '/access/permissions' },
         { label: 'Solicitações', path: '/access/requests', badge: 3 },
       ],
     },
     routes: [
+      { path: '/users', componentId: 'users', requiredPermissions: ['tenant.users.view'] },
+      { path: '/users/new', componentId: 'user-new', requiredPermissions: ['tenant.users.create'] },
+      { path: '/users/:id', componentId: 'user-detail', requiredPermissions: ['tenant.users.update'] },
       { path: '/access', componentId: 'access-permissions' },
       { path: '/access/permissions', componentId: 'access-permissions' },
       { path: '/access/requests', componentId: 'access-requests' },

@@ -1,14 +1,9 @@
 // ─── Wizard ────────────────────────────────────────────────────────────────────
 
 export type WizardStepId =
-  | 'welcome'
   | 'network'
   | 'whitelabel'
-  | 'units'
-  | 'users'
-  | 'modules'
-  | 'financial'
-  | 'clients'
+  | 'settings'
   | 'review';
 
 export interface WizardStep {
@@ -20,14 +15,9 @@ export interface WizardStep {
 }
 
 export const WIZARD_STEPS: WizardStep[] = [
-  { id: 'welcome',    title: 'Boas-vindas',              subtitle: 'Conheça o Orchestra',                  skippable: false },
   { id: 'network',    title: 'Dados da rede',            subtitle: 'Informações básicas da franqueadora',  skippable: false },
   { id: 'whitelabel', title: 'Identidade visual',        subtitle: 'Personalize a plataforma',             skippable: true  },
-  { id: 'units',      title: 'Unidades',                 subtitle: 'Cadastre suas primeiras unidades',     skippable: true  },
-  { id: 'users',      title: 'Usuários e permissões',    subtitle: 'Convide sua equipe',                   skippable: true  },
-  { id: 'modules',    title: 'Módulos',                  subtitle: 'Escolha as funcionalidades',           skippable: false },
-  { id: 'financial',  title: 'Configuração financeira',  subtitle: 'Royalties e taxas iniciais',           skippable: true  },
-  { id: 'clients',    title: 'Importação de clientes',   subtitle: 'Traga sua base de clientes',           skippable: true  },
+  { id: 'settings',   title: 'Configurações da rede',    subtitle: 'Ajuste o comportamento operacional',   skippable: false },
   { id: 'review',     title: 'Revisão final',            subtitle: 'Tudo pronto para lançar!',             skippable: false },
 ];
 
@@ -40,6 +30,9 @@ export interface NetworkStepData {
   email: string;
   city: string;
   state: string;
+  responsibleName: string;
+  responsibleEmail: string;
+  responsiblePhone: string;
 }
 
 export interface WhiteLabelStepData {
@@ -69,6 +62,26 @@ export interface FinancialStepData {
   graceDays: number;
 }
 
+export interface TenantSettingsStepData {
+  timezone: string;
+  language: string;
+  currency: string;
+  dateFormat: string;
+  timeFormat: string;
+  decimalSeparator: string;
+  thousandSeparator: string;
+  weekStartsOn: string;
+  defaultCountry: string;
+  defaultState: string;
+  defaultCity: string;
+  networkType: string;
+  unitManagementMode: string;
+  emailNotifications: boolean;
+  systemNotifications: boolean;
+  criticalAlerts: boolean;
+  dashboardPreferences: Record<string, unknown>;
+}
+
 export type WizardStepData = {
   network: Partial<NetworkStepData>;
   whitelabel: Partial<WhiteLabelStepData>;
@@ -77,6 +90,7 @@ export type WizardStepData = {
   modules: string[];
   financial: Partial<FinancialStepData>;
   clientsImported: boolean;
+  settings: Partial<TenantSettingsStepData>;
 };
 
 // ─── Tour ─────────────────────────────────────────────────────────────────────
@@ -180,13 +194,42 @@ export const INITIAL_ONBOARDING_STATE: OnboardingState = {
   wizardCompleted: false,
   currentWizardStep: 0,
   stepData: {
-    network: { networkName: 'Bella Vita Franchising', segment: 'Beleza e Estética', email: 'contato@bellavita.com.br', city: 'São Paulo', state: 'SP', cnpj: '' },
+    network: {
+      networkName: 'Bella Vita Franchising',
+      segment: 'Beleza e Estética',
+      email: 'contato@bellavita.com.br',
+      city: 'São Paulo',
+      state: 'SP',
+      cnpj: '',
+      responsibleName: '',
+      responsibleEmail: '',
+      responsiblePhone: '',
+    },
     whitelabel: { platformName: 'Orchestra', primaryColor: '#6366F1', secondaryColor: '#8B5CF6' },
     units: [],
     users: [],
     modules: ['dashboard', 'units', 'clients', 'financial', 'cashflow', 'dre', 'cmv', 'royalties', 'operations', 'access', 'settings'],
     financial: { royaltyRate: 7, adFundRate: 2, billingDay: 15, graceDays: 5 },
     clientsImported: false,
+    settings: {
+      timezone: 'America/Sao_Paulo',
+      language: 'pt-BR',
+      currency: 'BRL',
+      dateFormat: 'DD/MM/YYYY',
+      timeFormat: '24h',
+      decimalSeparator: ',',
+      thousandSeparator: '.',
+      weekStartsOn: 'monday',
+      defaultCountry: 'Brasil',
+      defaultState: '',
+      defaultCity: '',
+      networkType: 'franchise',
+      unitManagementMode: 'centralized',
+      emailNotifications: true,
+      systemNotifications: true,
+      criticalAlerts: true,
+      dashboardPreferences: {},
+    },
   },
   tourCompleted: false,
   tourActive: false,
