@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useReducer, useCallback } from 'react';
-import type { NetworkStepData, OnboardingState, TenantSettingsStepData, WhiteLabelStepData, WizardStepId, WizardStepData } from '../../types/onboarding';
+import type { OnboardingState, WizardStepId, WizardStepData } from '../../types/onboarding';
 import { INITIAL_ONBOARDING_STATE } from '../../types/onboarding';
 import * as svc from '../../services/onboardingService';
 
@@ -27,7 +27,8 @@ function reducer(state: LocalState, action: Action): LocalState {
       return {
         ...state,
         ...action.state,
-        wizardOpen: !action.state.wizardCompleted,
+        // Auto-open wizard for first-time users
+        wizardOpen: !action.state.wizardCompleted && !action.state.wizardStarted,
       };
     case 'OPEN_WIZARD':
       return { ...state, wizardOpen: true };
@@ -38,7 +39,7 @@ function reducer(state: LocalState, action: Action): LocalState {
     case 'SAVE_STEP_DATA':
       return { ...state, stepData: { ...state.stepData, ...action.data } };
     case 'COMPLETE_WIZARD':
-      return { ...state, wizardCompleted: true, wizardOpen: false, tourActive: false, tourCompleted: true };
+      return { ...state, wizardCompleted: true, wizardOpen: false, tourActive: true, currentTourStop: 0 };
     case 'START_TOUR':
       return { ...state, tourActive: true, currentTourStop: 0 };
     case 'SET_TOUR_STOP':
@@ -68,9 +69,6 @@ interface OnboardingContextValue {
   closeWizard: () => void;
   goToStep: (step: number) => void;
   saveStepData: (stepId: WizardStepId, data: Partial<WizardStepData>) => Promise<void>;
-  syncNetworkStep: (data: Partial<NetworkStepData>) => Promise<void>;
-  syncBrandingStep: (data: Partial<WhiteLabelStepData>) => Promise<void>;
-  syncSettingsStep: (data: Partial<TenantSettingsStepData>) => Promise<void>;
   completeWizard: () => Promise<void>;
   // Tour
   startTour: () => void;
@@ -105,33 +103,13 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     stepId: WizardStepId,
     data: Partial<WizardStepData>,
   ) => {
-    void stepId;
     dispatch({ type: 'SAVE_STEP_DATA', data });
-    await svc.saveLocalStepData(state.currentWizardStep, data);
+    await svc.updateOnboardingStep(stepId, state.currentWizardStep, data);
   }, [state.currentWizardStep]);
 
-  const syncNetworkStep = useCallback(async (data: Partial<NetworkStepData>) => {
-    dispatch({ type: 'SAVE_STEP_DATA', data: { network: { ...state.stepData.network, ...data } } });
-    const next = await svc.syncNetworkStep(state.currentWizardStep, { ...state.stepData.network, ...data });
-    dispatch({ type: 'HYDRATE', state: next });
-  }, [state.currentWizardStep, state.stepData.network]);
-
-  const syncBrandingStep = useCallback(async (data: Partial<WhiteLabelStepData>) => {
-    dispatch({ type: 'SAVE_STEP_DATA', data: { whitelabel: { ...state.stepData.whitelabel, ...data } } });
-    const next = await svc.syncBrandingStep(state.currentWizardStep, { ...state.stepData.whitelabel, ...data });
-    dispatch({ type: 'HYDRATE', state: next });
-  }, [state.currentWizardStep, state.stepData.whitelabel]);
-
-  const syncSettingsStep = useCallback(async (data: Partial<TenantSettingsStepData>) => {
-    dispatch({ type: 'SAVE_STEP_DATA', data: { settings: { ...state.stepData.settings, ...data } } });
-    const next = await svc.syncSettingsStep(state.currentWizardStep, { ...state.stepData.settings, ...data });
-    dispatch({ type: 'HYDRATE', state: next });
-  }, [state.currentWizardStep, state.stepData.settings]);
-
   const completeWizard = useCallback(async () => {
-    const next = await svc.completeOnboarding();
-    dispatch({ type: 'HYDRATE', state: next });
-    dispatch({ type: 'CLOSE_WIZARD' });
+    await svc.completeOnboarding();
+    dispatch({ type: 'COMPLETE_WIZARD' });
   }, []);
 
   const startTour = useCallback(() => {
@@ -171,9 +149,6 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       closeWizard,
       goToStep,
       saveStepData,
-      syncNetworkStep,
-      syncBrandingStep,
-      syncSettingsStep,
       completeWizard,
       startTour,
       advanceTour,

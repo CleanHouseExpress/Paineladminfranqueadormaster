@@ -68,7 +68,7 @@ const LUCIDE_ICON_MAP: Record<string, React.ComponentType<{ size?: number; color
   Type, AlignLeft, Hash, DollarSign, Calendar, Clock, Mail, Phone, Link2,
   ToggleLeft, ChevronDown, ListChecks, Paperclip, Image,
   Users, Building2, Shield, Truck, ClipboardCheck, MessageCircle, Target,
-  Receipt, Package,
+  DollarSign: DollarSign, Receipt, Package,
 };
 
 const ENTITY_ICON_MAP: Record<string, React.ComponentType<{ size?: number; style?: React.CSSProperties }>> = {

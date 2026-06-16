@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronRight, Bell, Shield, Globe, Database, CreditCard, Users, LayoutTemplate, ArrowRight } from "lucide-react";
+import { ChevronRight, Bell, Shield, Globe, Database, CreditCard, Users, LayoutTemplate } from "lucide-react";
 import { Link } from "react-router";
 
 const settingsSections = [
@@ -118,7 +118,7 @@ export function GeneralSettings() {
                 </div>
                 <p style={{ fontSize: "12px", color: "#94A3B8" }}>{s.desc}</p>
               </div>
-              <ArrowRight size={16} style={{ color: "#CBD5E1", flexShrink: 0 }} className="group-hover:text-indigo-500 transition-colors" />
+              <Arrow size={16} style={{ color: "#CBD5E1", flexShrink: 0 }} className="group-hover:text-indigo-500 transition-colors" />
             </Link>
           );
         })}

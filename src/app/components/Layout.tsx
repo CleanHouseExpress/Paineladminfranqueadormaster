@@ -1,84 +1,21 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router';
+import * as Icons from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
 import {
   Bell, Search, Menu, X, LogOut, HelpCircle,
-  ChevronDown, ChevronRight, Layers, Circle,
-  LayoutDashboard, Building2, Users, DollarSign, ClipboardCheck,
-  MessageCircle, Zap, BarChart3, Puzzle, Shield, Settings, Lock, Unlock,
+  ChevronDown, ChevronRight, Layers,
 } from 'lucide-react';
 
-import { ALL_ROUTES, NAV_MODULES } from '../../services/moduleRegistry';
+import { NAV_MODULES } from '../../services/moduleRegistry';
 import { useTenant } from '../../shared/context/TenantContext';
-import { useAuth } from '../../shared/context/AuthContext';
-import { useModuleContext } from '../../shared/context/ModuleContext';
-import { usePermission } from '../../shared/hooks/usePermission';
-import type { AuthModule } from '../../services/authService';
-import type { ModuleDefinition } from '../../types';
 
 // ─── Dynamic icon resolver ─────────────────────────────────────────────────────
 
-const NAV_ICON_MAP: Record<string, React.ComponentType<LucideProps>> = {
-  LayoutDashboard,
-  Building2,
-  Users,
-  DollarSign,
-  ClipboardCheck,
-  MessageCircle,
-  Zap,
-  BarChart3,
-  Puzzle,
-  Shield,
-  Settings,
-};
-
 function DynIcon({ name, ...props }: { name: string } & LucideProps) {
-  const Icon = NAV_ICON_MAP[name];
-  if (!Icon) return <Circle {...props} />;
+  const Icon = (Icons as unknown as Record<string, React.ComponentType<LucideProps>>)[name];
+  if (!Icon) return <Icons.Circle {...props} />;
   return <Icon {...props} />;
-}
-
-function moduleIdFromApi(module: AuthModule) {
-  return String(module.moduleId ?? module.module_id ?? module.slug ?? module.id ?? '');
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' ? value as Record<string, unknown> : null;
-}
-
-function getApiSidebar(module: AuthModule) {
-  return asRecord(module.sidebar) ?? asRecord(module.nav);
-}
-
-function getApiPermissions(module: AuthModule): string[] {
-  const sidebar = getApiSidebar(module);
-  const raw = module.permissions
-    ?? module.required_permissions
-    ?? module.requiredPermissions
-    ?? sidebar?.permissions
-    ?? sidebar?.required_permissions
-    ?? sidebar?.requiredPermissions;
-
-  if (!Array.isArray(raw)) return [];
-  return raw.map(item => String(item)).filter(Boolean);
-}
-
-function isApiModuleVisible(module: AuthModule) {
-  const sidebar = getApiSidebar(module);
-  return sidebar?.show !== false && sidebar?.visible !== false;
-}
-
-function isApiModuleActive(module: AuthModule) {
-  return !['available', 'blocked', 'review', 'development', 'inactive'].includes(String(module.status ?? 'active'));
-}
-
-function getApiOrder(module: AuthModule) {
-  const sidebar = getApiSidebar(module);
-  return typeof sidebar?.order === 'number' ? sidebar.order : null;
-}
-
-function getApiModuleName(module: AuthModule | undefined) {
-  return typeof module?.name === 'string' && module.name.trim() ? module.name : null;
 }
 
 // ─── Sidebar nav ───────────────────────────────────────────────────────────────
@@ -86,12 +23,7 @@ function getApiModuleName(module: AuthModule | undefined) {
 function SidebarNav({ collapsed }: { collapsed: boolean }) {
   const location = useLocation();
   const { isModuleEnabled } = useTenant();
-  const { modules } = useAuth();
-  const { unlockAllModules } = useModuleContext();
-  const { hasAllPermissions } = usePermission();
   const [expanded, setExpanded] = useState<string[]>(['financial', 'access']);
-  const hasApiModules = modules.length > 0;
-  const apiModuleById = new Map(modules.map(module => [moduleIdFromApi(module), module]));
 
   const toggleExpand = (id: string) =>
     setExpanded(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
@@ -101,46 +33,14 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
     return location.pathname.startsWith(path.split('/:')[0]);
   };
 
-  const canShowModule = (mod: ModuleDefinition) => {
-    if (unlockAllModules) return true;
-
-    const apiModule = apiModuleById.get(mod.id);
-    const enabled = hasApiModules
-      ? Boolean(apiModule && isApiModuleVisible(apiModule) && isApiModuleActive(apiModule))
-      : isModuleEnabled(mod.id);
-    const requiredPermissions = [
-      ...(mod.requiredPermissions ?? []),
-      ...(apiModule ? getApiPermissions(apiModule) : []),
-    ];
-
-    return enabled && hasAllPermissions(requiredPermissions);
-  };
-
-  const canShowChild = (path: string) => {
-    if (unlockAllModules) return true;
-
-    const route = ALL_ROUTES.find(item => item.path === path);
-    return hasAllPermissions(route?.requiredPermissions ?? []);
-  };
-
-  const sortByApiOrder = (items: typeof NAV_MODULES) =>
-    [...items].sort((a, b) => {
-      const aOrder = apiModuleById.get(a.id) ? getApiOrder(apiModuleById.get(a.id)!) : null;
-      const bOrder = apiModuleById.get(b.id) ? getApiOrder(apiModuleById.get(b.id)!) : null;
-      return (aOrder ?? a.nav!.order) - (bOrder ?? b.nav!.order);
-    });
-
-  const visibleModules = sortByApiOrder(NAV_MODULES.filter(canShowModule));
-  const mainModules = visibleModules.filter(m => m.nav!.group === 'main');
-  const systemModules = visibleModules.filter(m => m.nav!.group === 'system');
+  const mainModules = NAV_MODULES.filter(m => m.nav!.group === 'main');
+  const systemModules = NAV_MODULES.filter(m => m.nav!.group === 'system');
 
   function renderItem(mod: (typeof NAV_MODULES)[number]) {
     const primaryPath = mod.routes?.[0]?.path ?? '#';
-    const apiModule = apiModuleById.get(mod.id);
-    const moduleName = getApiModuleName(apiModule) ?? mod.nav!.label ?? mod.name;
     const active = isActive(primaryPath);
     const isExp = expanded.includes(mod.id);
-    const enabled = true;
+    const enabled = isModuleEnabled(mod.id);
 
     const baseStyle: React.CSSProperties = {
       color: active ? '#F1F5F9' : '#94A3B8',
@@ -161,7 +61,7 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
             <DynIcon name={mod.icon} size={16} style={{ flexShrink: 0 }} />
             {!collapsed && (
               <>
-                <span style={{ fontSize: '13px', fontWeight: 500 }}>{moduleName}</span>
+                <span style={{ fontSize: '13px', fontWeight: 500 }}>{mod.nav!.label ?? mod.name}</span>
                 <ChevronDown
                   size={12}
                   className="ml-auto transition-transform"
@@ -173,7 +73,7 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
 
           {!collapsed && isExp && (
             <div className="ml-4 mb-1" style={{ borderLeft: '1px solid rgba(255,255,255,0.08)', paddingLeft: '12px' }}>
-              {mod.nav!.children!.filter(child => canShowChild(child.path)).map(child => {
+              {mod.nav!.children!.map(child => {
                 const childActive = location.pathname === child.path;
                 return (
                   <Link
@@ -216,7 +116,7 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
         <DynIcon name={mod.icon} size={16} style={{ flexShrink: 0 }} />
         {!collapsed && (
           <>
-            <span style={{ fontSize: '13px', fontWeight: active ? 500 : 400 }}>{moduleName}</span>
+            <span style={{ fontSize: '13px', fontWeight: active ? 500 : 400 }}>{mod.nav!.label ?? mod.name}</span>
             {active && <span className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: '#818CF8' }} />}
           </>
         )}
@@ -241,8 +141,6 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { tenant } = useTenant();
-  const { logout } = useAuth();
-  const { unlockAllModules, toggleUnlockAllModules } = useModuleContext();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -251,22 +149,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: '#F8FAFC', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
-      <button
-        type="button"
-        onClick={toggleUnlockAllModules}
-        className="fixed bottom-5 right-5 z-[70] flex items-center gap-2 rounded-full px-4 py-3 text-white shadow-lg transition-transform hover:scale-[1.02]"
-        style={{
-          background: unlockAllModules ? '#16A34A' : '#0F172A',
-          boxShadow: '0 16px 40px rgba(15, 23, 42, 0.24)',
-          fontSize: '12px',
-          fontWeight: 700,
-        }}
-        title={unlockAllModules ? 'Desativar liberacao de modulos' : 'Ativar liberacao de modulos'}
-      >
-        {unlockAllModules ? <Unlock size={16} /> : <Lock size={16} />}
-        {unlockAllModules ? 'Modulos liberados' : 'Liberar modulos'}
-      </button>
-
       {mobileOpen && (
         <div className="fixed inset-0 z-40 lg:hidden" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setMobileOpen(false)} />
       )}
@@ -307,7 +189,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <div style={{ color: '#64748B', fontSize: '11px' }}>{tenant.enabledModuleIds.length} módulos ativos</div>
             </div>
           )}
-          <button onClick={() => void logout()} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors" style={{ color: '#64748B' }}
+          <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors" style={{ color: '#64748B' }}
             onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = '#94A3B8'}
             onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = '#64748B'}>
             <LogOut size={15} style={{ flexShrink: 0 }} />

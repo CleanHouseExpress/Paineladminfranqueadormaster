@@ -1,9 +1,7 @@
-import { createContext, useContext, useReducer, useCallback, useState } from 'react';
+import { createContext, useContext, useReducer, useCallback } from 'react';
 import type { ModuleUIState } from '../../types';
 
 // ─── State shape ──────────────────────────────────────────────────────────────
-
-const MODULE_UNLOCK_STORAGE_KEY = 'orchestra_unlock_all_modules';
 
 interface ModuleState {
   /** Per-module UI state keyed by moduleId */
@@ -60,33 +58,12 @@ interface ModuleContextValue {
   /** Global error string */
   globalError: string | null;
   setGlobalError: (error: string | null) => void;
-  /** Frontend-only test mode to bypass module and permission locks */
-  unlockAllModules: boolean;
-  setUnlockAllModules: (enabled: boolean) => void;
-  toggleUnlockAllModules: () => void;
 }
 
 const ModuleContext = createContext<ModuleContextValue | null>(null);
 
-function readUnlockAllModules() {
-  try {
-    return localStorage.getItem(MODULE_UNLOCK_STORAGE_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-function writeUnlockAllModules(enabled: boolean) {
-  try {
-    localStorage.setItem(MODULE_UNLOCK_STORAGE_KEY, String(enabled));
-  } catch {
-    // localStorage can be unavailable in restricted browser modes.
-  }
-}
-
 export function ModuleProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, INITIAL);
-  const [unlockAllModules, setUnlockAllModulesState] = useState(readUnlockAllModules);
 
   const getModuleState = useCallback(
     (moduleId: string): ModuleUIState => state.states[moduleId] ?? 'active',
@@ -114,19 +91,6 @@ export function ModuleProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
-  const setUnlockAllModules = useCallback((enabled: boolean) => {
-    writeUnlockAllModules(enabled);
-    setUnlockAllModulesState(enabled);
-  }, []);
-
-  const toggleUnlockAllModules = useCallback(() => {
-    setUnlockAllModulesState(current => {
-      const next = !current;
-      writeUnlockAllModules(next);
-      return next;
-    });
-  }, []);
-
   return (
     <ModuleContext.Provider value={{
       getModuleState,
@@ -136,9 +100,6 @@ export function ModuleProvider({ children }: { children: React.ReactNode }) {
       setGlobalLoading,
       globalError: state.globalError,
       setGlobalError,
-      unlockAllModules,
-      setUnlockAllModules,
-      toggleUnlockAllModules,
     }}>
       {children}
     </ModuleContext.Provider>

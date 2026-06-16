@@ -41,18 +41,13 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   },
 
   {
-    id: 'customers',
+    id: 'clients',
     name: 'Clientes',
-    description: 'Cadastro configuravel de clientes, pacientes, alunos ou associados por tenant.',
+    description: 'Visão consolidada de clientes, histórico de interações e segmentação por unidade.',
     icon: 'Users',
     status: 'active',
     nav: { show: true, order: 2, group: 'main' },
-    routes: [
-      { path: '/customers', componentId: 'customers', requiredPermissions: ['tenant.customers.view'] },
-      { path: '/customers/new', componentId: 'customer-new', requiredPermissions: ['tenant.customers.create'] },
-      { path: '/customers/:id', componentId: 'customer-detail', requiredPermissions: ['tenant.customers.update'] },
-      { path: '/customers/settings', componentId: 'customer-settings', requiredPermissions: ['tenant.customers.configure'] },
-    ],
+    routes: [{ path: '/clients', componentId: 'clients' }],
     marketplace: { show: true, category: 'Clientes e CRM', price: 'Incluso' },
   },
 
@@ -128,16 +123,36 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     description: 'Checklists, pendências e diário de bordo para gestão operacional da rede.',
     icon: 'ClipboardCheck',
     status: 'active',
-    nav: { show: true, order: 4, group: 'main' },
+    nav: {
+      show: true,
+      order: 4,
+      group: 'main',
+      children: [
+        { label: 'Dashboard', path: '/checklists' },
+        { label: 'Templates', path: '/checklists/templates' },
+        { label: 'Execuções', path: '/checklists/executions' },
+      ],
+    },
     routes: [{ path: '/operations', componentId: 'operations' }],
     marketplace: { show: true, category: 'Operação', price: 'Incluso' },
   },
+
+  // ─── Checklists Operacionais (Core module — is_core=true, can_disable=false) ──
+
   {
     id: 'checklists',
     name: 'Checklists Operacionais',
-    description: 'Criação e acompanhamento de checklists para padronização de processos na rede.',
+    description: 'Crie modelos, execute e acompanhe conformidade operacional da rede. Módulo core — incluso em todos os planos.',
     icon: 'ClipboardList',
     status: 'active',
+    routes: [
+      { path: '/checklists', componentId: 'checklists-dashboard' },
+      { path: '/checklists/templates', componentId: 'checklists-templates' },
+      { path: '/checklists/templates/new', componentId: 'checklists-template-form' },
+      { path: '/checklists/templates/:id', componentId: 'checklists-template-form' },
+      { path: '/checklists/executions', componentId: 'checklists-executions' },
+      { path: '/checklists/executions/:id', componentId: 'checklists-execution' },
+    ],
     marketplace: { show: true, category: 'Operação', price: 'Incluso' },
   },
   {
@@ -289,16 +304,12 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
       order: 9,
       group: 'system',
       children: [
-        { label: 'Usuarios', path: '/users' },
-        { label: 'Perfis', path: '/access' },
+        { label: 'Usuários & Perfis', path: '/access' },
         { label: 'Permissões', path: '/access/permissions' },
         { label: 'Solicitações', path: '/access/requests', badge: 3 },
       ],
     },
     routes: [
-      { path: '/users', componentId: 'users', requiredPermissions: ['tenant.users.view'] },
-      { path: '/users/new', componentId: 'user-new', requiredPermissions: ['tenant.users.create'] },
-      { path: '/users/:id', componentId: 'user-detail', requiredPermissions: ['tenant.users.update'] },
       { path: '/access', componentId: 'access-permissions' },
       { path: '/access/permissions', componentId: 'access-permissions' },
       { path: '/access/requests', componentId: 'access-requests' },
@@ -365,11 +376,7 @@ export const MARKETPLACE_MODULES = MODULE_REGISTRY
 /** Flat list of all route configs across all modules */
 export const ALL_ROUTES = MODULE_REGISTRY
   .filter(m => m.routes?.length)
-  .flatMap(m => m.routes!.map(route => ({
-    ...route,
-    moduleId: m.id,
-    requiredPermissions: route.requiredPermissions ?? m.requiredPermissions,
-  })));
+  .flatMap(m => m.routes!);
 
 /** Resolve a path to a breadcrumb label using the registry */
 export function resolveBreadcrumb(pathname: string): Array<{ label: string; path: string }> {
@@ -404,17 +411,6 @@ export function resolveBreadcrumb(pathname: string): Array<{ label: string; path
 /** Look up a module by id */
 export function getModule(id: string): ModuleDefinition | undefined {
   return MODULE_REGISTRY.find(m => m.id === id);
-}
-
-const LEGACY_MODULE_ID_ALIASES: Record<string, string> = {
-  automacoes: 'automations',
-  relatorios: 'reports',
-  integracoes: 'integrations',
-};
-
-/** Look up a module by current id, accepting old front-end ids used by early mocks */
-export function getModuleByIdOrAlias(id: string): ModuleDefinition | undefined {
-  return getModule(LEGACY_MODULE_ID_ALIASES[id] ?? id);
 }
 
 /** Look up a module by its primary route path */

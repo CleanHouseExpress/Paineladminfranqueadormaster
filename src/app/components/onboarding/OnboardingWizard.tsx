@@ -1,15 +1,13 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
 import {
   X, ChevronRight, ChevronLeft, Check, Layers, Building2,
   Palette, Users, Puzzle, DollarSign, FileUp, Sparkles,
-  Plus, Trash2, Network, Star, Settings2,
+  Plus, Trash2, Network, Star,
 } from 'lucide-react';
 import { useOnboarding } from '../../../shared/hooks/useOnboarding';
 import { useTenant } from '../../../shared/context/TenantContext';
 import { WIZARD_STEPS, type WizardStepId } from '../../../types/onboarding';
 import { MODULE_REGISTRY } from '../../../services/moduleRegistry';
-import { ApiError } from '../../../services/apiClient';
 
 // ─── Step indicator ────────────────────────────────────────────────────────────
 
@@ -111,11 +109,6 @@ function StepNetwork() {
           </select>
         </div>
       </div>
-      <div className="flex gap-3">
-        {field('Responsável', 'responsibleName', 'Nome do responsável', true)}
-        {field('E-mail do responsável', 'responsibleEmail', 'responsavel@suarede.com.br', true)}
-      </div>
-      {field('Telefone do responsável', 'responsiblePhone', '(11) 99999-9999')}
     </div>
   );
 }
@@ -461,95 +454,6 @@ function StepClients() {
   );
 }
 
-function StepSettings() {
-  const { state, saveStepData } = useOnboarding();
-  const d = state.stepData.settings;
-
-  const update = (key: keyof typeof d, value: string | boolean | Record<string, unknown>) => {
-    saveStepData('settings', {
-      settings: {
-        ...d,
-        [key]: value,
-      },
-    });
-  };
-
-  const selectField = (label: string, key: keyof typeof d, options: string[]) => (
-    <div>
-      <label className="block mb-1.5" style={{ fontSize: '12px', fontWeight: 600, color: '#374151' }}>{label}</label>
-      <select
-        value={(d[key] as string) ?? ''}
-        onChange={e => update(key, e.target.value)}
-        className="w-full px-3 py-2.5 rounded-xl outline-none"
-        style={{ background: '#F8FAFC', border: '1px solid rgba(0,0,0,0.08)', fontSize: '13px', color: '#0F172A' }}
-      >
-        {options.map(option => (
-          <option key={option} value={option}>{option}</option>
-        ))}
-      </select>
-    </div>
-  );
-
-  const textField = (label: string, key: keyof typeof d, placeholder: string) => (
-    <div>
-      <label className="block mb-1.5" style={{ fontSize: '12px', fontWeight: 600, color: '#374151' }}>{label}</label>
-      <input
-        value={(d[key] as string) ?? ''}
-        onChange={e => update(key, e.target.value)}
-        placeholder={placeholder}
-        className="w-full px-3 py-2.5 rounded-xl outline-none"
-        style={{ background: '#F8FAFC', border: '1px solid rgba(0,0,0,0.08)', fontSize: '13px', color: '#0F172A' }}
-      />
-    </div>
-  );
-
-  const toggleField = (label: string, key: keyof typeof d) => (
-    <button
-      type="button"
-      onClick={() => update(key, !(d[key] as boolean))}
-      className="flex items-center justify-between w-full px-3 py-2.5 rounded-xl"
-      style={{ background: '#F8FAFC', border: '1px solid rgba(0,0,0,0.08)' }}
-    >
-      <span style={{ fontSize: '13px', color: '#0F172A', fontWeight: 500 }}>{label}</span>
-      <span className="px-2 py-0.5 rounded-full" style={{ fontSize: '11px', background: (d[key] as boolean) ? '#DCFCE7' : '#E2E8F0', color: (d[key] as boolean) ? '#166534' : '#475569' }}>
-        {(d[key] as boolean) ? 'Ativo' : 'Desativado'}
-      </span>
-    </button>
-  );
-
-  return (
-    <div className="space-y-4">
-      <div className="p-3 rounded-xl" style={{ background: '#EFF6FF', border: '1px solid rgba(59,130,246,0.18)' }}>
-        <div style={{ fontSize: '12px', color: '#1D4ED8', fontWeight: 500 }}>
-          Ajuste o comportamento operacional padrão da rede. Esses valores serão a base dos módulos futuros.
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        {textField('Fuso horário', 'timezone', 'America/Sao_Paulo')}
-        {selectField('Idioma', 'language', ['pt-BR', 'en-US', 'es-ES'])}
-        {selectField('Moeda', 'currency', ['BRL', 'USD', 'EUR'])}
-        {selectField('Formato de data', 'dateFormat', ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'])}
-        {selectField('Formato de hora', 'timeFormat', ['24h', '12h'])}
-        {selectField('Início da semana', 'weekStartsOn', ['monday', 'sunday'])}
-        {selectField('Separador decimal', 'decimalSeparator', [',', '.'])}
-        {selectField('Separador de milhar', 'thousandSeparator', ['.', ','])}
-        {textField('País padrão', 'defaultCountry', 'Brasil')}
-        {textField('Estado padrão', 'defaultState', 'SP')}
-        {textField('Cidade padrão', 'defaultCity', 'São Paulo')}
-        {selectField('Tipo de rede', 'networkType', ['', 'franchise', 'licensing', 'multi_store', 'distribution'].filter(Boolean) as string[])}
-        {selectField('Gestão das unidades', 'unitManagementMode', ['', 'centralized', 'decentralized', 'hybrid'].filter(Boolean) as string[])}
-      </div>
-
-      <div className="space-y-2">
-        {toggleField('Notificações de e-mail', 'emailNotifications')}
-        {toggleField('Notificações do sistema', 'systemNotifications')}
-        {toggleField('Alertas críticos', 'criticalAlerts')}
-      </div>
-    </div>
-  );
-}
-
 function StepReview() {
   const { state } = useOnboarding();
   const { tenant } = useTenant();
@@ -562,8 +466,6 @@ function StepReview() {
     { label: 'Convites enviados', value: `${d.users.length} convite${d.users.length !== 1 ? 's' : ''}`, icon: Users, color: '#3B82F6' },
     { label: 'Módulos ativos', value: `${d.modules.length} módulos`, icon: Puzzle, color: '#8B5CF6' },
     { label: 'Taxa de royalties', value: `${d.financial.royaltyRate ?? 7}% + ${d.financial.adFundRate ?? 2}% fundo`, icon: DollarSign, color: '#10B981' },
-    { label: 'Fuso horário', value: d.settings.timezone ?? 'America/Sao_Paulo', icon: Settings2, color: '#0EA5E9' },
-    { label: 'Moeda', value: d.settings.currency ?? 'BRL', icon: Settings2, color: '#6366F1' },
   ];
 
   return (
@@ -597,17 +499,14 @@ function StepReview() {
 
 // ─── Step registry ─────────────────────────────────────────────────────────────
 
-const STEP_ICONS = [Network, Palette, Settings2, Sparkles];
-const STEP_COMPONENTS = [StepNetwork, StepWhiteLabel, StepSettings, StepReview];
+const STEP_ICONS = [Layers, Network, Palette, Building2, Users, Puzzle, DollarSign, FileUp, Sparkles];
+const STEP_COMPONENTS = [StepWelcome, StepNetwork, StepWhiteLabel, StepUnits, StepUsers, StepModules, StepFinancial, StepClients, StepReview];
 
 // ─── Wizard shell ─────────────────────────────────────────────────────────────
 
 export function OnboardingWizard() {
-  const navigate = useNavigate();
-  const { state, closeWizard, goToStep, saveStepData, syncNetworkStep, syncBrandingStep, syncSettingsStep, completeWizard } = useOnboarding();
+  const { state, closeWizard, goToStep, saveStepData, completeWizard } = useOnboarding();
   const { wizardOpen, currentWizardStep } = state;
-  const [pendingSteps, setPendingSteps] = useState<string[]>([]);
-  const [isCompleting, setIsCompleting] = useState(false);
 
   if (!wizardOpen) return null;
 
@@ -619,21 +518,7 @@ export function OnboardingWizard() {
 
   const next = async () => {
     const stepId = stepDef.id as WizardStepId;
-    const currentData = stepId === 'network'
-      ? { network: state.stepData.network }
-      : stepId === 'whitelabel'
-        ? { whitelabel: state.stepData.whitelabel }
-        : {};
-
-    if (stepId === 'network') {
-      await syncNetworkStep(state.stepData.network);
-    } else if (stepId === 'whitelabel') {
-      await syncBrandingStep(state.stepData.whitelabel);
-    } else if (stepId === 'settings') {
-      await syncSettingsStep(state.stepData.settings);
-    } else {
-      await saveStepData(stepId, currentData);
-    }
+    await saveStepData(stepId, {});
     if (isLast) {
       await completeWizard();
     } else {
@@ -643,55 +528,8 @@ export function OnboardingWizard() {
 
   const back = () => goToStep(currentWizardStep - 1);
   const skip = async () => {
-    const stepId = stepDef.id as WizardStepId;
-    const currentData = stepId === 'network'
-      ? { network: state.stepData.network }
-      : stepId === 'whitelabel'
-        ? { whitelabel: state.stepData.whitelabel }
-        : {};
-
-    if (stepId === 'network') {
-      await syncNetworkStep(state.stepData.network);
-    } else if (stepId === 'whitelabel') {
-      await syncBrandingStep(state.stepData.whitelabel);
-    } else if (stepId === 'settings') {
-      await syncSettingsStep(state.stepData.settings);
-    } else {
-      await saveStepData(stepId, currentData);
-    }
+    await saveStepData(stepDef.id as WizardStepId, {});
     goToStep(currentWizardStep + 1);
-  };
-
-  const stepIndexById: Record<string, number> = {
-    company_profile: 0,
-    network: 0,
-    branding: 1,
-    whitelabel: 1,
-    settings: 2,
-    review: 3,
-  };
-
-  const complete = async () => {
-    setIsCompleting(true);
-    setPendingSteps([]);
-
-    try {
-      await completeWizard();
-      closeWizard();
-      navigate('/');
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 422) {
-        const steps = Array.isArray((error.data as { pending_steps?: unknown } | null)?.pending_steps)
-          ? ((error.data as { pending_steps: string[] }).pending_steps)
-          : [];
-        setPendingSteps(steps);
-        if (steps.length > 0) {
-          goToStep(stepIndexById[steps[0]] ?? 8);
-        }
-      }
-    } finally {
-      setIsCompleting(false);
-    }
   };
 
   return (
@@ -757,32 +595,17 @@ export function OnboardingWizard() {
             {stepDef.skippable && !isLast && (
               <button onClick={skip} style={{ fontSize: '13px', color: '#94A3B8', padding: '8px 12px' }}>Pular</button>
             )}
-            <button onClick={isLast ? complete : next}
-              disabled={isCompleting}
+            <button onClick={next}
               className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-white transition-opacity hover:opacity-90"
               style={{ background: isLast ? 'linear-gradient(135deg, #10B981, #059669)' : 'linear-gradient(135deg, #6366F1, #8B5CF6)', fontSize: '13px', fontWeight: 600 }}>
               {isLast ? (
-                <>{isCompleting ? 'Concluindo...' : <><Sparkles size={14} /> Lançar plataforma!</>}</>
+                <><Sparkles size={14} /> Lançar plataforma!</>
               ) : (
                 <>Próximo <ChevronRight size={16} /></>
               )}
             </button>
           </div>
         </div>
-
-        {pendingSteps.length > 0 && (
-          <div className="px-6 pb-4">
-            <div className="rounded-xl p-3" style={{ background: '#FEF3C7', border: '1px solid rgba(245,158,11,0.25)' }}>
-              <div style={{ fontSize: '12px', fontWeight: 600, color: '#92400E', marginBottom: '4px' }}>
-                Existem etapas obrigatórias pendentes.
-              </div>
-              <div style={{ fontSize: '12px', color: '#A16207', lineHeight: 1.5 }}>
-                {pendingSteps.includes('company_profile') && 'Finalize o Perfil da empresa. '}
-                {pendingSteps.includes('branding') && 'Finalize a Identidade visual. '}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

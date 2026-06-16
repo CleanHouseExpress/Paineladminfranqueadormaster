@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import { ArrowLeft, CheckCircle, Clock, Zap, AlertTriangle, Send } from "lucide-react";
-import { getModuleByIdOrAlias } from "../../services/moduleRegistry";
+import { mockModules } from "../data/mockData";
 
 const steps = [
   { id: "sent", label: "Solicitação enviada", icon: Send },
@@ -14,9 +14,7 @@ const steps = [
 export function RequestModuleAccess() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const module = id ? getModuleByIdOrAlias(id) : undefined;
-  const category = module?.marketplace?.category ?? "Sistema";
-  const price = module?.marketplace?.price ?? module?.price ?? "Sob consulta";
+  const module = mockModules.find(m => m.id === id) || mockModules[10];
 
   const [submitted, setSubmitted] = useState(false);
   const [form, setForm] = useState({
@@ -32,25 +30,6 @@ export function RequestModuleAccess() {
     e.preventDefault();
     setSubmitted(true);
   };
-
-  if (!module) {
-    return (
-      <div className="p-6 max-w-[700px] mx-auto">
-        <button onClick={() => navigate("/modules")}
-          className="flex items-center gap-2 mb-6 transition-opacity hover:opacity-70"
-          style={{ fontSize: "13px", color: "#64748B" }}>
-          <ArrowLeft size={16} />
-          Voltar para MÃ³dulos
-        </button>
-        <div className="bg-white rounded-2xl p-8 text-center" style={{ border: "1px solid rgba(0,0,0,0.06)" }}>
-          <h2 style={{ color: "#0F172A", marginBottom: "8px" }}>MÃ³dulo nÃ£o encontrado</h2>
-          <p style={{ fontSize: "14px", color: "#64748B", lineHeight: 1.6 }}>
-            O mÃ³dulo solicitado nÃ£o existe no catÃ¡logo atual da Orchestra.
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   if (submitted) {
     return (
@@ -135,7 +114,7 @@ export function RequestModuleAccess() {
         </div>
         <div>
           <div style={{ fontSize: "14px", fontWeight: 600, color: "#0F172A" }}>{module.name}</div>
-          <div style={{ fontSize: "12px", color: "#64748B" }}>{category} · {price}</div>
+          <div style={{ fontSize: "12px", color: "#64748B" }}>{module.category} · {module.price}</div>
         </div>
         <span className="ml-auto px-3 py-1 rounded-full" style={{ background: "#EFF6FF", color: "#3B82F6", fontSize: "12px", fontWeight: 600 }}>
           Disponível
