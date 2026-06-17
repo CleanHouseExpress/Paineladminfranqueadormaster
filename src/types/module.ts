@@ -41,6 +41,10 @@ export interface RouteConfig {
   path: string;
   /** Key into COMPONENT_MAP in App.tsx */
   componentId: string;
+  /** Optional module id override for ModuleGate */
+  moduleId?: string;
+  /** Optional page-level permissions */
+  requiredPermissions?: string[];
 }
 
 export interface MarketplaceConfig {

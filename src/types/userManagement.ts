@@ -13,6 +13,9 @@ export interface TenantUser {
   status: 'active' | 'inactive' | string;
   last_login_at?: string | null;
   roles: TenantRole[];
+  unit_ids?: number[];
+  units_count?: number;
+  units_names?: string[];
   created_at?: string | null;
   updated_at?: string | null;
 }
@@ -29,6 +32,7 @@ export interface TenantUserPayload {
   email: string;
   password?: string;
   roles: number[];
+  unit_ids?: number[];
   active?: boolean;
 }
 
@@ -40,7 +44,8 @@ export interface DynamicFieldOption {
 export interface DynamicFieldSchema {
   key: string;
   label: string;
-  type: 'text' | 'email' | 'password' | 'boolean' | 'multiselect' | 'textarea' | 'date' | 'phone';
+  type: 'text' | 'email' | 'password' | 'boolean' | 'multiselect' | 'textarea' | 'date' | 'phone' | 'cpf' | 'cnpj' | 'document' | 'datetime' | 'currency' | 'number' | 'select' | 'radio' | 'checkbox' | 'url' | 'photo' | 'signature';
+  field_type?: string;
   required?: boolean;
   visible?: boolean;
   editable?: boolean;
@@ -48,6 +53,7 @@ export interface DynamicFieldSchema {
   section?: string;
   placeholder?: string;
   options?: DynamicFieldOption[];
+  options_source?: string;
 }
 
 export interface DynamicTableColumnSchema {
@@ -87,6 +93,14 @@ export const USER_FORM_SCHEMA: DynamicFieldSchema[] = [
     options: [],
   },
   {
+    key: 'unit_ids',
+    label: 'Unidades',
+    type: 'multiselect',
+    required: false,
+    options: [],
+    options_source: '/api/company/units/options',
+  },
+  {
     key: 'active',
     label: 'Usuario ativo',
     type: 'boolean',
@@ -98,6 +112,7 @@ export const USER_TABLE_SCHEMA: DynamicTableColumnSchema[] = [
   { key: 'name', label: 'Nome' },
   { key: 'email', label: 'E-mail' },
   { key: 'roles', label: 'Perfis', type: 'roles' },
+  { key: 'units_names', label: 'Unidades' },
   { key: 'status', label: 'Status', type: 'status' },
   { key: 'last_login_at', label: 'Ultimo acesso', type: 'datetime' },
 ];

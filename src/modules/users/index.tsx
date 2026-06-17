@@ -3,9 +3,11 @@ import type { FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ArrowLeft, CheckCircle2, Edit, Plus, Power, PowerOff, RefreshCw, Save, Search } from 'lucide-react';
 import { DynamicFormRenderer } from '../../shared/components/DynamicFormRenderer';
+import { DynamicTableRenderer } from '../../shared/components/DynamicTableRenderer';
 import { userManagementService } from '../../services/userManagementService';
 import type { DynamicFieldSchema, TenantRole, TenantUser, TenantUserPayload, TenantUsersMeta } from '../../types/userManagement';
 import { USER_FORM_SCHEMA, USER_TABLE_SCHEMA } from '../../types/userManagement';
+import { metadataService } from '../../services/metadataService';
 import { Badge } from '../../app/components/ui/badge';
 import { Button } from '../../app/components/ui/button';
 import { Input } from '../../app/components/ui/input';
@@ -27,6 +29,10 @@ const EMPTY_META: TenantUsersMeta = {
 
 function rolesLabel(user: TenantUser) {
   return user.roles.map(role => role.name).join(', ') || '-';
+}
+
+function unitsLabel(user: TenantUser) {
+  return user.units_names?.join(', ') || '-';
 }
 
 function formatDate(value?: string | null) {
@@ -54,6 +60,7 @@ function fieldValue(user: TenantUser, key: string) {
 
 export function UsersListPage() {
   const [users, setUsers] = useState<TenantUser[]>([]);
+  const [tableSchema, setTableSchema] = useState(USER_TABLE_SCHEMA);
   const [roles, setRoles] = useState<TenantRole[]>([]);
   const [meta, setMeta] = useState<TenantUsersMeta>(EMPTY_META);
   const [search, setSearch] = useState('');
@@ -72,10 +79,12 @@ export function UsersListPage() {
         userManagementService.listUsers({ search, role, status, page }),
         userManagementService.listRoles(),
       ]);
+      const metadata = await metadataService.getEntity('users').catch(() => null);
 
       setUsers(usersPayload.data);
       setMeta(usersPayload.meta);
       setRoles(rolesPayload);
+      if (metadata?.table_schema?.length) setTableSchema(metadata.table_schema);
     } catch {
       setError('Nao foi possivel carregar os usuarios.');
     } finally {
@@ -158,57 +167,41 @@ export function UsersListPage() {
 
       {error ? <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">{error}</div> : null}
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {USER_TABLE_SCHEMA.map(column => (
-                <TableHead key={column.key}>{column.label}</TableHead>
-              ))}
-              <TableHead className="w-32 text-right">Acoes</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={USER_TABLE_SCHEMA.length + 1} className="h-24 text-center text-muted-foreground">
-                  Carregando usuarios
-                </TableCell>
-              </TableRow>
-            ) : users.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={USER_TABLE_SCHEMA.length + 1} className="h-24 text-center text-muted-foreground">
-                  Nenhum usuario encontrado
-                </TableCell>
-              </TableRow>
-            ) : users.map(user => (
-              <TableRow key={user.id}>
-                {USER_TABLE_SCHEMA.map(column => (
-                  <TableCell key={column.key}>{fieldValue(user, column.key)}</TableCell>
-                ))}
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    <Button asChild size="icon" variant="ghost" title="Editar usuario">
-                      <Link to={`/users/${user.id}`}>
-                        <Edit className="size-4" />
-                      </Link>
-                    </Button>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      title={user.active ? 'Desativar usuario' : 'Ativar usuario'}
-                      onClick={() => void toggleUser(user)}
-                    >
-                      {user.active ? <PowerOff className="size-4" /> : <Power className="size-4" />}
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      <DynamicTableRenderer
+        schema={tableSchema}
+        rows={users.map(user => ({
+          ...user,
+          roles: rolesLabel(user),
+          units_names: unitsLabel(user),
+          status: user.active ? 'Ativo' : 'Inativo',
+          last_login_at: formatDate(user.last_login_at),
+        })) as unknown as Record<string, unknown>[]}
+        loading={loading}
+        emptyLabel="Nenhum usuario encontrado"
+        actions={row => {
+          const user = users.find(item => item.id === Number(row.id));
+          if (!user) return null;
+
+          return (
+            <div className="flex justify-end gap-1">
+              <Button asChild size="icon" variant="ghost" title="Editar usuario">
+                <Link to={`/users/${user.id}`}>
+                  <Edit className="size-4" />
+                </Link>
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                title={user.active ? 'Desativar usuario' : 'Ativar usuario'}
+                onClick={() => void toggleUser(user)}
+              >
+                {user.active ? <PowerOff className="size-4" /> : <Power className="size-4" />}
+              </Button>
+            </div>
+          );
+        }}
+      />
 
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>{meta.total} usuario(s)</span>
@@ -245,11 +238,13 @@ export function UserFormPage() {
   const navigate = useNavigate();
   const editing = Boolean(id);
   const [roles, setRoles] = useState<TenantRole[]>([]);
+  const [formSchema, setFormSchema] = useState<DynamicFieldSchema[]>(USER_FORM_SCHEMA);
   const [form, setForm] = useState<Partial<TenantUserPayload>>({
     name: '',
     email: '',
     password: '',
     roles: [],
+    unit_ids: [],
     active: true,
   });
   const [loading, setLoading] = useState(editing);
@@ -259,10 +254,10 @@ export function UserFormPage() {
   const schema = useMemo<DynamicFieldSchema[]>(() => {
     const roleOptions = roles.map(item => ({ label: item.name, value: item.id }));
 
-    return USER_FORM_SCHEMA
+    return formSchema
       .filter(field => editing ? field.key !== 'password' && field.key !== 'active' : true)
       .map(field => field.key === 'roles' ? { ...field, options: roleOptions } : field);
-  }, [editing, roles]);
+  }, [editing, formSchema, roles]);
 
   useEffect(() => {
     async function load() {
@@ -271,7 +266,9 @@ export function UserFormPage() {
 
       try {
         const nextRoles = await userManagementService.listRoles();
+        const metadata = await metadataService.getEntity('users').catch(() => null);
         setRoles(nextRoles);
+        if (metadata?.form_schema?.length) setFormSchema(metadata.form_schema);
 
         if (editing && id) {
           const user = await userManagementService.getUser(id);
@@ -279,6 +276,7 @@ export function UserFormPage() {
             name: user.name,
             email: user.email,
             roles: user.roles.map(role => role.id),
+            unit_ids: user.unit_ids ?? [],
             active: user.active,
           });
         }
@@ -302,6 +300,7 @@ export function UserFormPage() {
         name: String(form.name ?? ''),
         email: String(form.email ?? ''),
         roles: Array.isArray(form.roles) ? form.roles : [],
+        unit_ids: Array.isArray(form.unit_ids) ? form.unit_ids : [],
         active: Boolean(form.active ?? true),
         ...(editing ? {} : { password: String(form.password ?? '') }),
       };

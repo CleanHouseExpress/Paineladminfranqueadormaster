@@ -5,7 +5,7 @@ import type { AuthPermission } from '../../services/authService';
 
 function normalizePermission(permission: AuthPermission): string {
   if (typeof permission === 'string') return permission;
-  return String(permission.name ?? permission.key ?? permission.slug ?? permission.id ?? '');
+  return String(permission.slug ?? permission.key ?? permission.name ?? permission.id ?? '');
 }
 
 export function usePermission() {

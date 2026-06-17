@@ -1,8 +1,10 @@
 import { apiClient } from './apiClient';
 import type { Customer, CustomerFormSettings, CustomerPayload, CustomersMeta } from '../types/customerManagement';
+import { metadataService } from './metadataService';
 
 interface ListCustomersParams {
   search?: string;
+  unit_id?: string | number;
   page?: number;
   per_page?: number;
 }
@@ -46,8 +48,13 @@ export const customerManagementService = {
     apiClient.delete<null>(`/api/company/customers/${id}`),
 
   getSettings: async () =>
-    (await apiClient.get<DataResponse<CustomerFormSettings>>('/api/company/customers/settings')).data,
+    metadataService.getEntity('customers') as Promise<CustomerFormSettings>,
 
   updateSettings: async (payload: CustomerFormSettings) =>
-    (await apiClient.put<DataResponse<CustomerFormSettings>>('/api/company/customers/settings', payload)).data,
+    metadataService.updateEntity('customers', {
+      ...payload,
+      entity: 'customers',
+      form_schema: payload.fields ?? payload.form_schema,
+      table_schema: payload.table_columns ?? payload.table_schema,
+    }) as Promise<CustomerFormSettings>,
 };

@@ -3,6 +3,8 @@ import type { DynamicFieldSchema } from './userManagement';
 export interface Customer {
   id: number;
   name: string;
+  unit_id?: number | null;
+  unit_name?: string | null;
   phone?: string | null;
   email?: string | null;
   document?: string | null;
@@ -28,10 +30,15 @@ export interface CustomerTableColumn {
 
 export interface CustomerFormSettings {
   entity_key: 'customers';
+  entity?: string;
   singular_label: string;
   plural_label: string;
+  description?: string | null;
   fields: DynamicFieldSchema[];
   table_columns: CustomerTableColumn[];
+  form_schema?: DynamicFieldSchema[];
+  table_schema?: CustomerTableColumn[];
+  active?: boolean;
 }
 
 export interface CustomersMeta {
@@ -49,6 +56,7 @@ export const DEFAULT_CUSTOMER_SETTINGS: CustomerFormSettings = {
   plural_label: 'Clientes',
   fields: [
     { key: 'name', label: 'Nome', type: 'text', required: true, visible: true, editable: true, order: 10, section: 'basic' },
+    { key: 'unit_id', label: 'Unidade', type: 'select', required: false, visible: true, editable: true, order: 15, section: 'basic', options: [], options_source: '/api/company/units/options' },
     { key: 'phone', label: 'Telefone', type: 'phone', required: true, visible: true, editable: true, order: 20, section: 'basic' },
     { key: 'email', label: 'E-mail', type: 'email', required: false, visible: true, editable: true, order: 30, section: 'basic' },
     { key: 'document', label: 'CPF/CNPJ', type: 'text', required: false, visible: true, editable: true, order: 40, section: 'basic' },
@@ -64,6 +72,7 @@ export const DEFAULT_CUSTOMER_SETTINGS: CustomerFormSettings = {
   ],
   table_columns: [
     { key: 'name', label: 'Nome', visible: true, order: 10 },
+    { key: 'unit_name', label: 'Unidade', visible: true, order: 15 },
     { key: 'phone', label: 'Telefone', visible: true, order: 20 },
     { key: 'email', label: 'E-mail', visible: true, order: 30 },
     { key: 'document', label: 'CPF/CNPJ', visible: true, order: 40 },

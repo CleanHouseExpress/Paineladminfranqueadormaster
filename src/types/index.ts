@@ -4,5 +4,11 @@ export type { WizardStepId, WizardStep, OnboardingState, ChecklistItem, TourStop
 export { WIZARD_STEPS, TOUR_STOPS, INITIAL_CHECKLIST, INITIAL_ONBOARDING_STATE } from './onboarding';
 export type { FieldType, FieldOrigin, FieldStatus, EntityStatus, VersionStatus, HistoryAction, FieldOption, FieldValidation, FormField, FormSection, FormGroup, FormEntity, FormVersion, HistoryEntry, ImpactSummary, FieldTypeDefinition } from './formBuilder';
 export { FIELD_TYPE_DEFINITIONS } from './formBuilder';
-export type { ChecklistCategory, ExecutionStatus, ChecklistFieldSchema, ChecklistTemplate, ChecklistExecution, ChecklistAnswer, ChecklistStats, ChecklistPermission } from './checklist';
-export { CHECKLIST_PERMISSIONS } from './checklist';
+export type { TenantRole, TenantUser, TenantUsersMeta, TenantUserPayload, DynamicFieldOption, DynamicFieldSchema, DynamicTableColumnSchema } from './userManagement';
+export { USER_FORM_SCHEMA, USER_TABLE_SCHEMA } from './userManagement';
+export type { Customer, CustomerFormSettings, CustomerPayload, CustomerTableColumn, CustomersMeta } from './customerManagement';
+export { DEFAULT_CUSTOMER_SETTINGS } from './customerManagement';
+export type { Unit, UnitMetadata, UnitPayload, UnitsMeta } from './unitManagement';
+export { DEFAULT_UNIT_METADATA } from './unitManagement';
+export type { ChecklistTemplate, ChecklistExecution, ChecklistMeta, ChecklistMetrics, ChecklistTemplatePayload, ChecklistExecutionPayload } from './checklistManagement';
+export { CHECKLIST_TEMPLATE_COLUMNS, CHECKLIST_EXECUTION_COLUMNS } from './checklistManagement';

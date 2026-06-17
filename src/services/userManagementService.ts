@@ -1,6 +1,11 @@
 import { apiClient } from './apiClient';
 import type { TenantRole, TenantUser, TenantUserPayload, TenantUsersMeta } from '../types/userManagement';
 
+interface UserUnit {
+  id: number;
+  name: string;
+}
+
 interface ListUsersParams {
   search?: string;
   role?: string;
@@ -52,6 +57,12 @@ export const userManagementService = {
 
   assignRoles: async (id: string | number, roles: number[]) =>
     (await apiClient.put<DataResponse<TenantUser>>(`/api/company/users/${id}/roles`, { roles })).data,
+
+  getUserUnits: (id: string | number) =>
+    apiClient.get<UserUnit[]>(`/api/company/users/${id}/units`),
+
+  assignUnits: (id: string | number, unit_ids: number[]) =>
+    apiClient.put<{ unit_ids: number[] }>(`/api/company/users/${id}/units`, { unit_ids }),
 
   listRoles: async () =>
     (await apiClient.get<DataResponse<TenantRole[]>>('/api/company/roles')).data,
