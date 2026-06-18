@@ -12,3 +12,5 @@ export type { Unit, UnitMetadata, UnitPayload, UnitsMeta } from './unitManagemen
 export { DEFAULT_UNIT_METADATA } from './unitManagement';
 export type { ChecklistTemplate, ChecklistExecution, ChecklistMeta, ChecklistMetrics, ChecklistTemplatePayload, ChecklistExecutionPayload } from './checklistManagement';
 export { CHECKLIST_TEMPLATE_COLUMNS, CHECKLIST_EXECUTION_COLUMNS } from './checklistManagement';
+export type { CMVByItem, CMVByOrigin, CMVByUnit, CMVFilters, CMVMetrics, CMVPeriod } from './cmv';
+export { CMV_PERMISSIONS } from './cmv';

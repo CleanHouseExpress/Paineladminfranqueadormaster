@@ -9,6 +9,7 @@ import { ProtectedRoute } from '../shared/components/ProtectedRoute';
 import { ALL_ROUTES } from '../services/moduleRegistry';
 import { AccessPermissionsPage, AccessRequestsPage } from '../modules/access';
 import { ChecklistExecutionPage, ChecklistExecutionsPage, ChecklistTemplateFormPage, ChecklistTemplatesPage, ChecklistsDashboardPage } from '../modules/checklists';
+import { CMVByItemPage, CMVByOriginPage, CMVByUnitPage, CMVDashboardPage } from '../modules/cmv';
 import { CustomerFormPage, CustomerSettingsPage, CustomersListPage } from '../modules/clients';
 import { DashboardPage } from '../modules/dashboard';
 import { GeneralSettingsPage, MenuConfigPage, WhiteLabelPage } from '../modules/settings';
@@ -66,6 +67,10 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   'checklist-template-detail': ChecklistTemplateFormPage,
   'checklist-executions': ChecklistExecutionsPage,
   'checklist-execution-detail': ChecklistExecutionPage,
+  'cmv-dashboard': CMVDashboardPage,
+  'cmv-by-item': CMVByItemPage,
+  'cmv-by-unit': CMVByUnitPage,
+  'cmv-by-origin': CMVByOriginPage,
   support: () => <PlaceholderPage title="Atendimento" description="Central de atendimento multicanal. Ative o modulo WhatsApp ou Instagram para comecar." />,
   automations: () => <PlaceholderPage title="Automacoes" description="Fluxos automatizados para notificacoes, cobrancas e processos repetitivos." />,
   reports: () => <PlaceholderPage title="Relatorios" description="Relatorios customizados com exportacao e agendamento automatico." />,
