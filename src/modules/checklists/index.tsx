@@ -2,13 +2,18 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { ArrowLeft, ClipboardCheck, Edit, Play, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ClipboardCheck, Edit, Package, Play, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '../../app/components/ui/button';
 import { Input } from '../../app/components/ui/input';
 import { Label } from '../../app/components/ui/label';
 import { Switch } from '../../app/components/ui/switch';
 import { Textarea } from '../../app/components/ui/textarea';
+import { ChecklistInventoryConfig } from '../../app/components/checklists/ChecklistInventoryConfig';
 import { DynamicFormRenderer } from '../../shared/components/DynamicFormRenderer';
+import { usePermission } from '../../shared/hooks/usePermission';
+import { ApiError } from '../../services/apiClient';
+import { checklistInventoryAutomationService } from '../../services/checklistInventoryAutomationService';
 import { checklistManagementService } from '../../services/checklistManagementService';
 import { unitManagementService } from '../../services/unitManagementService';
 import type { ChecklistExecution, ChecklistTemplate } from '../../types/checklistManagement';
@@ -73,6 +78,13 @@ function answersFromExecution(execution?: ChecklistExecution | null): Answers {
     answers[answer.field_key] = raw && typeof raw === 'object' && 'value' in raw ? raw.value : answer.value;
   });
   return answers;
+}
+
+function apiErrorMessage(error: unknown, fallback: string) {
+  if (!(error instanceof ApiError) || !error.data || typeof error.data !== 'object') return fallback;
+  const payload = error.data as { message?: string; errors?: Record<string, string[]> };
+  const validationMessage = Object.values(payload.errors ?? {}).flat()[0];
+  return validationMessage ?? payload.message ?? fallback;
 }
 
 export function ChecklistsDashboardPage() {
@@ -247,6 +259,7 @@ export function ChecklistTemplateFormPage() {
   const [category, setCategory] = useState('operacional');
   const [active, setActive] = useState(true);
   const [fields, setFields] = useState<DynamicFieldSchema[]>([defaultField(10)]);
+  const [activeTab, setActiveTab] = useState<'configuration' | 'inventory'>('configuration');
 
   useEffect(() => {
     if (isNew) return;
@@ -274,36 +287,71 @@ export function ChecklistTemplateFormPage() {
   async function save(event: FormEvent) {
     event.preventDefault();
     setSaving(true);
+    try {
+      const payload = {
+        name,
+        description,
+        category,
+        active,
+        form_schema: fields.map((field, index) => ({
+          ...field,
+          order: field.order ?? (index + 1) * 10,
+          field_type: field.field_type ?? field.type,
+        })),
+      };
 
-    const payload = {
-      name,
-      description,
-      category,
-      active,
-      form_schema: fields.map((field, index) => ({
-        ...field,
-        order: field.order ?? (index + 1) * 10,
-        field_type: field.field_type ?? field.type,
-      })),
-    };
+      const template = isNew
+        ? await checklistManagementService.createTemplate(payload)
+        : await checklistManagementService.updateTemplate(id as string, payload);
 
-    const template = isNew
-      ? await checklistManagementService.createTemplate(payload)
-      : await checklistManagementService.updateTemplate(id as string, payload);
-
-    setSaving(false);
-    navigate(`/checklists/templates/${template.id}`);
+      toast.success('Modelo salvo.');
+      navigate(`/checklists/templates/${template.id}`);
+    } catch (error) {
+      toast.error(apiErrorMessage(error, 'Não foi possível salvar o modelo.'));
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (loading) return <EmptyState text="Carregando modelo..." />;
+
+  const numericTypes = new Set(['number', 'currency', 'quantity', 'integer', 'decimal']);
+  const numericFields = fields
+    .filter(field => numericTypes.has(String(field.field_type ?? field.type)))
+    .map(field => ({
+      key: String(field.key),
+      label: String(field.label),
+      type: String(field.field_type ?? field.type),
+    }));
 
   return (
     <PageShell
       title={isNew ? 'Novo modelo' : 'Editar modelo'}
       actions={<Button asChild variant="outline"><Link to="/checklists/templates"><ArrowLeft className="size-4" />Voltar</Link></Button>}
     >
-      <form className="grid gap-6" onSubmit={event => void save(event)}>
-        <div className="grid gap-4 rounded-md border bg-card p-4 md:grid-cols-2">
+      <div className="flex border-b">
+        <button
+          type="button"
+          className={`border-b-2 px-4 py-3 text-sm font-medium ${activeTab === 'configuration' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-muted-foreground'}`}
+          onClick={() => setActiveTab('configuration')}
+        >
+          Configuração
+        </button>
+        <button
+          type="button"
+          className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium ${activeTab === 'inventory' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-muted-foreground'}`}
+          onClick={() => setActiveTab('inventory')}
+        >
+          <Package className="size-4" /> Estoque
+          {numericFields.length > 0 && (
+            <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">{numericFields.length}</span>
+          )}
+        </button>
+      </div>
+
+      {activeTab === 'configuration' ? (
+        <form className="grid gap-6" onSubmit={event => void save(event)}>
+          <div className="grid gap-4 rounded-md border bg-card p-4 md:grid-cols-2">
           <div className="grid gap-2">
             <Label htmlFor="name">Nome</Label>
             <Input id="name" value={name} required onChange={event => setName(event.target.value)} />
@@ -320,9 +368,9 @@ export function ChecklistTemplateFormPage() {
             <Switch checked={active} onCheckedChange={setActive} />
             <span className="text-sm">Modelo ativo</span>
           </label>
-        </div>
+          </div>
 
-        <div className="grid gap-3 rounded-md border bg-card p-4">
+          <div className="grid gap-3 rounded-md border bg-card p-4">
           <div className="flex items-center justify-between">
             <h2 className="font-medium">Campos</h2>
             <Button type="button" variant="outline" onClick={() => setFields(current => [...current, defaultField((current.length + 1) * 10)])}>
@@ -349,15 +397,30 @@ export function ChecklistTemplateFormPage() {
               </label>
             </div>
           ))}
-        </div>
+          </div>
 
-        <div className="flex justify-end">
-          <Button disabled={saving} type="submit">
-            {saving ? <RefreshCw className="size-4 animate-spin" /> : <Save className="size-4" />}
-            Salvar modelo
-          </Button>
+          <div className="flex justify-end">
+            <Button disabled={saving} type="submit">
+              {saving ? <RefreshCw className="size-4 animate-spin" /> : <Save className="size-4" />}
+              Salvar modelo
+            </Button>
+          </div>
+        </form>
+      ) : isNew ? (
+        <div className="rounded-xl border border-dashed bg-muted/20 p-12 text-center">
+          <Package className="mx-auto size-10 text-muted-foreground/50" />
+          <p className="mt-3 font-medium">Salve o modelo primeiro</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            A configuração de estoque fica disponível depois que o template recebe um ID.
+          </p>
         </div>
-      </form>
+      ) : (
+        <ChecklistInventoryConfig
+          templateId={id as string}
+          templateName={name}
+          numericFields={numericFields}
+        />
+      )}
     </PageShell>
   );
 }
@@ -450,6 +513,9 @@ export function ChecklistExecutionPage() {
   const [saving, setSaving] = useState(false);
   const [execution, setExecution] = useState<ChecklistExecution | null>(null);
   const [answers, setAnswers] = useState<Answers>({});
+  const [hasInventoryAutomation, setHasInventoryAutomation] = useState(false);
+  const { hasPermission } = usePermission();
+  const canViewInventoryAutomation = hasPermission('tenant.inventory.automation.view');
 
   const schema = useMemo(() => execution?.schema?.form_schema ?? [], [execution]);
 
@@ -464,22 +530,37 @@ export function ChecklistExecutionPage() {
       const payload = await checklistManagementService.getExecution(id as string);
       setExecution(payload);
       setAnswers(answersFromExecution(payload));
+      if (canViewInventoryAutomation) {
+        const rules = await checklistInventoryAutomationService.getRules(payload.template_id).catch(() => []);
+        setHasInventoryAutomation(rules.some(rule => rule.active));
+      }
       setLoading(false);
     }
 
     void load().catch(() => setLoading(false));
-  }, [id, navigate]);
+  }, [canViewInventoryAutomation, id, navigate]);
 
   async function saveAnswers(complete = false) {
     if (!execution) return;
     setSaving(true);
-    const payload = { answers };
-    const updated = complete
-      ? await checklistManagementService.completeExecution(execution.id, payload)
-      : await checklistManagementService.updateExecution(execution.id, payload);
-    setExecution(updated);
-    setAnswers(answersFromExecution(updated));
-    setSaving(false);
+    try {
+      const payload = { answers };
+      const updated = complete
+        ? await checklistManagementService.completeExecution(execution.id, payload)
+        : await checklistManagementService.updateExecution(execution.id, payload);
+      setExecution(updated);
+      setAnswers(answersFromExecution(updated));
+      toast.success(complete ? 'Checklist concluído.' : 'Respostas salvas.');
+    } catch (error) {
+      toast.error(apiErrorMessage(
+        error,
+        complete
+          ? 'Não foi possível concluir. Verifique as respostas e o saldo de estoque.'
+          : 'Não foi possível salvar as respostas.',
+      ));
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (loading) return <EmptyState text="Carregando execucao..." />;
@@ -491,6 +572,18 @@ export function ChecklistExecutionPage() {
       description={`${execution.unit_name ?? 'Sem unidade'} - ${formatDate(execution.started_at ?? execution.created_at)}`}
       actions={<Button asChild variant="outline"><Link to="/checklists/executions"><ArrowLeft className="size-4" />Voltar</Link></Button>}
     >
+      {hasInventoryAutomation && (
+        <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <Package className="size-5 shrink-0" />
+          <div>
+            <p className="font-medium">Este checklist gera movimentações de estoque ao ser concluído.</p>
+            <p className="text-xs text-amber-800">
+              Se não houver saldo suficiente, a conclusão será cancelada sem aplicar baixas parciais.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="rounded-md border bg-card p-4">
         <DynamicFormRenderer
           schema={schema}
@@ -509,7 +602,7 @@ export function ChecklistExecutionPage() {
             Salvar
           </Button>
           <Button disabled={saving} onClick={() => void saveAnswers(true)}>
-            <ClipboardCheck className="size-4" />
+            {saving ? <RefreshCw className="size-4 animate-spin" /> : hasInventoryAutomation ? <AlertTriangle className="size-4" /> : <ClipboardCheck className="size-4" />}
             Concluir
           </Button>
         </div>
