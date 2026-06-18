@@ -29,6 +29,8 @@ function lazyPage<T extends Record<string, ComponentType>>(
 }
 
 const FinancialOverviewPage = lazyPage(() => import('./components/FinancialOverview'), 'FinancialOverview');
+const FinancialTransactionsPage = lazyPage(() => import('./components/financial/FinancialManagement'), 'FinancialTransactions');
+const FinancialAccountsPage = lazyPage(() => import('./components/financial/FinancialManagement'), 'FinancialAccounts');
 const CashFlowPage = lazyPage(() => import('./components/CashFlow'), 'CashFlow');
 const DREPage = lazyPage(() => import('./components/DRE'), 'DRE');
 const CMVPage = lazyPage(() => import('./components/CMV'), 'CMV');
@@ -56,6 +58,8 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   'customer-detail': CustomerFormPage,
   'customer-settings': CustomerSettingsPage,
   'financial-overview': FinancialOverviewPage,
+  'financial-transactions': FinancialTransactionsPage,
+  'financial-accounts': FinancialAccountsPage,
   cashflow: CashFlowPage,
   dre: DREPage,
   cmv: CMVPage,

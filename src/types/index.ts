@@ -14,3 +14,9 @@ export type { ChecklistTemplate, ChecklistExecution, ChecklistMeta, ChecklistMet
 export { CHECKLIST_TEMPLATE_COLUMNS, CHECKLIST_EXECUTION_COLUMNS } from './checklistManagement';
 export type { CMVByItem, CMVByOrigin, CMVByUnit, CMVFilters, CMVMetrics, CMVPeriod } from './cmv';
 export { CMV_PERMISSIONS } from './cmv';
+export type {
+  FinancialAccount, FinancialAccountOption, FinancialAccountPayload, FinancialAccountType,
+  FinancialListMeta, FinancialMetrics, FinancialTransaction, FinancialTransactionPayload,
+  FinancialTransactionStatus, FinancialTransactionType,
+} from './financial';
+export { FINANCIAL_ACCOUNT_TYPES, FINANCIAL_PERMISSIONS } from './financial';
