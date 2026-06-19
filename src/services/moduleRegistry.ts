@@ -138,6 +138,22 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     status: 'active',
     marketplace: { show: true, category: 'Financeiro', price: 'Incluso' },
   },
+  {
+    id: 'sales',
+    name: 'Vendas',
+    description: 'Pedidos, vendas e ordens comerciais integrados ao catálogo e financeiro.',
+    icon: 'ShoppingCart',
+    status: 'active',
+    nav: { show: true, order: 6, group: 'main' },
+    routes: [
+      { path: '/sales', componentId: 'sales-list', requiredPermissions: ['tenant.sales.view'] },
+      { path: '/sales/new', componentId: 'sales-form', moduleId: 'sales', requiredPermissions: ['tenant.sales.create'] },
+      { path: '/sales/settings', componentId: 'sales-settings', moduleId: 'sales', requiredPermissions: ['tenant.sales.configure'] },
+      { path: '/sales/:id/edit', componentId: 'sales-form', moduleId: 'sales', requiredPermissions: ['tenant.sales.update'] },
+      { path: '/sales/:id', componentId: 'sales-detail', moduleId: 'sales', requiredPermissions: ['tenant.sales.view'] },
+    ],
+    marketplace: { show: true, category: 'Comercial', price: 'Incluso' },
+  },
 
   // ─── Operação ─────────────────────────────────────────────────────────────────
 

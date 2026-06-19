@@ -20,3 +20,8 @@ export type {
   FinancialTransactionStatus, FinancialTransactionType,
 } from './financial';
 export { FINANCIAL_ACCOUNT_TYPES, FINANCIAL_PERMISSIONS } from './financial';
+export type {
+  CatalogSalesOption, SalesFilters, SalesMetrics, SalesOption, SalesOrder,
+  SalesOrderItem, SalesOrderPayload, SalesOrderStatus, SalesPaymentStatus,
+} from './sales';
+export { SALES_ORDER_STATUS_CONFIG, SALES_PAYMENT_STATUS_CONFIG, SALES_PERMISSIONS } from './sales';

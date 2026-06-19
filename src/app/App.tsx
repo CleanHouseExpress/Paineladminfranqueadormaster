@@ -12,6 +12,7 @@ import { ChecklistExecutionPage, ChecklistExecutionsPage, ChecklistTemplateFormP
 import { CMVByItemPage, CMVByOriginPage, CMVByUnitPage, CMVDashboardPage } from '../modules/cmv';
 import { CustomerFormPage, CustomerSettingsPage, CustomersListPage } from '../modules/clients';
 import { DashboardPage } from '../modules/dashboard';
+import { SalesDetailPage, SalesFormPage, SalesListPage, SalesSettingsPage } from '../modules/sales';
 import { GeneralSettingsPage, MenuConfigPage, WhiteLabelPage } from '../modules/settings';
 import { UserFormPage, UsersListPage } from '../modules/users';
 import { UnitFormPage, UnitSettingsPage, UnitsListPage } from '../modules/units';
@@ -60,6 +61,10 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   'financial-overview': FinancialOverviewPage,
   'financial-transactions': FinancialTransactionsPage,
   'financial-accounts': FinancialAccountsPage,
+  'sales-list': SalesListPage,
+  'sales-form': SalesFormPage,
+  'sales-detail': SalesDetailPage,
+  'sales-settings': SalesSettingsPage,
   cashflow: CashFlowPage,
   dre: DREPage,
   cmv: CMVPage,
