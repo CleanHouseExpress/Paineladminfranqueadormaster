@@ -8,11 +8,8 @@ import { PermissionGate } from '../shared/components/PermissionGate';
 import { ProtectedRoute } from '../shared/components/ProtectedRoute';
 import { ALL_ROUTES } from '../services/moduleRegistry';
 import { AccessPermissionsPage, AccessRequestsPage } from '../modules/access';
-import { ChecklistExecutionPage, ChecklistExecutionsPage, ChecklistTemplateFormPage, ChecklistTemplatesPage, ChecklistsDashboardPage } from '../modules/checklists';
-import { CMVByItemPage, CMVByOriginPage, CMVByUnitPage, CMVDashboardPage } from '../modules/cmv';
 import { CustomerFormPage, CustomerSettingsPage, CustomersListPage } from '../modules/clients';
 import { DashboardPage } from '../modules/dashboard';
-import { SalesDetailPage, SalesFormPage, SalesListPage, SalesSettingsPage } from '../modules/sales';
 import { GeneralSettingsPage, MenuConfigPage, WhiteLabelPage } from '../modules/settings';
 import { UserFormPage, UsersListPage } from '../modules/users';
 import { UnitFormPage, UnitSettingsPage, UnitsListPage } from '../modules/units';
@@ -21,7 +18,6 @@ import { LoginPage } from './components/LoginPage';
 import { PlaceholderPage } from './components/PlaceholderPage';
 import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
 import { ProductTour } from './components/onboarding/ProductTour';
-import { FranchisePortalLayout, FranchisePortalRoutes } from '../modules/franchise';
 import { FranchisePortalProvider } from '../shared/context/FranchisePortalContext';
 import { useAuth } from '../shared/context/AuthContext';
 
@@ -39,6 +35,25 @@ const CashFlowPage = lazyPage(() => import('./components/CashFlow'), 'CashFlow')
 const DREPage = lazyPage(() => import('./components/DRE'), 'DRE');
 const CMVPage = lazyPage(() => import('./components/CMV'), 'CMV');
 const RoyaltiesPage = lazyPage(() => import('./components/Royalties'), 'Royalties');
+
+const ChecklistsDashboardPage = lazyPage(() => import('../modules/checklists'), 'ChecklistsDashboardPage');
+const ChecklistTemplatesPage = lazyPage(() => import('../modules/checklists'), 'ChecklistTemplatesPage');
+const ChecklistTemplateFormPage = lazyPage(() => import('../modules/checklists'), 'ChecklistTemplateFormPage');
+const ChecklistExecutionsPage = lazyPage(() => import('../modules/checklists'), 'ChecklistExecutionsPage');
+const ChecklistExecutionPage = lazyPage(() => import('../modules/checklists'), 'ChecklistExecutionPage');
+
+const CMVDashboardPage = lazyPage(() => import('../modules/cmv'), 'CMVDashboardPage');
+const CMVByItemPage = lazyPage(() => import('../modules/cmv'), 'CMVByItemPage');
+const CMVByUnitPage = lazyPage(() => import('../modules/cmv'), 'CMVByUnitPage');
+const CMVByOriginPage = lazyPage(() => import('../modules/cmv'), 'CMVByOriginPage');
+
+const SalesListPage = lazyPage(() => import('../modules/sales'), 'SalesListPage');
+const SalesFormPage = lazyPage(() => import('../modules/sales'), 'SalesFormPage');
+const SalesDetailPage = lazyPage(() => import('../modules/sales'), 'SalesDetailPage');
+const SalesSettingsPage = lazyPage(() => import('../modules/sales'), 'SalesSettingsPage');
+
+const FranchisePortalLayout = lazyPage(() => import('../modules/franchise'), 'FranchisePortalLayout');
+const FranchisePortalRoutes = lazyPage(() => import('../modules/franchise'), 'FranchisePortalRoutes');
 
 const MarketplacePage = lazyPage(() => import('./components/ModulesMarketplace'), 'ModulesMarketplace');
 const ModuleDetailPage = lazyPage(() => import('./components/ModuleDetail'), 'ModuleDetail');
@@ -151,13 +166,13 @@ function ProtectedAppRoutes() {
 function ProtectedFranchiseRoutes() {
   return (
     <ProtectedRoute>
-      <FranchisePortalProvider>
-        <FranchisePortalLayout>
-          <Suspense fallback={null}>
+      <Suspense fallback={null}>
+        <FranchisePortalProvider>
+          <FranchisePortalLayout>
             <FranchisePortalRoutes />
-          </Suspense>
-        </FranchisePortalLayout>
-      </FranchisePortalProvider>
+          </FranchisePortalLayout>
+        </FranchisePortalProvider>
+      </Suspense>
     </ProtectedRoute>
   );
 }

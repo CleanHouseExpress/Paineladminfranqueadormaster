@@ -68,7 +68,7 @@ const LUCIDE_ICON_MAP: Record<string, React.ComponentType<{ size?: number; color
   Type, AlignLeft, Hash, DollarSign, Calendar, Clock, Mail, Phone, Link2,
   ToggleLeft, ChevronDown, ListChecks, Paperclip, Image,
   Users, Building2, Shield, Truck, ClipboardCheck, MessageCircle, Target,
-  DollarSign: DollarSign, Receipt, Package,
+  Receipt, Package,
 };
 
 const ENTITY_ICON_MAP: Record<string, React.ComponentType<{ size?: number; style?: React.CSSProperties }>> = {
@@ -193,9 +193,9 @@ function KebabMenu({
               { icon: <Copy size={13} />, label: 'Duplicar', action: onDuplicate, color: '#374151' },
               { icon: <PowerOff size={13} />, label: field.status === 'inactive' ? 'Ativar' : 'Desativar', action: onDeactivate, color: '#F59E0B' },
               { icon: <Trash2 size={13} />, label: 'Excluir', action: onDelete, color: '#EF4444', disabled: field.origin === 'system' },
-            ].map((item, i) => (
+            ].map((item) => (
               <button
-                key={i}
+                key={`${field.id}-${item.label}`}
                 disabled={item.disabled}
                 onClick={(e) => { e.stopPropagation(); item.action(); setOpen(false); }}
                 style={{
