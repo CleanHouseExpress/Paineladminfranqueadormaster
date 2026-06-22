@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import type { ComponentType } from 'react';
-import { BrowserRouter, Route, Routes } from 'react-router';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 
 import { AppProvider } from '../shared/context/AppProvider';
 import { ModuleGate } from '../shared/components/ModuleGate';
@@ -19,6 +19,9 @@ import { LoginPage } from './components/LoginPage';
 import { PlaceholderPage } from './components/PlaceholderPage';
 import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
 import { ProductTour } from './components/onboarding/ProductTour';
+import { FranchisePortalLayout, FranchisePortalRoutes } from '../modules/franchise';
+import { FranchisePortalProvider } from '../shared/context/FranchisePortalContext';
+import { useAuth } from '../shared/context/AuthContext';
 
 function lazyPage<T extends Record<string, ComponentType>>(
   loader: () => Promise<T>,
@@ -90,6 +93,11 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
 };
 
 function ProtectedAppRoutes() {
+  const { user, isLoading } = useAuth();
+  if (!isLoading && user?.role === 'franchise_admin') {
+    return <Navigate to="/franchise/dashboard" replace />;
+  }
+
   return (
     <ProtectedRoute>
       <OnboardingWizard />
@@ -126,12 +134,27 @@ function ProtectedAppRoutes() {
   );
 }
 
+function ProtectedFranchiseRoutes() {
+  return (
+    <ProtectedRoute>
+      <FranchisePortalProvider>
+        <FranchisePortalLayout>
+          <Suspense fallback={null}>
+            <FranchisePortalRoutes />
+          </Suspense>
+        </FranchisePortalLayout>
+      </FranchisePortalProvider>
+    </ProtectedRoute>
+  );
+}
+
 export default function App() {
   return (
     <AppProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/franchise/*" element={<ProtectedFranchiseRoutes />} />
           <Route path="/*" element={<ProtectedAppRoutes />} />
         </Routes>
       </BrowserRouter>
