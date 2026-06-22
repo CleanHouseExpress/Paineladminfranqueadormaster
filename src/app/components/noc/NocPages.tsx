@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { AlertTriangle, Building2, CheckCircle2, Gauge, Loader2, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, Building2, CheckCircle2, Clock3, Gauge, Loader2, ShieldAlert } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { DynamicTableRenderer, type ColumnDef } from '../../../shared/components/DynamicTableRenderer';
 import { nocService } from '../../../services/nocService';
@@ -49,12 +49,15 @@ export function NocDashboardPage() {
   useEffect(() => { Promise.all([nocService.dashboard(), nocService.trends()]).then(([d, t]) => { setDashboard(d); setTrends(t.series); }); }, []);
   if (!dashboard) return <Shell title="NOC" description="Central de Operações da Rede"><Loading /></Shell>;
   return <Shell title="NOC" description="Monitoramento executivo e priorização da saúde da rede">
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,minmax(0,1fr))', gap: 12 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 12 }}>
       <Kpi label="Network Score" value={`${dashboard.network_score}%`} tone="#4F46E5" icon={Gauge} />
       <Kpi label="Unidades saudáveis" value={dashboard.healthy_units} tone="#059669" icon={CheckCircle2} />
       <Kpi label="Em atenção" value={dashboard.warning_units} tone="#D97706" icon={AlertTriangle} />
       <Kpi label="Críticas" value={dashboard.critical_units} tone="#DC2626" icon={ShieldAlert} />
       <Kpi label="Alertas ativos" value={dashboard.total_alerts} tone="#7C3AED" icon={AlertTriangle} />
+      <Kpi label="Tasks pendentes" value={dashboard.tasks_open} tone="#2563EB" icon={Gauge} />
+      <Kpi label="Tasks vencidas" value={dashboard.tasks_overdue} tone="#DC2626" icon={Clock3} />
+      <Kpi label="Tasks críticas" value={dashboard.critical_tasks} tone="#B91C1C" icon={ShieldAlert} />
     </div>
     <div style={{ display: 'grid', gridTemplateColumns: '1.25fr .75fr', gap: 16 }}>
       <div style={card}><h3 style={{ marginTop: 0 }}>Tendência da rede</h3><ResponsiveContainer width="100%" height={290}><LineChart data={trends}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="period" /><YAxis /><Tooltip formatter={v => money(Number(v))} /><Legend /><Line dataKey="sales" name="Vendas" stroke="#4F46E5" strokeWidth={2} /><Line dataKey="financial" name="Financeiro" stroke="#059669" strokeWidth={2} /><Line dataKey="cmv" name="CMV" stroke="#DC2626" strokeWidth={2} /></LineChart></ResponsiveContainer></div>

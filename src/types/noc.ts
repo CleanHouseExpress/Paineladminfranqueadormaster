@@ -41,6 +41,9 @@ export interface NocDashboard {
   warning_units: number;
   critical_units: number;
   total_alerts: number;
+  tasks_open: number;
+  tasks_overdue: number;
+  critical_tasks: number;
   alerts: NocAlert[];
   top_units: NocUnit[];
 }

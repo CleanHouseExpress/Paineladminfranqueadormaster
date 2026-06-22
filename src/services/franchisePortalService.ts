@@ -30,6 +30,9 @@ export const franchisePortalService = {
   trainingProgress: () => apiClient.get<Record<string, number>>('/api/franchise/trainings/progress'),
   documents: () => apiClient.get<ApiList<Record<string, unknown>>>('/api/franchise/documents?per_page=100'),
   contracts: () => apiClient.get<ApiList<Record<string, unknown>>>('/api/franchise/contracts?per_page=100'),
+  tasks: () => apiClient.get<ApiList<Record<string, unknown>>>('/api/franchise/tasks?per_page=100'),
+  updateTaskStatus: (id: string | number, status: 'open' | 'in_progress' | 'completed') =>
+    apiClient.patch<DataResponse<Record<string, unknown>>>(`/api/franchise/tasks/${id}/status`, { status }),
   async downloadDocument(id: string | number, fileName: string) {
     const token = localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
     const response = await fetch(`${apiClientConfig.baseUrl}/api/franchise/documents/${id}/download`, {

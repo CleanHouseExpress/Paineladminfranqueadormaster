@@ -138,6 +138,14 @@ export function FranchiseContracts() {
   return <State result={result}>{response => <Shell title="Contratos" description="Contratos vinculados à sua unidade."><Table headers={['Contrato', 'Número', 'Cliente', 'Início', 'Fim', 'Status']} rows={response.data.map(row => [String(row.title), String(row.contract_number ?? '—'), String(row.customer_name ?? '—'), String(row.start_date ?? '—'), String(row.end_date ?? '—'), String(row.status)])} /></Shell>}</State>;
 }
 
+export function FranchiseTasks() {
+  const result = useLoad(franchisePortalService.tasks);
+  return <State result={result}>{response => <Shell title="Tarefas" description="Ações atribuídas a você ou à sua unidade."><Table headers={['Tarefa', 'Prioridade', 'Origem', 'Prazo', 'Status', 'Ação']} rows={response.data.map(row => [
+    String(row.title), String(row.priority), String(row.source_type ?? 'manual'), String(row.due_date ?? '—'), String(row.status),
+    <select key={`status-${row.id}`} value={String(row.status)} onChange={event => void franchisePortalService.updateTaskStatus(String(row.id), event.target.value as 'open' | 'in_progress' | 'completed').then(() => result.load()).catch(() => toast.error('Não foi possível atualizar a tarefa.'))}><option value="open">Aberta</option><option value="in_progress">Em andamento</option><option value="completed">Concluída</option></select>,
+  ])} /></Shell>}</State>;
+}
+
 export function FranchisePortalRoutes() {
   return <Routes>
     <Route index element={<Navigate to="/franchise/dashboard" replace />} />
@@ -151,6 +159,7 @@ export function FranchisePortalRoutes() {
     <Route path="trainings" element={<FranchiseTrainings />} />
     <Route path="documents" element={<FranchiseDocuments />} />
     <Route path="contracts" element={<FranchiseContracts />} />
+    <Route path="tasks" element={<FranchiseTasks />} />
     <Route path="*" element={<Navigate to="/franchise/dashboard" replace />} />
   </Routes>;
 }

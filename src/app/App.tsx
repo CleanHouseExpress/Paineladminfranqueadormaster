@@ -58,6 +58,9 @@ const NocDashboardPage = lazyPage(() => import('../modules/noc'), 'NocDashboardP
 const NocAlertsPage = lazyPage(() => import('../modules/noc'), 'NocAlertsPage');
 const NocUnitsPage = lazyPage(() => import('../modules/noc'), 'NocUnitsPage');
 const NocUnitDetailPage = lazyPage(() => import('../modules/noc'), 'NocUnitDetailPage');
+const AutomationRulesPage = lazyPage(() => import('../modules/automation'), 'AutomationRulesPage');
+const TasksPage = lazyPage(() => import('../modules/automation'), 'TasksPage');
+const TaskDetailPage = lazyPage(() => import('../modules/automation'), 'TaskDetailPage');
 
 const MarketplacePage = lazyPage(() => import('./components/ModulesMarketplace'), 'ModulesMarketplace');
 const ModuleDetailPage = lazyPage(() => import('./components/ModuleDetail'), 'ModuleDetail');
@@ -106,6 +109,9 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   'noc-alerts': NocAlertsPage,
   'noc-units': NocUnitsPage,
   'noc-unit-detail': NocUnitDetailPage,
+  'automation-rules': AutomationRulesPage,
+  'tasks-list': TasksPage,
+  'task-detail': TaskDetailPage,
   support: () => <PlaceholderPage title="Atendimento" description="Central de atendimento multicanal. Ative o modulo WhatsApp ou Instagram para comecar." />,
   automations: () => <PlaceholderPage title="Automacoes" description="Fluxos automatizados para notificacoes, cobrancas e processos repetitivos." />,
   reports: () => <PlaceholderPage title="Relatorios" description="Relatorios customizados com exportacao e agendamento automatico." />,

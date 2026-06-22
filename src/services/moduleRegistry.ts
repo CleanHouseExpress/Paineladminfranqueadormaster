@@ -254,15 +254,19 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   // ─── Automações ───────────────────────────────────────────────────────────────
 
   {
-    id: 'automations',
+    id: 'automation',
     name: 'Automações',
-    description: 'Fluxos automatizados para notificações, cobranças e processos repetitivos.',
+    description: 'Motor de regras orientado a eventos e ações operacionais.',
     icon: 'Zap',
-    status: 'available',
-    nav: { show: true, order: 6, group: 'main' },
-    routes: [{ path: '/automations', componentId: 'automations' }],
-    marketplace: { show: true, category: 'Automações', price: 'R$ 197/mês' },
-    price: 'R$ 197/mês',
+    status: 'active',
+    nav: { show: true, order: 6, group: 'main', children: [
+      { label: 'Regras', path: '/automation' },
+      { label: 'Todas as regras', path: '/automation/rules' },
+    ] },
+    routes: [
+      { path: '/automation', componentId: 'automation-rules', requiredPermissions: ['tenant.automation.view'] },
+      { path: '/automation/rules', componentId: 'automation-rules', requiredPermissions: ['tenant.automation.view'] },
+    ],
   },
 
   // ─── Relatórios ───────────────────────────────────────────────────────────────
@@ -379,6 +383,19 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
       { path: '/noc/alerts', componentId: 'noc-alerts', requiredPermissions: ['tenant.noc.view'] },
       { path: '/noc/units', componentId: 'noc-units', requiredPermissions: ['tenant.noc.view'] },
       { path: '/noc/unit/:id', componentId: 'noc-unit-detail', requiredPermissions: ['tenant.noc.view'] },
+    ],
+  },
+
+  {
+    id: 'tasks',
+    name: 'Central de Ações',
+    description: 'Tarefas manuais e automáticas priorizadas.',
+    icon: 'ListTodo',
+    status: 'active',
+    nav: { show: true, order: 8.7, group: 'system' },
+    routes: [
+      { path: '/tasks', componentId: 'tasks-list', requiredPermissions: ['tenant.tasks.view'] },
+      { path: '/tasks/:id', componentId: 'task-detail', requiredPermissions: ['tenant.tasks.view'] },
     ],
   },
 
