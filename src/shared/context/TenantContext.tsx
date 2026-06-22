@@ -10,7 +10,7 @@ const DEFAULT_TENANT: TenantConfig = {
   enabledModuleIds: [
     'dashboard', 'units', 'clients',
     'financial', 'cashflow', 'dre', 'cmv', 'royalties',
-    'operations', 'checklists', 'pendencias', 'diario',
+    'operations', 'checklists', 'documents', 'contracts', 'catalog', 'trainings', 'pendencias', 'diario',
     'support', 'marketplace', 'access', 'settings',
   ],
   pendingModuleIds: ['instagram'],

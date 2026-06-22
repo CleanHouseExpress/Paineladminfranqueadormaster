@@ -11,6 +11,10 @@ import { AccessPermissionsPage, AccessRequestsPage } from '../modules/access';
 import { ChecklistExecutionPage, ChecklistExecutionsPage, ChecklistTemplateFormPage, ChecklistTemplatesPage, ChecklistsDashboardPage } from '../modules/checklists';
 import { CustomerFormPage, CustomerSettingsPage, CustomersListPage } from '../modules/clients';
 import { DashboardPage } from '../modules/dashboard';
+import { DocumentCategoriesPage, DocumentDetailPage, DocumentFormPage, DocumentListPage, DocumentSettingsPage } from '../modules/documents';
+import { ContractDetailPage, ContractFormPage, ContractListPage, ContractSettingsPage } from '../modules/contracts';
+import { TrainingDetailPage, TrainingFormPage, TrainingListPage, TrainingSettingsPage } from '../modules/trainings';
+import { CatalogDetailPage, CatalogFormPage, CatalogListPage, CatalogSettingsPage } from '../modules/catalog';
 import { GeneralSettingsPage, MenuConfigPage, WhiteLabelPage } from '../modules/settings';
 import { UserFormPage, UsersListPage } from '../modules/users';
 import { UnitFormPage, UnitSettingsPage, UnitsListPage } from '../modules/units';
@@ -69,6 +73,23 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   'checklist-template-detail': ChecklistTemplateFormPage,
   'checklist-executions': ChecklistExecutionsPage,
   'checklist-execution-detail': ChecklistExecutionPage,
+  'documents-list': DocumentListPage,
+  'documents-form': DocumentFormPage,
+  'documents-detail': DocumentDetailPage,
+  'documents-categories': DocumentCategoriesPage,
+  'documents-settings': DocumentSettingsPage,
+  'contracts-list': ContractListPage,
+  'contracts-form': ContractFormPage,
+  'contracts-detail': ContractDetailPage,
+  'contracts-settings': ContractSettingsPage,
+  'trainings-list': TrainingListPage,
+  'trainings-form': TrainingFormPage,
+  'trainings-detail': TrainingDetailPage,
+  'trainings-settings': TrainingSettingsPage,
+  'catalog-list': CatalogListPage,
+  'catalog-form': CatalogFormPage,
+  'catalog-detail': CatalogDetailPage,
+  'catalog-settings': CatalogSettingsPage,
   support: () => <PlaceholderPage title="Atendimento" description="Central de atendimento multicanal. Ative o modulo WhatsApp ou Instagram para comecar." />,
   automations: () => <PlaceholderPage title="Automacoes" description="Fluxos automatizados para notificacoes, cobrancas e processos repetitivos." />,
   reports: () => <PlaceholderPage title="Relatorios" description="Relatorios customizados com exportacao e agendamento automatico." />,

@@ -180,6 +180,83 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     marketplace: { show: true, category: 'Operação', price: 'Incluso' },
   },
 
+  {
+    id: 'documents',
+    name: 'Documentos',
+    description: 'Biblioteca central de documentos do tenant.',
+    icon: 'FolderOpen',
+    status: 'active',
+    nav: { show: true, order: 5, group: 'main', children: [
+      { label: 'Biblioteca', path: '/documents' },
+      { label: 'Categorias', path: '/documents/categories' },
+    ] },
+    routes: [
+      { path: '/documents', componentId: 'documents-list', requiredPermissions: ['tenant.documents.view'] },
+      { path: '/documents/new', componentId: 'documents-form', moduleId: 'documents', requiredPermissions: ['tenant.documents.upload'] },
+      { path: '/documents/categories', componentId: 'documents-categories', moduleId: 'documents', requiredPermissions: ['tenant.documents.configure'] },
+      { path: '/documents/settings', componentId: 'documents-settings', moduleId: 'documents', requiredPermissions: ['tenant.documents.configure'] },
+      { path: '/documents/:id', componentId: 'documents-detail', moduleId: 'documents', requiredPermissions: ['tenant.documents.view'] },
+    ],
+    marketplace: { show: true, category: 'Gestão da Rede', price: 'Incluso' },
+  },
+  {
+    id: 'contracts',
+    name: 'Contratos',
+    description: 'Gestão de contratos vinculados a clientes, unidades e documentos.',
+    icon: 'ScrollText',
+    status: 'active',
+    nav: { show: true, order: 5.2, group: 'main', children: [
+      { label: 'Contratos', path: '/contracts' },
+      { label: 'Configurações', path: '/contracts/settings' },
+    ] },
+    routes: [
+      { path: '/contracts', componentId: 'contracts-list', requiredPermissions: ['tenant.contracts.view'] },
+      { path: '/contracts/new', componentId: 'contracts-form', moduleId: 'contracts', requiredPermissions: ['tenant.contracts.create'] },
+      { path: '/contracts/settings', componentId: 'contracts-settings', moduleId: 'contracts', requiredPermissions: ['tenant.contracts.configure'] },
+      { path: '/contracts/:id/edit', componentId: 'contracts-form', moduleId: 'contracts', requiredPermissions: ['tenant.contracts.update'] },
+      { path: '/contracts/:id', componentId: 'contracts-detail', moduleId: 'contracts', requiredPermissions: ['tenant.contracts.view'] },
+    ],
+    marketplace: { show: true, category: 'Gestão da Rede', price: 'Incluso' },
+  },
+  {
+    id: 'catalog',
+    name: 'Catálogo',
+    description: 'Produtos, serviços, cursos, planos e demais itens comercializáveis.',
+    icon: 'Package',
+    status: 'active',
+    nav: { show: true, order: 5.4, group: 'main', children: [
+      { label: 'Catálogo', path: '/catalog' },
+      { label: 'Configurações', path: '/catalog/settings' },
+    ] },
+    routes: [
+      { path: '/catalog', componentId: 'catalog-list', requiredPermissions: ['tenant.catalog.view'] },
+      { path: '/catalog/new', componentId: 'catalog-form', moduleId: 'catalog', requiredPermissions: ['tenant.catalog.create'] },
+      { path: '/catalog/settings', componentId: 'catalog-settings', moduleId: 'catalog', requiredPermissions: ['tenant.catalog.configure'] },
+      { path: '/catalog/:id/edit', componentId: 'catalog-form', moduleId: 'catalog', requiredPermissions: ['tenant.catalog.update'] },
+      { path: '/catalog/:id', componentId: 'catalog-detail', moduleId: 'catalog', requiredPermissions: ['tenant.catalog.view'] },
+    ],
+    marketplace: { show: true, category: 'Gestão da Rede', price: 'Incluso' },
+  },
+  {
+    id: 'trainings',
+    name: 'Treinamentos',
+    description: 'Capacitação, materiais e progresso por usuário.',
+    icon: 'GraduationCap',
+    status: 'active',
+    nav: { show: true, order: 5.6, group: 'main', children: [
+      { label: 'Treinamentos', path: '/trainings' },
+      { label: 'Configurações', path: '/trainings/settings' },
+    ] },
+    routes: [
+      { path: '/trainings', componentId: 'trainings-list', requiredPermissions: ['tenant.trainings.view'] },
+      { path: '/trainings/new', componentId: 'trainings-form', moduleId: 'trainings', requiredPermissions: ['tenant.trainings.create'] },
+      { path: '/trainings/settings', componentId: 'trainings-settings', moduleId: 'trainings', requiredPermissions: ['tenant.trainings.configure'] },
+      { path: '/trainings/:id/edit', componentId: 'trainings-form', moduleId: 'trainings', requiredPermissions: ['tenant.trainings.update'] },
+      { path: '/trainings/:id', componentId: 'trainings-detail', moduleId: 'trainings', requiredPermissions: ['tenant.trainings.view'] },
+    ],
+    marketplace: { show: true, category: 'Gestão da Rede', price: 'Incluso' },
+  },
+
   // ─── Atendimento ──────────────────────────────────────────────────────────────
 
   {
