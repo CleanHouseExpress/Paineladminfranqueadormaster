@@ -359,6 +359,30 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   },
 
   {
+    id: 'network_operations_center',
+    name: 'NOC',
+    description: 'Central executiva de monitoramento e priorização da saúde da rede.',
+    icon: 'Activity',
+    status: 'active',
+    nav: {
+      show: true,
+      order: 8.5,
+      group: 'system',
+      children: [
+        { label: 'Visão Geral', path: '/noc' },
+        { label: 'Alertas', path: '/noc/alerts' },
+        { label: 'Ranking de Unidades', path: '/noc/units' },
+      ],
+    },
+    routes: [
+      { path: '/noc', componentId: 'noc-dashboard', requiredPermissions: ['tenant.noc.view'] },
+      { path: '/noc/alerts', componentId: 'noc-alerts', requiredPermissions: ['tenant.noc.view'] },
+      { path: '/noc/units', componentId: 'noc-units', requiredPermissions: ['tenant.noc.view'] },
+      { path: '/noc/unit/:id', componentId: 'noc-unit-detail', requiredPermissions: ['tenant.noc.view'] },
+    ],
+  },
+
+  {
     id: 'settings',
     name: 'Configurações',
     description: 'Configurações gerais, white label, menu e segurança da plataforma.',

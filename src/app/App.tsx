@@ -54,6 +54,10 @@ const SalesSettingsPage = lazyPage(() => import('../modules/sales'), 'SalesSetti
 
 const FranchisePortalLayout = lazyPage(() => import('../modules/franchise'), 'FranchisePortalLayout');
 const FranchisePortalRoutes = lazyPage(() => import('../modules/franchise'), 'FranchisePortalRoutes');
+const NocDashboardPage = lazyPage(() => import('../modules/noc'), 'NocDashboardPage');
+const NocAlertsPage = lazyPage(() => import('../modules/noc'), 'NocAlertsPage');
+const NocUnitsPage = lazyPage(() => import('../modules/noc'), 'NocUnitsPage');
+const NocUnitDetailPage = lazyPage(() => import('../modules/noc'), 'NocUnitDetailPage');
 
 const MarketplacePage = lazyPage(() => import('./components/ModulesMarketplace'), 'ModulesMarketplace');
 const ModuleDetailPage = lazyPage(() => import('./components/ModuleDetail'), 'ModuleDetail');
@@ -98,6 +102,10 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   'cmv-by-item': CMVByItemPage,
   'cmv-by-unit': CMVByUnitPage,
   'cmv-by-origin': CMVByOriginPage,
+  'noc-dashboard': NocDashboardPage,
+  'noc-alerts': NocAlertsPage,
+  'noc-units': NocUnitsPage,
+  'noc-unit-detail': NocUnitDetailPage,
   support: () => <PlaceholderPage title="Atendimento" description="Central de atendimento multicanal. Ative o modulo WhatsApp ou Instagram para comecar." />,
   automations: () => <PlaceholderPage title="Automacoes" description="Fluxos automatizados para notificacoes, cobrancas e processos repetitivos." />,
   reports: () => <PlaceholderPage title="Relatorios" description="Relatorios customizados com exportacao e agendamento automatico." />,
