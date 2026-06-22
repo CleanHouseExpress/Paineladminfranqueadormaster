@@ -99,12 +99,7 @@ export const FINANCIAL_ACCOUNT_TYPES: Record<FinancialAccountType, { label: stri
 };
 
 export const FINANCIAL_PERMISSIONS = {
-  view: 'tenant.financial.transactions.view',
-  transactionsView: 'tenant.financial.transactions.view',
-  transactionsCreate: 'tenant.financial.transactions.create',
-  transactionsUpdate: 'tenant.financial.transactions.update',
-  transactionsDelete: 'tenant.financial.transactions.delete',
-  transactionsPay: 'tenant.financial.transactions.pay',
+  view: 'tenant.finance.view',
   accountsView: 'tenant.financial.accounts.view',
   accountsCreate: 'tenant.financial.accounts.create',
   accountsUpdate: 'tenant.financial.accounts.update',

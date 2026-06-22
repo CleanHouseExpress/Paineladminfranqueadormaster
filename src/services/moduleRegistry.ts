@@ -79,16 +79,16 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
         { label: 'Contas Financeiras', path: '/financial/accounts' },
         { label: 'Fluxo de Caixa', path: '/financial/cashflow' },
         { label: 'DRE Gerencial', path: '/financial/dre' },
-        { label: 'Royalties', path: '/royalties' },
+        { label: 'Royalties', path: '/financial/royalties' },
       ],
     },
     routes: [
-      { path: '/financial', componentId: 'financial-overview', requiredPermissions: ['tenant.financial.transactions.view'] },
-      { path: '/financial/transactions', componentId: 'financial-transactions', moduleId: 'financial', requiredPermissions: ['tenant.financial.transactions.view'] },
+      { path: '/financial', componentId: 'financial-overview', requiredPermissions: ['tenant.finance.view'] },
+      { path: '/financial/transactions', componentId: 'financial-transactions', moduleId: 'financial', requiredPermissions: ['tenant.finance.view'] },
       { path: '/financial/accounts', componentId: 'financial-accounts', moduleId: 'financial', requiredPermissions: ['tenant.financial.accounts.view'] },
       { path: '/financial/cashflow', componentId: 'cashflow', requiredPermissions: ['tenant.finance.view'] },
-      { path: '/financial/dre', componentId: 'dre', moduleId: 'dre', requiredPermissions: ['tenant.dre.view'] },
-      { path: '/financial/royalties', componentId: 'royalties', moduleId: 'royalties', requiredPermissions: ['tenant.royalties.view'] },
+      { path: '/financial/dre', componentId: 'dre', requiredPermissions: ['tenant.finance.view'] },
+      { path: '/financial/royalties', componentId: 'royalties', requiredPermissions: ['tenant.finance.view'] },
     ],
     marketplace: { show: true, category: 'Financeiro', price: 'Incluso' },
   },
@@ -131,6 +131,14 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     marketplace: { show: true, category: 'Operação', price: 'Incluso' },
   },
   {
+    id: 'royalties',
+    name: 'Royalties',
+    description: 'Cálculo, cobrança e controle de royalties e taxas de franquia por unidade.',
+    icon: 'Receipt',
+    status: 'active',
+    marketplace: { show: true, category: 'Financeiro', price: 'Incluso' },
+  },
+  {
     id: 'sales',
     name: 'Vendas',
     description: 'Pedidos, vendas e ordens comerciais integrados ao catálogo e financeiro.',
@@ -145,61 +153,6 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
       { path: '/sales/:id', componentId: 'sales-detail', moduleId: 'sales', requiredPermissions: ['tenant.sales.view'] },
     ],
     marketplace: { show: true, category: 'Comercial', price: 'Incluso' },
-  },
-  {
-    id: 'crm',
-    name: 'CRM',
-    description: 'Leads, pipeline, oportunidades, atividades e conversão comercial.',
-    icon: 'Target',
-    status: 'active',
-    nav: {
-      show: true,
-      order: 6.2,
-      group: 'main',
-      children: [
-        { label: 'Visão Geral', path: '/crm' },
-        { label: 'Kanban', path: '/crm/kanban' },
-        { label: 'Leads', path: '/crm/leads' },
-        { label: 'Pipelines', path: '/crm/pipelines' },
-        { label: 'Configurações', path: '/crm/settings' },
-      ],
-    },
-    routes: [
-      { path: '/crm', componentId: 'crm-dashboard', requiredPermissions: ['tenant.crm.view'] },
-      { path: '/crm/kanban', componentId: 'crm-kanban', moduleId: 'crm', requiredPermissions: ['tenant.crm.view'] },
-      { path: '/crm/leads', componentId: 'crm-leads', moduleId: 'crm', requiredPermissions: ['tenant.crm.view'] },
-      { path: '/crm/leads/new', componentId: 'crm-lead-form', moduleId: 'crm', requiredPermissions: ['tenant.crm.create'] },
-      { path: '/crm/leads/:id/edit', componentId: 'crm-lead-form', moduleId: 'crm', requiredPermissions: ['tenant.crm.update'] },
-      { path: '/crm/leads/:id', componentId: 'crm-lead-detail', moduleId: 'crm', requiredPermissions: ['tenant.crm.view'] },
-      { path: '/crm/pipelines', componentId: 'crm-pipelines', moduleId: 'crm', requiredPermissions: ['tenant.crm.manage_pipeline'] },
-      { path: '/crm/settings', componentId: 'crm-settings', moduleId: 'crm', requiredPermissions: ['tenant.crm.configure'] },
-    ],
-    marketplace: { show: true, category: 'Comercial', price: 'Incluso' },
-  },
-  {
-    id: 'royalties',
-    name: 'Royalties',
-    description: 'Cálculo, cobrança e controle de royalties e taxas de franquia por unidade.',
-    icon: 'Receipt',
-    status: 'active',
-    nav: {
-      show: false,
-      order: 3.5,
-      group: 'main',
-      children: [
-        { label: 'Visão Geral', path: '/royalties' },
-        { label: 'Regras', path: '/royalties/rules' },
-        { label: 'Competências', path: '/royalties/calculations' },
-        { label: 'Vínculos', path: '/royalties/settings' },
-      ],
-    },
-    routes: [
-      { path: '/royalties', componentId: 'royalties', requiredPermissions: ['tenant.royalties.view'] },
-      { path: '/royalties/rules', componentId: 'royalty-rules', moduleId: 'royalties', requiredPermissions: ['tenant.royalties.view'] },
-      { path: '/royalties/calculations', componentId: 'royalty-calculations', moduleId: 'royalties', requiredPermissions: ['tenant.royalties.view'] },
-      { path: '/royalties/settings', componentId: 'royalty-settings', moduleId: 'royalties', requiredPermissions: ['tenant.royalties.configure'] },
-    ],
-    marketplace: { show: true, category: 'Financeiro', price: 'Incluso' },
   },
 
   // ─── Operação ─────────────────────────────────────────────────────────────────
@@ -255,110 +208,6 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     icon: 'BookOpen',
     status: 'active',
     marketplace: { show: true, category: 'Operação', price: 'Incluso' },
-  },
-
-  {
-    id: 'documents',
-    name: 'Documentos',
-    description: 'Biblioteca central de documentos do tenant.',
-    icon: 'FolderOpen',
-    status: 'active',
-    nav: { show: true, order: 5, group: 'main', children: [
-      { label: 'Biblioteca', path: '/documents' },
-      { label: 'Categorias', path: '/documents/categories' },
-    ] },
-    routes: [
-      { path: '/documents', componentId: 'documents-list', requiredPermissions: ['tenant.documents.view'] },
-      { path: '/documents/new', componentId: 'documents-form', moduleId: 'documents', requiredPermissions: ['tenant.documents.upload'] },
-      { path: '/documents/categories', componentId: 'documents-categories', moduleId: 'documents', requiredPermissions: ['tenant.documents.configure'] },
-      { path: '/documents/settings', componentId: 'documents-settings', moduleId: 'documents', requiredPermissions: ['tenant.documents.configure'] },
-      { path: '/documents/:id', componentId: 'documents-detail', moduleId: 'documents', requiredPermissions: ['tenant.documents.view'] },
-    ],
-    marketplace: { show: true, category: 'Gestão da Rede', price: 'Incluso' },
-  },
-  {
-    id: 'contracts',
-    name: 'Contratos',
-    description: 'Gestão de contratos vinculados a clientes, unidades e documentos.',
-    icon: 'ScrollText',
-    status: 'active',
-    nav: { show: true, order: 5.2, group: 'main', children: [
-      { label: 'Contratos', path: '/contracts' },
-      { label: 'Configurações', path: '/contracts/settings' },
-    ] },
-    routes: [
-      { path: '/contracts', componentId: 'contracts-list', requiredPermissions: ['tenant.contracts.view'] },
-      { path: '/contracts/new', componentId: 'contracts-form', moduleId: 'contracts', requiredPermissions: ['tenant.contracts.create'] },
-      { path: '/contracts/settings', componentId: 'contracts-settings', moduleId: 'contracts', requiredPermissions: ['tenant.contracts.configure'] },
-      { path: '/contracts/:id/edit', componentId: 'contracts-form', moduleId: 'contracts', requiredPermissions: ['tenant.contracts.update'] },
-      { path: '/contracts/:id', componentId: 'contracts-detail', moduleId: 'contracts', requiredPermissions: ['tenant.contracts.view'] },
-    ],
-    marketplace: { show: true, category: 'Gestão da Rede', price: 'Incluso' },
-  },
-  {
-    id: 'catalog',
-    name: 'Catálogo',
-    description: 'Produtos, serviços, cursos, planos e demais itens comercializáveis.',
-    icon: 'Package',
-    status: 'active',
-    nav: { show: true, order: 5.4, group: 'main', children: [
-      { label: 'Catálogo', path: '/catalog' },
-      { label: 'Configurações', path: '/catalog/settings' },
-    ] },
-    routes: [
-      { path: '/catalog', componentId: 'catalog-list', requiredPermissions: ['tenant.catalog.view'] },
-      { path: '/catalog/new', componentId: 'catalog-form', moduleId: 'catalog', requiredPermissions: ['tenant.catalog.create'] },
-      { path: '/catalog/settings', componentId: 'catalog-settings', moduleId: 'catalog', requiredPermissions: ['tenant.catalog.configure'] },
-      { path: '/catalog/:id/edit', componentId: 'catalog-form', moduleId: 'catalog', requiredPermissions: ['tenant.catalog.update'] },
-      { path: '/catalog/:id', componentId: 'catalog-detail', moduleId: 'catalog', requiredPermissions: ['tenant.catalog.view'] },
-    ],
-    marketplace: { show: true, category: 'Gestão da Rede', price: 'Incluso' },
-  },
-  {
-    id: 'inventory',
-    name: 'Estoque',
-    description: 'Controle de insumos, fornecedores, saldos por unidade, movimentações e custos médios.',
-    icon: 'Boxes',
-    status: 'active',
-    nav: { show: true, order: 5.5, group: 'main', children: [
-      { label: 'Visão Geral', path: '/inventory' },
-      { label: 'Insumos', path: '/inventory/items' },
-      { label: 'Categorias', path: '/inventory/categories' },
-      { label: 'Fornecedores', path: '/inventory/suppliers' },
-      { label: 'Movimentações', path: '/inventory/movements' },
-      { label: 'Configurações', path: '/inventory/settings' },
-    ] },
-    routes: [
-      { path: '/inventory', componentId: 'inventory-dashboard', requiredPermissions: ['tenant.inventory.view'] },
-      { path: '/inventory/items', componentId: 'inventory-items', moduleId: 'inventory', requiredPermissions: ['tenant.inventory.view'] },
-      { path: '/inventory/items/new', componentId: 'inventory-item-form', moduleId: 'inventory', requiredPermissions: ['tenant.inventory.create'] },
-      { path: '/inventory/items/:id/edit', componentId: 'inventory-item-form', moduleId: 'inventory', requiredPermissions: ['tenant.inventory.update'] },
-      { path: '/inventory/items/:id', componentId: 'inventory-item-detail', moduleId: 'inventory', requiredPermissions: ['tenant.inventory.view'] },
-      { path: '/inventory/categories', componentId: 'inventory-categories', moduleId: 'inventory', requiredPermissions: ['tenant.inventory.view'] },
-      { path: '/inventory/suppliers', componentId: 'inventory-suppliers', moduleId: 'inventory', requiredPermissions: ['tenant.inventory.view'] },
-      { path: '/inventory/movements', componentId: 'inventory-movements', moduleId: 'inventory', requiredPermissions: ['tenant.inventory.view'] },
-      { path: '/inventory/settings', componentId: 'inventory-settings', moduleId: 'inventory', requiredPermissions: ['tenant.inventory.configure'] },
-    ],
-    marketplace: { show: true, category: 'Operação', price: 'Incluso' },
-  },
-  {
-    id: 'trainings',
-    name: 'Treinamentos',
-    description: 'Capacitação, materiais e progresso por usuário.',
-    icon: 'GraduationCap',
-    status: 'active',
-    nav: { show: true, order: 5.6, group: 'main', children: [
-      { label: 'Treinamentos', path: '/trainings' },
-      { label: 'Configurações', path: '/trainings/settings' },
-    ] },
-    routes: [
-      { path: '/trainings', componentId: 'trainings-list', requiredPermissions: ['tenant.trainings.view'] },
-      { path: '/trainings/new', componentId: 'trainings-form', moduleId: 'trainings', requiredPermissions: ['tenant.trainings.create'] },
-      { path: '/trainings/settings', componentId: 'trainings-settings', moduleId: 'trainings', requiredPermissions: ['tenant.trainings.configure'] },
-      { path: '/trainings/:id/edit', componentId: 'trainings-form', moduleId: 'trainings', requiredPermissions: ['tenant.trainings.update'] },
-      { path: '/trainings/:id', componentId: 'trainings-detail', moduleId: 'trainings', requiredPermissions: ['tenant.trainings.view'] },
-    ],
-    marketplace: { show: true, category: 'Gestão da Rede', price: 'Incluso' },
   },
 
   // ─── Atendimento ──────────────────────────────────────────────────────────────
@@ -455,6 +304,16 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
 
   // ─── Insumos ──────────────────────────────────────────────────────────────────
 
+  {
+    id: 'supply',
+    name: 'Gestão de Insumos',
+    description: 'Controle de estoque, pedidos de reposição e centralização de compras.',
+    icon: 'Boxes',
+    status: 'blocked',
+    marketplace: { show: true, category: 'Operação', price: 'Sob consulta' },
+    plan: 'enterprise',
+  },
+
   // ─── System modules (always visible, not in marketplace) ─────────────────────
 
   {
@@ -527,37 +386,6 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     ],
   },
 
-  {
-    id: 'analytics',
-    name: 'Analytics',
-    description: 'Dashboard executivo dinâmico com métricas, filtros e widgets personalizados.',
-    icon: 'LayoutDashboard',
-    status: 'active',
-    nav: {
-      show: true,
-      order: 13,
-      group: 'system',
-      children: [
-        { label: 'Dashboard', path: '/analytics' },
-        { label: 'Personalizar', path: '/analytics/edit' },
-      ],
-    },
-    routes: [
-      {
-        path: '/analytics',
-        componentId: 'analytics-dashboard',
-        moduleId: 'dashboard',
-        requiredPermissions: ['tenant.analytics.view'],
-      },
-      {
-        path: '/analytics/edit',
-        componentId: 'analytics-dashboard',
-        moduleId: 'dashboard',
-        requiredPermissions: ['tenant.analytics.update'],
-      },
-    ],
-  },
-
   // ─── Form Builder (Metadata Engine) ──────────────────────────────────────────
 
   {
@@ -592,7 +420,7 @@ export const ALL_ROUTES = MODULE_REGISTRY
   .filter(m => m.routes?.length)
   .flatMap(m => m.routes!.map(route => ({
     ...route,
-    moduleId: route.moduleId ?? m.id,
+    moduleId: m.id,
     requiredPermissions: route.requiredPermissions ?? m.requiredPermissions,
   })));
 
