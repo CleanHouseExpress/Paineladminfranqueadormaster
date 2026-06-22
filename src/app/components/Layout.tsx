@@ -9,6 +9,7 @@ import {
 
 import { NAV_MODULES } from '../../services/moduleRegistry';
 import { useTenant } from '../../shared/context/TenantContext';
+import { useAuth } from '../../shared/context/AuthContext';
 
 // ─── Dynamic icon resolver ─────────────────────────────────────────────────────
 
@@ -40,7 +41,7 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
     const primaryPath = mod.routes?.[0]?.path ?? '#';
     const active = isActive(primaryPath);
     const isExp = expanded.includes(mod.id);
-    const enabled = isModuleEnabled(mod.id);
+    const enabled = isModuleEnabled(mod.routes?.[0]?.moduleId ?? mod.id);
 
     const baseStyle: React.CSSProperties = {
       color: active ? '#F1F5F9' : '#94A3B8',
@@ -141,8 +142,10 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { tenant } = useTenant();
+  const { logout, user } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const primary = tenant.whiteLabel.primaryColor;
   const secondary = tenant.whiteLabel.secondaryColor;
@@ -189,11 +192,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <div style={{ color: '#64748B', fontSize: '11px' }}>{tenant.enabledModuleIds.length} módulos ativos</div>
             </div>
           )}
-          <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors" style={{ color: '#64748B' }}
+          <button
+            type="button"
+            disabled={loggingOut}
+            onClick={async () => {
+              setLoggingOut(true);
+              await logout();
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors"
+            style={{ color: '#64748B', opacity: loggingOut ? 0.6 : 1 }}
             onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = '#94A3B8'}
             onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = '#64748B'}>
             <LogOut size={15} style={{ flexShrink: 0 }} />
-            {!collapsed && <span style={{ fontSize: '12px' }}>Sair</span>}
+            {!collapsed && <span style={{ fontSize: '12px' }}>{loggingOut ? 'Saindo...' : 'Sair'}</span>}
           </button>
         </div>
       </aside>
@@ -228,11 +239,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
               onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
               <div className="w-7 h-7 rounded-full flex items-center justify-center text-white"
                 style={{ background: `linear-gradient(135deg, ${primary}, ${secondary})`, fontSize: '11px', fontWeight: 700 }}>
-                AR
+                {(user?.name ?? 'Usuário').split(' ').filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase()}
               </div>
               <div className="hidden md:block">
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', lineHeight: 1.2 }}>Alexandre Rios</div>
-                <div style={{ fontSize: '11px', color: '#94A3B8' }}>Franqueador Master</div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', lineHeight: 1.2 }}>{user?.name ?? 'Usuário'}</div>
+                <div style={{ fontSize: '11px', color: '#94A3B8' }}>{user?.email ?? ''}</div>
               </div>
             </div>
           </div>

@@ -1,12 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { CheckCircle, Circle, ChevronDown, ChevronRight, Rocket, Map } from 'lucide-react';
 import { useOnboarding } from '../../../shared/hooks/useOnboarding';
 import { TourTriggerButton } from './ProductTour';
+import { ONBOARDING_REALITY_CHANGED_EVENT } from '../../../services/onboardingService';
 
 export function OnboardingChecklist() {
   const { state, checklistProgress, startTour } = useOnboarding();
   const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    window.dispatchEvent(new Event(ONBOARDING_REALITY_CHANGED_EVENT));
+  }, []);
 
   // Hide checklist once everything is done
   const allDone = state.checklist.every(i => i.completed);

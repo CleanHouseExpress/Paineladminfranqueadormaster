@@ -58,7 +58,7 @@ export const authService = {
     apiClient.post<LoginResponse>('/api/company/login', { email, password }),
 
   logout: () =>
-    apiClient.post<void>('/api/logout'),
+    apiClient.post<void>('/api/company/logout'),
 
   me: () =>
     apiClient.get<AuthUser | { data: AuthUser }>('/api/me'),

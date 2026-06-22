@@ -10,8 +10,10 @@
 
 import type { OnboardingState, WizardStepId, WizardStepData } from '../types/onboarding';
 import { INITIAL_ONBOARDING_STATE } from '../types/onboarding';
+import { apiClient, AUTH_TOKEN_STORAGE_KEY } from './apiClient';
 
 const STORAGE_KEY = 'orchestra_onboarding_v1';
+export const ONBOARDING_REALITY_CHANGED_EVENT = 'orchestra:onboarding-reality-changed';
 
 const delay = (ms = 80) => new Promise(r => setTimeout(r, ms));
 
@@ -36,7 +38,28 @@ function save(state: OnboardingState): OnboardingState {
 /** GET /onboarding/status */
 export async function getOnboardingStatus(): Promise<OnboardingState> {
   await delay();
-  return load();
+  const current = load();
+
+  try {
+    if (!localStorage.getItem(AUTH_TOKEN_STORAGE_KEY)) return current;
+
+    const units = await apiClient.get<Array<{ id: string | number }>>('/api/me/units');
+    const hasUnit = Array.isArray(units) && units.length > 0;
+    const reconciled = {
+      ...current,
+      checklist: current.checklist.map(item =>
+        item.id === 'unit' ? { ...item, completed: hasUnit } : item
+      ),
+    };
+
+    return save(reconciled);
+  } catch {
+    return current;
+  }
+}
+
+export function notifyOnboardingRealityChanged(): void {
+  window.dispatchEvent(new Event(ONBOARDING_REALITY_CHANGED_EVENT));
 }
 
 /** PUT /onboarding/step */

@@ -16,11 +16,14 @@ export interface ColumnDef {
 }
 
 export interface DynamicTableRendererProps {
-  columns: ColumnDef[];
-  data: Record<string, unknown>[];
+  columns?: ColumnDef[];
+  data?: Record<string, unknown>[];
+  schema?: ColumnDef[];
+  rows?: Record<string, unknown>[];
   keyField?: string;
   loading?: boolean;
   emptyMessage?: string;
+  emptyLabel?: string;
   emptyIcon?: React.ReactNode;
   onRowClick?: (row: Record<string, unknown>) => void;
   selectable?: boolean;
@@ -34,7 +37,7 @@ export interface DynamicTableRendererProps {
     onClick: (row: Record<string, unknown>) => void;
     variant?: 'default' | 'danger';
     showCondition?: (row: Record<string, unknown>) => boolean;
-  }>;
+  }> | ((row: Record<string, unknown>) => React.ReactNode);
   toolbar?: React.ReactNode;
 }
 
@@ -368,9 +371,12 @@ function SkeletonRows({ cols, selectable }: { cols: number; selectable?: boolean
 export function DynamicTableRenderer({
   columns,
   data,
+  schema,
+  rows,
   keyField = 'id',
   loading,
-  emptyMessage = 'Nenhum registro encontrado.',
+  emptyMessage,
+  emptyLabel,
   emptyIcon,
   onRowClick,
   selectable,
@@ -385,25 +391,30 @@ export function DynamicTableRenderer({
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [search, setSearch] = useState('');
 
+  const resolvedColumns = columns ?? schema ?? [];
+  const resolvedData = data ?? rows ?? [];
+  const resolvedEmptyMessage = emptyMessage ?? emptyLabel ?? 'Nenhum registro encontrado.';
+
   // Build display columns (inject actions column at end if needed)
   const displayColumns: ColumnDef[] = useMemo(() => {
-    const cols = columns.filter(c => c.type !== 'actions');
-    if (actions && actions.length > 0) {
+    const cols = resolvedColumns.filter(c => c.type !== 'actions');
+    const hasCustomActions = typeof actions === 'function' || (Array.isArray(actions) && actions.length > 0);
+    if (hasCustomActions) {
       cols.push({ key: '__actions__', label: '', type: 'actions', width: '48px' });
     }
     return cols;
-  }, [columns, actions]);
+  }, [resolvedColumns, actions]);
 
   // Filter
   const filtered = useMemo(() => {
-    if (!search.trim()) return data;
+    if (!search.trim()) return resolvedData;
     const q = search.toLowerCase();
-    return data.filter(row =>
+    return resolvedData.filter(row =>
       Object.values(row).some(v =>
         v !== null && v !== undefined && String(v).toLowerCase().includes(q)
       )
     );
-  }, [data, search]);
+  }, [resolvedData, search]);
 
   // Sort
   const sorted = useMemo(() => {
@@ -603,7 +614,7 @@ export function DynamicTableRenderer({
                       {emptyIcon}
                     </div>
                   )}
-                  <p style={{ fontSize: '14px', color: '#94A3B8', margin: 0 }}>{emptyMessage}</p>
+                  <p style={{ fontSize: '14px', color: '#94A3B8', margin: 0 }}>{resolvedEmptyMessage}</p>
                 </td>
               </tr>
             ) : (
@@ -655,7 +666,9 @@ export function DynamicTableRenderer({
                         }}
                       >
                         {col.key === '__actions__' && actions ? (
-                          <ActionsDropdown row={row} actions={actions} />
+                          typeof actions === 'function'
+                            ? actions(row)
+                            : <ActionsDropdown row={row} actions={actions} />
                         ) : (
                           <CellContent col={col} value={row[col.key]} row={row} />
                         )}

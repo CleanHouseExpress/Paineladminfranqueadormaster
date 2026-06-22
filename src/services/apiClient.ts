@@ -34,6 +34,7 @@ function defaultTenantApiBaseUrl() {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || defaultTenantApiBaseUrl();
 export const AUTH_TOKEN_STORAGE_KEY = 'orchestra_auth_token';
+export const AUTH_SESSION_EXPIRED_EVENT = 'orchestra:auth-session-expired';
 
 export const apiClientConfig: ApiClientConfig = {
   baseUrl: API_BASE_URL.replace(/\/$/, ''),
@@ -46,6 +47,41 @@ export const apiClientConfig: ApiClientConfig = {
 };
 
 let csrfReady = false;
+let redirectingToLogin = false;
+
+function clearBrowserCookies() {
+  if (typeof document === 'undefined') return;
+
+  document.cookie.split(';').forEach(cookie => {
+    const name = cookie.split('=')[0]?.trim();
+    if (!name) return;
+    document.cookie = `${name}=; Max-Age=0; path=/; SameSite=Lax`;
+  });
+}
+
+export function expireClientSession(status: number) {
+  try {
+    localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+    sessionStorage.clear();
+  } catch {
+    // Storage may be unavailable in restricted browser modes.
+  }
+
+  csrfReady = false;
+  clearBrowserCookies();
+
+  if (typeof window === 'undefined') return;
+
+  window.dispatchEvent(new CustomEvent(AUTH_SESSION_EXPIRED_EVENT, {
+    detail: { status },
+  }));
+
+  if (redirectingToLogin || window.location.pathname === '/login') return;
+
+  redirectingToLogin = true;
+  const reason = status === 419 ? 'session-expired' : 'unauthorized';
+  window.location.replace(`/login?reason=${reason}`);
+}
 
 function getStoredToken() {
   try {
@@ -104,6 +140,9 @@ export async function apiRequest<T>(
   const data = await parseResponse(response);
 
   if (!response.ok) {
+    if (response.status === 401 || response.status === 419) {
+      expireClientSession(response.status);
+    }
     throw new ApiError(response.status, data);
   }
 

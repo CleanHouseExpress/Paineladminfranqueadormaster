@@ -75,18 +75,20 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
       group: 'main',
       children: [
         { label: 'Visão Geral', path: '/financial' },
+        { label: 'Transações', path: '/financial/transactions' },
+        { label: 'Contas Financeiras', path: '/financial/accounts' },
         { label: 'Fluxo de Caixa', path: '/financial/cashflow' },
         { label: 'DRE Gerencial', path: '/financial/dre' },
-        { label: 'CMV & Custos', path: '/financial/cmv' },
-        { label: 'Royalties', path: '/financial/royalties' },
+        { label: 'Royalties', path: '/royalties' },
       ],
     },
     routes: [
-      { path: '/financial', componentId: 'financial-overview' },
-      { path: '/financial/cashflow', componentId: 'cashflow' },
-      { path: '/financial/dre', componentId: 'dre' },
-      { path: '/financial/cmv', componentId: 'cmv' },
-      { path: '/financial/royalties', componentId: 'royalties' },
+      { path: '/financial', componentId: 'financial-overview', requiredPermissions: ['tenant.financial.transactions.view'] },
+      { path: '/financial/transactions', componentId: 'financial-transactions', moduleId: 'financial', requiredPermissions: ['tenant.financial.transactions.view'] },
+      { path: '/financial/accounts', componentId: 'financial-accounts', moduleId: 'financial', requiredPermissions: ['tenant.financial.accounts.view'] },
+      { path: '/financial/cashflow', componentId: 'cashflow', requiredPermissions: ['tenant.finance.view'] },
+      { path: '/financial/dre', componentId: 'dre', moduleId: 'dre', requiredPermissions: ['tenant.dre.view'] },
+      { path: '/financial/royalties', componentId: 'royalties', moduleId: 'royalties', requiredPermissions: ['tenant.royalties.view'] },
     ],
     marketplace: { show: true, category: 'Financeiro', price: 'Incluso' },
   },
@@ -110,11 +112,69 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   },
   {
     id: 'cmv',
-    name: 'CMV & Custos',
-    description: 'Controle de custo de mercadoria vendida e análise de margem por produto.',
-    icon: 'Package',
+    name: 'CMV',
+    description: 'Indicadores operacionais de consumo, perdas e ajustes derivados do estoque.',
+    icon: 'TrendingUp',
     status: 'active',
-    marketplace: { show: true, category: 'Financeiro', price: 'Incluso' },
+    nav: { show: true, order: 10, group: 'main', children: [
+      { label: 'Visão Geral', path: '/cmv' },
+      { label: 'Por Item', path: '/cmv/by-item' },
+      { label: 'Por Unidade', path: '/cmv/by-unit' },
+      { label: 'Por Origem', path: '/cmv/by-origin' },
+    ] },
+    routes: [
+      { path: '/cmv', componentId: 'cmv-dashboard', requiredPermissions: ['tenant.cmv.view'] },
+      { path: '/cmv/by-item', componentId: 'cmv-by-item', moduleId: 'cmv', requiredPermissions: ['tenant.cmv.view'] },
+      { path: '/cmv/by-unit', componentId: 'cmv-by-unit', moduleId: 'cmv', requiredPermissions: ['tenant.cmv.view'] },
+      { path: '/cmv/by-origin', componentId: 'cmv-by-origin', moduleId: 'cmv', requiredPermissions: ['tenant.cmv.view'] },
+    ],
+    marketplace: { show: true, category: 'Operação', price: 'Incluso' },
+  },
+  {
+    id: 'sales',
+    name: 'Vendas',
+    description: 'Pedidos, vendas e ordens comerciais integrados ao catálogo e financeiro.',
+    icon: 'ShoppingCart',
+    status: 'active',
+    nav: { show: true, order: 6, group: 'main' },
+    routes: [
+      { path: '/sales', componentId: 'sales-list', requiredPermissions: ['tenant.sales.view'] },
+      { path: '/sales/new', componentId: 'sales-form', moduleId: 'sales', requiredPermissions: ['tenant.sales.create'] },
+      { path: '/sales/settings', componentId: 'sales-settings', moduleId: 'sales', requiredPermissions: ['tenant.sales.configure'] },
+      { path: '/sales/:id/edit', componentId: 'sales-form', moduleId: 'sales', requiredPermissions: ['tenant.sales.update'] },
+      { path: '/sales/:id', componentId: 'sales-detail', moduleId: 'sales', requiredPermissions: ['tenant.sales.view'] },
+    ],
+    marketplace: { show: true, category: 'Comercial', price: 'Incluso' },
+  },
+  {
+    id: 'crm',
+    name: 'CRM',
+    description: 'Leads, pipeline, oportunidades, atividades e conversão comercial.',
+    icon: 'Target',
+    status: 'active',
+    nav: {
+      show: true,
+      order: 6.2,
+      group: 'main',
+      children: [
+        { label: 'Visão Geral', path: '/crm' },
+        { label: 'Kanban', path: '/crm/kanban' },
+        { label: 'Leads', path: '/crm/leads' },
+        { label: 'Pipelines', path: '/crm/pipelines' },
+        { label: 'Configurações', path: '/crm/settings' },
+      ],
+    },
+    routes: [
+      { path: '/crm', componentId: 'crm-dashboard', requiredPermissions: ['tenant.crm.view'] },
+      { path: '/crm/kanban', componentId: 'crm-kanban', moduleId: 'crm', requiredPermissions: ['tenant.crm.view'] },
+      { path: '/crm/leads', componentId: 'crm-leads', moduleId: 'crm', requiredPermissions: ['tenant.crm.view'] },
+      { path: '/crm/leads/new', componentId: 'crm-lead-form', moduleId: 'crm', requiredPermissions: ['tenant.crm.create'] },
+      { path: '/crm/leads/:id/edit', componentId: 'crm-lead-form', moduleId: 'crm', requiredPermissions: ['tenant.crm.update'] },
+      { path: '/crm/leads/:id', componentId: 'crm-lead-detail', moduleId: 'crm', requiredPermissions: ['tenant.crm.view'] },
+      { path: '/crm/pipelines', componentId: 'crm-pipelines', moduleId: 'crm', requiredPermissions: ['tenant.crm.manage_pipeline'] },
+      { path: '/crm/settings', componentId: 'crm-settings', moduleId: 'crm', requiredPermissions: ['tenant.crm.configure'] },
+    ],
+    marketplace: { show: true, category: 'Comercial', price: 'Incluso' },
   },
   {
     id: 'royalties',
@@ -122,6 +182,23 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     description: 'Cálculo, cobrança e controle de royalties e taxas de franquia por unidade.',
     icon: 'Receipt',
     status: 'active',
+    nav: {
+      show: false,
+      order: 3.5,
+      group: 'main',
+      children: [
+        { label: 'Visão Geral', path: '/royalties' },
+        { label: 'Regras', path: '/royalties/rules' },
+        { label: 'Competências', path: '/royalties/calculations' },
+        { label: 'Vínculos', path: '/royalties/settings' },
+      ],
+    },
+    routes: [
+      { path: '/royalties', componentId: 'royalties', requiredPermissions: ['tenant.royalties.view'] },
+      { path: '/royalties/rules', componentId: 'royalty-rules', moduleId: 'royalties', requiredPermissions: ['tenant.royalties.view'] },
+      { path: '/royalties/calculations', componentId: 'royalty-calculations', moduleId: 'royalties', requiredPermissions: ['tenant.royalties.view'] },
+      { path: '/royalties/settings', componentId: 'royalty-settings', moduleId: 'royalties', requiredPermissions: ['tenant.royalties.configure'] },
+    ],
     marketplace: { show: true, category: 'Financeiro', price: 'Incluso' },
   },
 
@@ -238,6 +315,33 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     marketplace: { show: true, category: 'Gestão da Rede', price: 'Incluso' },
   },
   {
+    id: 'inventory',
+    name: 'Estoque',
+    description: 'Controle de insumos, fornecedores, saldos por unidade, movimentações e custos médios.',
+    icon: 'Boxes',
+    status: 'active',
+    nav: { show: true, order: 5.5, group: 'main', children: [
+      { label: 'Visão Geral', path: '/inventory' },
+      { label: 'Insumos', path: '/inventory/items' },
+      { label: 'Categorias', path: '/inventory/categories' },
+      { label: 'Fornecedores', path: '/inventory/suppliers' },
+      { label: 'Movimentações', path: '/inventory/movements' },
+      { label: 'Configurações', path: '/inventory/settings' },
+    ] },
+    routes: [
+      { path: '/inventory', componentId: 'inventory-dashboard', requiredPermissions: ['tenant.inventory.view'] },
+      { path: '/inventory/items', componentId: 'inventory-items', moduleId: 'inventory', requiredPermissions: ['tenant.inventory.view'] },
+      { path: '/inventory/items/new', componentId: 'inventory-item-form', moduleId: 'inventory', requiredPermissions: ['tenant.inventory.create'] },
+      { path: '/inventory/items/:id/edit', componentId: 'inventory-item-form', moduleId: 'inventory', requiredPermissions: ['tenant.inventory.update'] },
+      { path: '/inventory/items/:id', componentId: 'inventory-item-detail', moduleId: 'inventory', requiredPermissions: ['tenant.inventory.view'] },
+      { path: '/inventory/categories', componentId: 'inventory-categories', moduleId: 'inventory', requiredPermissions: ['tenant.inventory.view'] },
+      { path: '/inventory/suppliers', componentId: 'inventory-suppliers', moduleId: 'inventory', requiredPermissions: ['tenant.inventory.view'] },
+      { path: '/inventory/movements', componentId: 'inventory-movements', moduleId: 'inventory', requiredPermissions: ['tenant.inventory.view'] },
+      { path: '/inventory/settings', componentId: 'inventory-settings', moduleId: 'inventory', requiredPermissions: ['tenant.inventory.configure'] },
+    ],
+    marketplace: { show: true, category: 'Operação', price: 'Incluso' },
+  },
+  {
     id: 'trainings',
     name: 'Treinamentos',
     description: 'Capacitação, materiais e progresso por usuário.',
@@ -351,16 +455,6 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
 
   // ─── Insumos ──────────────────────────────────────────────────────────────────
 
-  {
-    id: 'supply',
-    name: 'Gestão de Insumos',
-    description: 'Controle de estoque, pedidos de reposição e centralização de compras.',
-    icon: 'Boxes',
-    status: 'blocked',
-    marketplace: { show: true, category: 'Operação', price: 'Sob consulta' },
-    plan: 'enterprise',
-  },
-
   // ─── System modules (always visible, not in marketplace) ─────────────────────
 
   {
@@ -433,6 +527,37 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     ],
   },
 
+  {
+    id: 'analytics',
+    name: 'Analytics',
+    description: 'Dashboard executivo dinâmico com métricas, filtros e widgets personalizados.',
+    icon: 'LayoutDashboard',
+    status: 'active',
+    nav: {
+      show: true,
+      order: 13,
+      group: 'system',
+      children: [
+        { label: 'Dashboard', path: '/analytics' },
+        { label: 'Personalizar', path: '/analytics/edit' },
+      ],
+    },
+    routes: [
+      {
+        path: '/analytics',
+        componentId: 'analytics-dashboard',
+        moduleId: 'dashboard',
+        requiredPermissions: ['tenant.analytics.view'],
+      },
+      {
+        path: '/analytics/edit',
+        componentId: 'analytics-dashboard',
+        moduleId: 'dashboard',
+        requiredPermissions: ['tenant.analytics.update'],
+      },
+    ],
+  },
+
   // ─── Form Builder (Metadata Engine) ──────────────────────────────────────────
 
   {
@@ -467,7 +592,7 @@ export const ALL_ROUTES = MODULE_REGISTRY
   .filter(m => m.routes?.length)
   .flatMap(m => m.routes!.map(route => ({
     ...route,
-    moduleId: m.id,
+    moduleId: route.moduleId ?? m.id,
     requiredPermissions: route.requiredPermissions ?? m.requiredPermissions,
   })));
 

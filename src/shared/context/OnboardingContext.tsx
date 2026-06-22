@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useReducer, useCallback } from 'r
 import type { OnboardingState, WizardStepId, WizardStepData } from '../../types/onboarding';
 import { INITIAL_ONBOARDING_STATE } from '../../types/onboarding';
 import * as svc from '../../services/onboardingService';
+import { useAuth } from './AuthContext';
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
 
@@ -85,12 +86,28 @@ interface OnboardingContextValue {
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
 
 export function OnboardingProvider({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated } = useAuth();
   const [state, dispatch] = useReducer(reducer, INITIAL_LOCAL);
 
-  // Hydrate from service on mount
+  const synchronize = useCallback(() => {
+    if (!isAuthenticated) return;
+    void svc.getOnboardingStatus().then(s => dispatch({ type: 'HYDRATE', state: s }));
+  }, [isAuthenticated]);
+
+  // Hydrate and reconcile persisted UI state with real tenant data.
   useEffect(() => {
-    svc.getOnboardingStatus().then(s => dispatch({ type: 'HYDRATE', state: s }));
-  }, []);
+    synchronize();
+  }, [synchronize]);
+
+  useEffect(() => {
+    window.addEventListener(svc.ONBOARDING_REALITY_CHANGED_EVENT, synchronize);
+    window.addEventListener('focus', synchronize);
+
+    return () => {
+      window.removeEventListener(svc.ONBOARDING_REALITY_CHANGED_EVENT, synchronize);
+      window.removeEventListener('focus', synchronize);
+    };
+  }, [synchronize]);
 
   const openWizard = useCallback(() => dispatch({ type: 'OPEN_WIZARD' }), []);
   const closeWizard = useCallback(() => dispatch({ type: 'CLOSE_WIZARD' }), []);

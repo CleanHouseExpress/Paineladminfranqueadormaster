@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { AUTH_TOKEN_STORAGE_KEY } from '../../services/apiClient';
+import {
+  ApiError, AUTH_SESSION_EXPIRED_EVENT, AUTH_TOKEN_STORAGE_KEY,
+} from '../../services/apiClient';
 import {
   authService,
   type AuthCompany,
@@ -53,10 +55,17 @@ function writeStoredToken(token: string | null) {
   }
 }
 
-function unwrap<T>(payload: T | { data: T }): T {
-  if (payload && typeof payload === 'object' && 'data' in payload) {
-    return (payload as { data: T }).data;
+function unwrap<T>(payload: unknown): T {
+  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+    const candidate = payload as { data?: unknown; result?: unknown };
+    if ('data' in candidate && candidate.data !== undefined) {
+      return candidate.data as T;
+    }
+    if ('result' in candidate && candidate.result !== undefined) {
+      return candidate.result as T;
+    }
   }
+
   return payload as T;
 }
 
@@ -72,16 +81,38 @@ function extractUser(response: LoginResponse) {
   return response.user ?? response.data?.user ?? null;
 }
 
-function normalizeMePayload(payload: AuthUser | { data: AuthUser } | { user?: AuthUser; context?: AuthSessionContext }) {
-  if (payload && typeof payload === 'object' && 'user' in payload && payload.user) {
+function normalizeMePayload(payload: unknown) {
+  const unwrapped = unwrap<Record<string, unknown>>(payload);
+
+  if (
+    unwrapped &&
+    typeof unwrapped === 'object' &&
+    !Array.isArray(unwrapped) &&
+    ('user' in unwrapped || 'context' in unwrapped || 'settings' in unwrapped || 'onboarding' in unwrapped)
+  ) {
+    const sessionPayload = unwrapped as {
+      user?: AuthUser;
+      context?: AuthSessionContext;
+      settings?: unknown;
+      onboarding?: unknown;
+      units?: unknown;
+    };
+
     return {
-      user: payload.user,
-      context: 'context' in payload ? payload.context ?? null : null,
+      user: sessionPayload.user ?? null,
+      context: sessionPayload.context ?? null,
+    };
+  }
+
+  if (unwrapped && typeof unwrapped === 'object' && !Array.isArray(unwrapped) && 'id' in unwrapped) {
+    return {
+      user: unwrapped as AuthUser,
+      context: null,
     };
   }
 
   return {
-    user: unwrap(payload as AuthUser | { data: AuthUser }),
+    user: null,
     context: null,
   };
 }
@@ -155,41 +186,78 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null);
 
     try {
-      const [mePayload, companyPayload, modulesPayload, rolesPayload, permissionsPayload] = await Promise.all([
-        authService.me(),
+      const mePayload = await authService.me();
+      const normalizedMe = normalizeMePayload(mePayload);
+      const nextUser = normalizedMe.user;
+
+      if (!nextUser) {
+        throw new Error('Invalid session payload');
+      }
+
+      const [companyResult, modulesResult, rolesResult, permissionsResult] = await Promise.allSettled([
         authService.getMeCompany(),
         authService.getMeModules(),
         authService.getMeRoles(),
         authService.getMePermissions(),
       ]);
 
-      const normalizedMe = normalizeMePayload(mePayload);
-      const nextUser = normalizedMe.user;
-      const nextCompany = unwrap(companyPayload);
-      const nextModules = unwrap(modulesPayload);
-      const nextRoles = unwrap(rolesPayload);
-      const nextPermissions = unwrap(permissionsPayload);
+      const companyPayload = companyResult.status === 'fulfilled'
+        ? unwrap<AuthCompany | null>(companyResult.value)
+        : null;
+      const modulesPayload = modulesResult.status === 'fulfilled'
+        ? unwrap<AuthModule[]>(modulesResult.value) ?? []
+        : [];
+      const rolesPayload = rolesResult.status === 'fulfilled'
+        ? unwrap<AuthRole[]>(rolesResult.value) ?? []
+        : [];
+      const permissionsPayload = permissionsResult.status === 'fulfilled'
+        ? unwrap<AuthPermission[]>(permissionsResult.value) ?? []
+        : [];
+
+      const sessionContext = (normalizedMe.context ?? {}) as AuthSessionContext & {
+        company_id?: string | number;
+      };
+      const resolvedCompanyId =
+        companyPayload?.id ??
+        sessionContext.companyId ??
+        sessionContext.company_id ??
+        (typeof nextUser.company_id !== 'undefined' ? nextUser.company_id : undefined);
+      const nextCompany = companyPayload ?? null;
+      const nextModules = Array.isArray(modulesPayload) ? modulesPayload : [];
+      const nextRoles = Array.isArray(rolesPayload) ? rolesPayload : [];
+      const nextPermissions = Array.isArray(permissionsPayload) ? permissionsPayload : [];
 
       setUser(nextUser);
       setCompany(nextCompany);
       setModules(nextModules);
       setRoles(nextRoles);
       setPermissions(nextPermissions);
+
       setContext({
         userId: nextUser.id,
-        companyId: nextCompany.id,
-        ...(normalizedMe.context ?? {}),
+        companyId: resolvedCompanyId,
+        ...(sessionContext as AuthSessionContext),
         hydratedAt: new Date().toISOString(),
       });
-      hydrateTenant(buildTenantPatch(nextCompany, nextModules));
-    } catch {
+
+      if (nextCompany) {
+        hydrateTenant(buildTenantPatch(nextCompany, nextModules));
+      }
+    } catch (err) {
+      const isUnauthorized = err instanceof ApiError && (err.status === 401 || err.status === 419);
+
+      if (isUnauthorized) {
+        writeStoredToken(null);
+        setToken(null);
+      }
+
       setUser(null);
       setCompany(null);
       setModules([]);
       setRoles([]);
       setPermissions([]);
       setContext(null);
-      setError('NÃ£o foi possÃ­vel carregar sua sessÃ£o agora. Verifique a API e tente novamente.');
+      setError(isUnauthorized ? null : 'Não foi possível carregar sua sessão agora. Verifique a API e tente novamente.');
     } finally {
       setIsLoading(false);
     }
@@ -249,6 +317,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void hydrateSession();
   }, [hydrateSession]);
+
+  useEffect(() => {
+    const resetExpiredSession = () => {
+      writeStoredToken(null);
+      setToken(null);
+      setUser(null);
+      setCompany(null);
+      setModules([]);
+      setRoles([]);
+      setPermissions([]);
+      setContext(null);
+      setError(null);
+      setIsLoading(false);
+    };
+
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, resetExpiredSession);
+
+    return () => window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, resetExpiredSession);
+  }, []);
 
   const value = useMemo<AuthContextValue>(() => ({
     user,

@@ -1,6 +1,7 @@
 import { apiClient } from './apiClient';
 import { metadataService } from './metadataService';
 import type { Unit, UnitMetadata, UnitMetric, UnitOption, UnitPayload, UnitsMeta } from '../types/unitManagement';
+import { notifyOnboardingRealityChanged } from './onboardingService';
 
 interface ListUnitsParams {
   search?: string;
@@ -40,14 +41,20 @@ export const unitManagementService = {
   getUnit: async (id: string | number) =>
     (await apiClient.get<DataResponse<Unit>>(`/api/company/units/${id}`)).data,
 
-  createUnit: async (payload: UnitPayload) =>
-    (await apiClient.post<DataResponse<Unit>>('/api/company/units', payload)).data,
+  createUnit: async (payload: UnitPayload) => {
+    const unit = (await apiClient.post<DataResponse<Unit>>('/api/company/units', payload)).data;
+    notifyOnboardingRealityChanged();
+    return unit;
+  },
 
   updateUnit: async (id: string | number, payload: UnitPayload) =>
     (await apiClient.put<DataResponse<Unit>>(`/api/company/units/${id}`, payload)).data,
 
-  deleteUnit: (id: string | number) =>
-    apiClient.delete<null>(`/api/company/units/${id}`),
+  deleteUnit: async (id: string | number) => {
+    const response = await apiClient.delete<null>(`/api/company/units/${id}`);
+    notifyOnboardingRealityChanged();
+    return response;
+  },
 
   getUnitOptions: () =>
     apiClient.get<UnitOption[]>('/api/company/units/options'),
