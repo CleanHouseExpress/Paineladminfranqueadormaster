@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import {
-  BarChart3, BookOpen, CheckSquare, DollarSign, FileText, GraduationCap,
+  BarChart3, BookOpen, Boxes, CheckSquare, DollarSign, FileText, GraduationCap,
   ListTodo, LogOut, Menu, Receipt, ShoppingCart, TrendingDown, X,
 } from 'lucide-react';
 import { useAuth } from '../../../shared/context/AuthContext';
@@ -20,6 +20,7 @@ const items = [
   ['/franchise/documents', 'Documentos', FileText, 'tenant.franchise_portal.documents.view'],
   ['/franchise/contracts', 'Contratos', BookOpen, 'tenant.franchise_portal.contracts.view'],
   ['/franchise/tasks', 'Tarefas', ListTodo, 'tenant.tasks.view'],
+  ['/franchise/inventory', 'Estoque', Boxes, 'tenant.franchise_portal.inventory.view'],
 ] as const;
 
 export function FranchisePortalLayout({ children }: { children: React.ReactNode }) {

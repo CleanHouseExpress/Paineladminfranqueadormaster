@@ -152,6 +152,19 @@ export function FranchiseTasks() {
   ])} /></Shell>}</State>;
 }
 
+export function FranchiseInventory() {
+  const stock = useLoad(franchisePortalService.inventory);
+  const transfers = useLoad(franchisePortalService.inventoryTransfers);
+  if (stock.loading) return <ModuleStateView state="loading" />;
+  if (!stock.data) return <ModuleStateView state="error" errorMessage={stock.error} />;
+  const settings = stock.data.settings;
+  return <Shell title="Estoque" description="Saldos, transferências e inventário da sua unidade conforme configuração da rede.">
+    <Table headers={['Item', 'Saldo', 'Reservado', 'Mínimo']} rows={stock.data.stock.map(row => [String(row.item_name), `${row.current_stock} ${row.unit_of_measure}`, String(row.reserved_stock ?? 0), settings.enable_stock_minimum ? String(row.minimum_stock) : '—'])} />
+    {settings.enable_transfers && transfers.data && <div style={{ marginTop: 16 }}><h2 style={{ fontSize: 15 }}>Transferências</h2><Table headers={['#', 'Origem', 'Destino', 'Status', 'Ação']} rows={transfers.data.map(row => [String(row.id), String(row.origin_unit_name), String(row.destination_unit_name), String(row.status), row.status === 'in_transit' ? <button onClick={() => void franchisePortalService.receiveInventoryTransfer(String(row.id)).then(() => transfers.load())}>Receber</button> : '—'])} /></div>}
+    {settings.enable_inventory_counts && <p style={{ ...card, marginTop: 16, color: '#64748B', fontSize: 12 }}>Inventário físico habilitado para esta unidade.</p>}
+  </Shell>;
+}
+
 export function FranchisePortalRoutes() {
   return <Routes>
     <Route index element={<Navigate to="/franchise/dashboard" replace />} />
@@ -166,6 +179,7 @@ export function FranchisePortalRoutes() {
     <Route path="documents" element={<FranchiseDocuments />} />
     <Route path="contracts" element={<FranchiseContracts />} />
     <Route path="tasks" element={<FranchiseTasks />} />
+    <Route path="inventory" element={<FranchiseInventory />} />
     <Route path="*" element={<Navigate to="/franchise/dashboard" replace />} />
   </Routes>;
 }

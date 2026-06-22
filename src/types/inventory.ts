@@ -108,6 +108,25 @@ export interface InventoryMetrics {
   inventoryValue: number;
 }
 
+export interface InventorySettings {
+  enable_transfers: boolean; enable_inventory_counts: boolean; enable_stock_minimum: boolean;
+  enable_stock_ideal: boolean; enable_reorder_point: boolean; enable_coverage: boolean;
+  enable_inventory_alerts: boolean; enable_purchase_flow: boolean; enable_recipes: boolean;
+  enable_supplier_management: boolean; enable_cost_tracking: boolean; enable_multi_unit_inventory: boolean;
+  settings_json: Record<string, unknown>;
+}
+
+export interface InventoryTransfer {
+  id: number; origin_unit_id: number; origin_unit_name: string; destination_unit_id: number;
+  destination_unit_name: string; status: string; notes?: string; requested_at?: string;
+  items: Array<{ id: number; inventory_item_id: number; item_name: string; quantity: number; unit_cost: number }>;
+}
+
+export interface InventoryCount {
+  id: number; unit_id: number; unit_name: string; type: string; status: string; notes?: string;
+  items: Array<{ id: number; inventory_item_id: number; item_name: string; system_quantity: number; counted_quantity: number | null; difference_quantity: number; difference_cost: number }>;
+}
+
 export interface InventoryOption {
   value: number;
   label: string;
@@ -130,4 +149,7 @@ export const INVENTORY_PERMISSIONS = {
   configure: 'tenant.inventory.configure',
   automationView: 'tenant.inventory.automation.view',
   automationManage: 'tenant.inventory.automation.manage',
+  settingsView: 'tenant.inventory.settings.view', settingsUpdate: 'tenant.inventory.settings.update',
+  transfer: 'tenant.inventory.transfer', transferApprove: 'tenant.inventory.transfer.approve', transferReceive: 'tenant.inventory.transfer.receive',
+  count: 'tenant.inventory.count', countApprove: 'tenant.inventory.count.approve',
 } as const;

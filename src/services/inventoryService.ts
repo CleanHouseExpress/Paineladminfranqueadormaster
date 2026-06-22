@@ -10,6 +10,7 @@ import type {
   InventoryPayload,
   InventorySupplier,
   MovementType,
+  InventorySettings, InventoryTransfer, InventoryCount,
 } from '../types/inventory';
 
 interface DataResponse<T> { data: T }
@@ -293,4 +294,18 @@ export const inventoryService = {
     form_schema: payload.fields ?? payload.form_schema,
     table_schema: payload.table_columns ?? payload.table_schema,
   }) as Promise<InventoryMetadata>,
+
+  getSettings: async () => (await apiClient.get<DataResponse<InventorySettings>>('/api/company/inventory/settings')).data,
+  updateSettings: async (payload: Partial<InventorySettings>) => (await apiClient.put<DataResponse<InventorySettings>>('/api/company/inventory/settings', payload)).data,
+  listTransfers: async () => (await apiClient.get<DataResponse<InventoryTransfer[]>>('/api/company/inventory/transfers')).data,
+  getTransfer: async (id: string) => (await apiClient.get<DataResponse<InventoryTransfer>>(`/api/company/inventory/transfers/${id}`)).data,
+  createTransfer: async (payload: Record<string, unknown>) => (await apiClient.post<DataResponse<InventoryTransfer>>('/api/company/inventory/transfers', payload)).data,
+  transferAction: async (id: number, action: 'approve' | 'ship' | 'receive' | 'cancel') => (await apiClient.patch<DataResponse<InventoryTransfer>>(`/api/company/inventory/transfers/${id}/${action}`, {})).data,
+  listCounts: async () => (await apiClient.get<DataResponse<InventoryCount[]>>('/api/company/inventory/counts')).data,
+  getCount: async (id: string) => (await apiClient.get<DataResponse<InventoryCount>>(`/api/company/inventory/counts/${id}`)).data,
+  createCount: async (payload: Record<string, unknown>) => (await apiClient.post<DataResponse<InventoryCount>>('/api/company/inventory/counts', payload)).data,
+  updateCount: async (id: number, payload: Record<string, unknown>) => (await apiClient.put<DataResponse<InventoryCount>>(`/api/company/inventory/counts/${id}`, payload)).data,
+  countAction: async (id: number, action: 'complete' | 'approve') => (await apiClient.patch<DataResponse<InventoryCount>>(`/api/company/inventory/counts/${id}/${action}`, {})).data,
+  coverage: async () => (await apiClient.get<DataResponse<Record<string, unknown>[]>>('/api/company/inventory/coverage')).data,
+  divergences: async () => (await apiClient.get<DataResponse<Record<string, unknown>[]>>('/api/company/inventory/divergences')).data,
 };

@@ -19,6 +19,10 @@ export const franchisePortalService = {
     template: { id: number; name: string; locked: boolean } | null;
     widgets: Array<{ id: number; title: string; metric_key: string; view_type: string; data: { value: number | string; format?: string; error?: string } }>;
   }>>('/api/franchise/analytics/dashboard')).data,
+  inventory: async () => (await apiClient.get<DataResponse<{ settings: Record<string, boolean>; stock: Array<Record<string, unknown>> }>>('/api/franchise/inventory')).data,
+  inventoryTransfers: async () => (await apiClient.get<DataResponse<Array<Record<string, unknown>>>>('/api/franchise/inventory/transfers')).data,
+  receiveInventoryTransfer: (id: string | number) => apiClient.patch<DataResponse<Record<string, unknown>>>(`/api/franchise/inventory/transfers/${id}/receive`, {}),
+  inventoryCounts: async () => (await apiClient.get<DataResponse<Array<Record<string, unknown>>>>('/api/franchise/inventory/counts')).data,
   unit: async () => (await apiClient.get<DataResponse<FranchiseUnit>>('/api/franchise/unit')).data,
   sales: () => apiClient.get<ApiList<Record<string, unknown>>>('/api/franchise/sales?per_page=100'),
   salesMetrics: () => apiClient.get<Record<string, number>>('/api/franchise/sales/metrics'),

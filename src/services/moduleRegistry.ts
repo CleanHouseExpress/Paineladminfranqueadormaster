@@ -166,6 +166,34 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   // ─── Operação ─────────────────────────────────────────────────────────────────
 
   {
+    id: 'inventory',
+    name: 'Estoque & Suprimentos',
+    description: 'Estoque configurável, movimentações, transferências e inventário físico.',
+    icon: 'Boxes',
+    status: 'active',
+    nav: { show: true, order: 5, group: 'main', children: [
+      { label: 'Visão Geral', path: '/inventory' }, { label: 'Itens', path: '/inventory/items' },
+      { label: 'Movimentações', path: '/inventory/movements' }, { label: 'Configurações', path: '/inventory/settings' },
+    ] },
+    routes: [
+      { path: '/inventory', componentId: 'inventory-dashboard', requiredPermissions: ['tenant.inventory.view'] },
+      { path: '/inventory/items', componentId: 'inventory-items', requiredPermissions: ['tenant.inventory.view'] },
+      { path: '/inventory/items/new', componentId: 'inventory-item-form', requiredPermissions: ['tenant.inventory.create'] },
+      { path: '/inventory/items/:id/edit', componentId: 'inventory-item-form', requiredPermissions: ['tenant.inventory.update'] },
+      { path: '/inventory/items/:id', componentId: 'inventory-item-detail', requiredPermissions: ['tenant.inventory.view'] },
+      { path: '/inventory/categories', componentId: 'inventory-categories', requiredPermissions: ['tenant.inventory.view'] },
+      { path: '/inventory/suppliers', componentId: 'inventory-suppliers', requiredPermissions: ['tenant.inventory.view'] },
+      { path: '/inventory/movements', componentId: 'inventory-movements', requiredPermissions: ['tenant.inventory.view'] },
+      { path: '/inventory/settings', componentId: 'inventory-settings', requiredPermissions: ['tenant.inventory.settings.view'] },
+      { path: '/inventory/transfers', componentId: 'inventory-transfers', requiredPermissions: ['tenant.inventory.transfer'] },
+      { path: '/inventory/transfers/:id', componentId: 'inventory-transfer-detail', requiredPermissions: ['tenant.inventory.transfer'] },
+      { path: '/inventory/counts', componentId: 'inventory-counts', requiredPermissions: ['tenant.inventory.count'] },
+      { path: '/inventory/counts/:id', componentId: 'inventory-count-detail', requiredPermissions: ['tenant.inventory.count'] },
+    ],
+    marketplace: { show: true, category: 'Operação', price: 'Incluso' },
+  },
+
+  {
     id: 'operations',
     name: 'Operação',
     description: 'Checklists, pendências e diário de bordo para gestão operacional da rede.',

@@ -39,6 +39,18 @@ const DreGoalsPage = lazyPage(() => import('./components/financial/FinancialGove
 const DreHistoryPage = lazyPage(() => import('./components/financial/FinancialGovernancePages'), 'DreHistoryPage');
 const DreProjectionPage = lazyPage(() => import('./components/financial/FinancialGovernancePages'), 'DreProjectionPage');
 const RoyaltyPeriodsPage = lazyPage(() => import('./components/financial/FinancialGovernancePages'), 'RoyaltyPeriodsPage');
+const InventoryDashboardPage = lazyPage(() => import('../modules/inventory'), 'InventoryDashboard');
+const InventoryItemsPage = lazyPage(() => import('../modules/inventory'), 'InventoryItems');
+const InventoryItemFormPage = lazyPage(() => import('../modules/inventory'), 'InventoryItemForm');
+const InventoryItemDetailPage = lazyPage(() => import('../modules/inventory'), 'InventoryItemDetail');
+const InventoryCategoriesPage = lazyPage(() => import('../modules/inventory'), 'InventoryCategories');
+const InventorySuppliersPage = lazyPage(() => import('../modules/inventory'), 'InventorySuppliers');
+const InventoryMovementsPage = lazyPage(() => import('../modules/inventory'), 'InventoryMovements');
+const InventorySettingsPage = lazyPage(() => import('./components/inventory/InventorySupplyChainPages'), 'InventorySettingsPage');
+const InventoryTransfersPage = lazyPage(() => import('./components/inventory/InventorySupplyChainPages'), 'InventoryTransfersPage');
+const InventoryTransferDetailPage = lazyPage(() => import('./components/inventory/InventorySupplyChainPages'), 'InventoryTransferDetailPage');
+const InventoryCountsPage = lazyPage(() => import('./components/inventory/InventorySupplyChainPages'), 'InventoryCountsPage');
+const InventoryCountDetailPage = lazyPage(() => import('./components/inventory/InventorySupplyChainPages'), 'InventoryCountDetailPage');
 const AnalyticsDashboardPage = lazyPage(() => import('./components/analytics/AnalyticsDashboard'), 'AnalyticsDashboard');
 const AnalyticsTemplatesPage = lazyPage(() => import('./components/analytics/AnalyticsTemplates'), 'AnalyticsTemplatesPage');
 const AnalyticsTemplateDetailPage = lazyPage(() => import('./components/analytics/AnalyticsTemplates'), 'AnalyticsTemplateDetailPage');
@@ -106,6 +118,18 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   'dre-history': DreHistoryPage,
   'dre-projection': DreProjectionPage,
   'royalty-periods': RoyaltyPeriodsPage,
+  'inventory-dashboard': InventoryDashboardPage,
+  'inventory-items': InventoryItemsPage,
+  'inventory-item-form': InventoryItemFormPage,
+  'inventory-item-detail': InventoryItemDetailPage,
+  'inventory-categories': InventoryCategoriesPage,
+  'inventory-suppliers': InventorySuppliersPage,
+  'inventory-movements': InventoryMovementsPage,
+  'inventory-settings': InventorySettingsPage,
+  'inventory-transfers': InventoryTransfersPage,
+  'inventory-transfer-detail': InventoryTransferDetailPage,
+  'inventory-counts': InventoryCountsPage,
+  'inventory-count-detail': InventoryCountDetailPage,
   'analytics-dashboard': AnalyticsDashboardPage,
   'analytics-templates': AnalyticsTemplatesPage,
   'analytics-template-detail': AnalyticsTemplateDetailPage,
