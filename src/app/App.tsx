@@ -39,6 +39,10 @@ const DreGoalsPage = lazyPage(() => import('./components/financial/FinancialGove
 const DreHistoryPage = lazyPage(() => import('./components/financial/FinancialGovernancePages'), 'DreHistoryPage');
 const DreProjectionPage = lazyPage(() => import('./components/financial/FinancialGovernancePages'), 'DreProjectionPage');
 const RoyaltyPeriodsPage = lazyPage(() => import('./components/financial/FinancialGovernancePages'), 'RoyaltyPeriodsPage');
+const AnalyticsDashboardPage = lazyPage(() => import('./components/analytics/AnalyticsDashboard'), 'AnalyticsDashboard');
+const AnalyticsTemplatesPage = lazyPage(() => import('./components/analytics/AnalyticsTemplates'), 'AnalyticsTemplatesPage');
+const AnalyticsTemplateDetailPage = lazyPage(() => import('./components/analytics/AnalyticsTemplates'), 'AnalyticsTemplateDetailPage');
+const AnalyticsCatalogPage = lazyPage(() => import('./components/analytics/AnalyticsTemplates'), 'AnalyticsCatalogPage');
 
 const ChecklistsDashboardPage = lazyPage(() => import('../modules/checklists'), 'ChecklistsDashboardPage');
 const ChecklistTemplatesPage = lazyPage(() => import('../modules/checklists'), 'ChecklistTemplatesPage');
@@ -102,6 +106,10 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   'dre-history': DreHistoryPage,
   'dre-projection': DreProjectionPage,
   'royalty-periods': RoyaltyPeriodsPage,
+  'analytics-dashboard': AnalyticsDashboardPage,
+  'analytics-templates': AnalyticsTemplatesPage,
+  'analytics-template-detail': AnalyticsTemplateDetailPage,
+  'analytics-catalog': AnalyticsCatalogPage,
   operations: () => <PlaceholderPage title="Operacao" description="Checklists, pendencias e diario de bordo para gestao operacional da rede." />,
   checklists: ChecklistsDashboardPage,
   'checklist-templates': ChecklistTemplatesPage,

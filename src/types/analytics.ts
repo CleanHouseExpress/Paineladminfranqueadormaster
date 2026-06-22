@@ -45,6 +45,10 @@ export interface DashboardWidget {
   filters: AnalyticsFilters;
   settings: Record<string, unknown>;
   active: boolean;
+  templateId?: string | null;
+  shared: boolean;
+  locked: boolean;
+  favorited: boolean;
 }
 
 export interface AnalyticsMetricDefinition {
@@ -56,8 +60,41 @@ export interface AnalyticsMetricDefinition {
   allowedViews: WidgetViewType[];
   defaultView: WidgetViewType;
   supportedFilters: string[];
+  category: 'executive' | 'financial' | 'operational' | 'commercial';
+  recommendedView: WidgetViewType;
   color: string;
   icon: string;
+}
+
+export type DashboardTemplateScope = 'network' | 'unit' | 'role' | 'user';
+
+export interface DashboardTemplateWidget {
+  id?: number;
+  metricKey: string;
+  viewType: WidgetViewType;
+  config: Record<string, unknown>;
+  position: number;
+}
+
+export interface DashboardTemplate {
+  id: number;
+  name: string;
+  description?: string | null;
+  targetScope: DashboardTemplateScope;
+  targetIds: Array<string | number>;
+  isDefault: boolean;
+  locked: boolean;
+  published: boolean;
+  ownership: 'mine' | 'shared';
+  createdByName?: string | null;
+  widgets: DashboardTemplateWidget[];
+  updatedAt?: string | null;
+}
+
+export interface DashboardCatalog {
+  mine: DashboardTemplate[];
+  network: DashboardTemplate[];
+  shared: DashboardTemplate[];
 }
 
 export interface MetricSeriesItem {

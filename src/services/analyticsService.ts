@@ -6,6 +6,8 @@ import type {
   AnalyticsUnitOption,
   CreateDashboardWidget,
   DashboardWidget,
+  DashboardTemplate,
+  DashboardCatalog,
   WidgetSize,
   WidgetViewType,
 } from '../types/analytics';
@@ -53,6 +55,10 @@ function mapWidget(raw: Raw): DashboardWidget {
     },
     settings: raw.settings ?? {},
     active: raw.active !== false,
+    templateId: raw.template_id ? String(raw.template_id) : null,
+    shared: Boolean(raw.shared),
+    locked: Boolean(raw.locked),
+    favorited: Boolean(raw.favorited),
   };
 }
 
@@ -101,6 +107,8 @@ export const analyticsService = {
         allowedViews: raw.allowed_views ?? ['counter'],
         defaultView: raw.default_view ?? 'counter',
         supportedFilters: raw.supported_filters ?? [],
+        category: raw.category ?? 'executive',
+        recommendedView: raw.recommended_view ?? raw.default_view ?? 'counter',
         ...meta,
       };
     });
@@ -196,4 +204,64 @@ export const analyticsService = {
     );
     return Object.fromEntries(entries) as Record<string, AnalyticsMetricResult>;
   },
+
+  async favorite(id: string, favorite: boolean): Promise<void> {
+    if (favorite) await apiClient.post(`${BASE}/widgets/${id}/favorite`, {});
+    else await apiClient.delete(`${BASE}/widgets/${id}/favorite`);
+  },
+
+  async templates(): Promise<DashboardTemplate[]> {
+    const response = await apiClient.get<Raw[] | { data: Raw[] }>(`${BASE}/templates`);
+    return dataOf(response).map(mapTemplate);
+  },
+
+  async template(id: string | number): Promise<DashboardTemplate> {
+    return mapTemplate(dataOf(await apiClient.get<Raw | { data: Raw }>(`${BASE}/templates/${id}`)));
+  },
+
+  async catalog(): Promise<DashboardCatalog> {
+    const raw = dataOf(await apiClient.get<Raw | { data: Raw }>(`${BASE}/catalog`));
+    return { mine: (raw.mine ?? []).map(mapTemplate), network: (raw.network ?? []).map(mapTemplate), shared: (raw.shared ?? []).map(mapTemplate) };
+  },
+
+  async createTemplate(input: { name: string; description?: string; widgets: DashboardWidget[] }): Promise<DashboardTemplate> {
+    const response = await apiClient.post<Raw | { data: Raw }>(`${BASE}/templates`, {
+      name: input.name, description: input.description,
+      widgets: input.widgets.map((widget, index) => ({
+        metric_key: widget.metricKey, view_type: widget.viewType, position: index,
+        config_json: { title: widget.title, size: widget.size, width: widget.width, height: widget.height, filters: filtersPayload(widget.filters), settings: widget.settings },
+      })),
+    });
+    return mapTemplate(dataOf(response));
+  },
+
+  async updateTemplate(id: number, input: { name?: string; description?: string }): Promise<DashboardTemplate> {
+    return mapTemplate(dataOf(await apiClient.put<Raw | { data: Raw }>(`${BASE}/templates/${id}`, input)));
+  },
+
+  async publishTemplate(id: number, input: { target_scope: string; target_ids: Array<string | number>; is_default: boolean; locked: boolean }): Promise<DashboardTemplate> {
+    return mapTemplate(dataOf(await apiClient.post<Raw | { data: Raw }>(`${BASE}/templates/${id}/publish`, input)));
+  },
+
+  async cloneTemplate(id: number): Promise<DashboardTemplate> {
+    return mapTemplate(dataOf(await apiClient.post<Raw | { data: Raw }>(`${BASE}/templates/${id}/clone`, {})));
+  },
+
+  async deleteTemplate(id: number): Promise<void> {
+    await apiClient.delete(`${BASE}/templates/${id}`);
+  },
 };
+
+function mapTemplate(raw: Raw): DashboardTemplate {
+  return {
+    id: Number(raw.id), name: raw.name, description: raw.description,
+    targetScope: raw.target_scope ?? 'user', targetIds: raw.target_ids ?? [],
+    isDefault: Boolean(raw.is_default), locked: Boolean(raw.locked), published: Boolean(raw.published),
+    ownership: raw.ownership ?? 'shared', createdByName: raw.created_by_name,
+    widgets: (raw.widgets ?? []).map((widget: Raw) => ({
+      id: Number(widget.id), metricKey: widget.metric_key, viewType: widget.view_type,
+      config: widget.config_json ?? {}, position: Number(widget.position ?? 0),
+    })),
+    updatedAt: raw.updated_at,
+  };
+}

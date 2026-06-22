@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 import {
-  AlertCircle, CheckCircle2, Clock3, Download, Receipt, TrendingDown,
+  AlertCircle, CheckCircle2, Clock3, Download, Lock, Receipt, TrendingDown,
   TrendingUp, WalletCards,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -41,9 +41,14 @@ function State<T>({ result, children }: { result: ReturnType<typeof useLoad<T>>;
 }
 
 export function FranchiseDashboard() {
-  const result = useLoad(franchisePortalService.dashboard);
+  const result = useLoad(async () => {
+    const [dashboard, analytics] = await Promise.all([
+      franchisePortalService.dashboard(), franchisePortalService.analyticsDashboard().catch(() => ({ template: null, widgets: [] })),
+    ]);
+    return { dashboard, analytics };
+  });
   return <State result={result}>{data => {
-    const d = data as FranchiseDashboardData;
+    const d = data.dashboard as FranchiseDashboardData;
     const cards = [
       ['Vendas do mês', money(d.sales.net_total), TrendingUp, '#2563EB'],
       ['Recebido', money(d.financial.income), WalletCards, '#059669'],
@@ -63,6 +68,7 @@ export function FranchiseDashboard() {
         <Progress label="Treinamentos concluídos" value={d.trainings.completion_rate} />
         <Progress label="Margem da unidade" value={d.dre.margin} />
       </div>
+      {data.analytics.template && <section style={{ marginTop: 18 }}><div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}><Lock size={14} color="#7C3AED" /><strong style={{ fontSize: 14 }}>{data.analytics.template.name}</strong><span style={{ fontSize: 11, color: '#7C3AED' }}>Dashboard corporativo</span></div><div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 13 }}>{data.analytics.widgets.map(widget => <div key={widget.id} style={{ ...card, padding: 16 }}><span style={{ color: '#64748B', fontSize: 11 }}>{widget.title}</span><strong style={{ display: 'block', marginTop: 8, fontSize: 19 }}>{widget.data.error ? 'Indisponível' : widget.data.format === 'currency' ? money(widget.data.value) : widget.data.format === 'percentage' ? `${Number(widget.data.value).toFixed(1)}%` : String(widget.data.value)}</strong></div>)}</div></section>}
     </Shell>;
   }}</State>;
 }

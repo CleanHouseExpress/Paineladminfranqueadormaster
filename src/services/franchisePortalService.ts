@@ -15,6 +15,10 @@ const query = (filters: Record<string, string | number | undefined> = {}) => {
 export const franchisePortalService = {
   context: () => apiClient.get<FranchisePortalContextData>('/api/franchise/me'),
   dashboard: () => apiClient.get<FranchiseDashboardData>('/api/franchise/dashboard'),
+  analyticsDashboard: async () => (await apiClient.get<DataResponse<{
+    template: { id: number; name: string; locked: boolean } | null;
+    widgets: Array<{ id: number; title: string; metric_key: string; view_type: string; data: { value: number | string; format?: string; error?: string } }>;
+  }>>('/api/franchise/analytics/dashboard')).data,
   unit: async () => (await apiClient.get<DataResponse<FranchiseUnit>>('/api/franchise/unit')).data,
   sales: () => apiClient.get<ApiList<Record<string, unknown>>>('/api/franchise/sales?per_page=100'),
   salesMetrics: () => apiClient.get<Record<string, number>>('/api/franchise/sales/metrics'),

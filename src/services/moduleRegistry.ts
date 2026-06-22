@@ -408,6 +408,32 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   },
 
   {
+    id: 'analytics',
+    name: 'Analytics Executivo',
+    description: 'Dashboards dinâmicos, templates corporativos e indicadores da rede.',
+    icon: 'LayoutDashboard',
+    status: 'active',
+    nav: {
+      show: true,
+      order: 13,
+      group: 'system',
+      children: [
+        { label: 'Meu Dashboard', path: '/analytics' },
+        { label: 'Templates', path: '/analytics/templates' },
+        { label: 'Catálogo', path: '/analytics/catalog' },
+      ],
+    },
+    routes: [
+      { path: '/analytics', componentId: 'analytics-dashboard', requiredPermissions: ['tenant.analytics.view'] },
+      { path: '/analytics/edit', componentId: 'analytics-dashboard', requiredPermissions: ['tenant.analytics.update'] },
+      { path: '/analytics/templates', componentId: 'analytics-templates', requiredPermissions: ['tenant.analytics.templates.view'] },
+      { path: '/analytics/templates/:id', componentId: 'analytics-template-detail', requiredPermissions: ['tenant.analytics.templates.view'] },
+      { path: '/analytics/catalog', componentId: 'analytics-catalog', requiredPermissions: ['tenant.analytics.templates.view'] },
+    ],
+    marketplace: { show: true, category: 'Analytics', price: 'Incluso' },
+  },
+
+  {
     id: 'settings',
     name: 'Configurações',
     description: 'Configurações gerais, white label, menu e segurança da plataforma.',

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import {
   BarChart3, ChevronDown, GripVertical, Hash, LayoutDashboard, LineChart as LineIcon,
   Loader2, Lock, Pencil, PieChart as PieIcon, Plus, RefreshCw, Save, Table2,
-  Trash2, X,
+  Star, Trash2, X,
 } from 'lucide-react';
 import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart,
@@ -141,7 +141,7 @@ function EmptyMetric() {
 }
 
 function WidgetCard({
-  widget, definition, result, loading, editMode, canDelete, onRemove, onUpdate,
+  widget, definition, result, loading, editMode, canDelete, onRemove, onUpdate, onFavorite,
 }: {
   widget: DashboardWidget;
   definition?: AnalyticsMetricDefinition;
@@ -151,6 +151,7 @@ function WidgetCard({
   canDelete: boolean;
   onRemove: () => void;
   onUpdate: (changes: Partial<DashboardWidget>) => void;
+  onFavorite: () => void;
 }) {
   return (
     <article style={{
@@ -164,7 +165,9 @@ function WidgetCard({
           <LayoutDashboard size={14} />
         </div>
         <strong style={{ flex: 1, minWidth: 0, fontSize: 13, color: '#0F172A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{widget.title}</strong>
-        {editMode && (
+        {widget.locked && <Lock size={14} color="#7C3AED" />}
+        <button onClick={onFavorite} title={widget.favorited ? 'Remover dos favoritos' : 'Favoritar widget'} style={{ border: 0, background: 'transparent', color: widget.favorited ? '#F59E0B' : '#CBD5E1', cursor: 'pointer' }}><Star size={15} fill={widget.favorited ? '#F59E0B' : 'none'} /></button>
+        {editMode && !widget.locked && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <select value={widget.viewType} onChange={event => onUpdate({ viewType: event.target.value as WidgetViewType })} style={{ padding: 4, borderRadius: 6, border: '1px solid #E2E8F0', fontSize: 11 }}>
               {definition?.allowedViews.map(view => <option key={view} value={view}>{VIEW_META[view].label}</option>)}
@@ -229,6 +232,7 @@ function WidgetPicker({
               <button onClick={() => setSelected(undefined)} style={{ border: 0, background: 'transparent', color: '#6366F1', padding: 0, cursor: 'pointer', fontWeight: 600 }}>← Escolher outra métrica</button>
               <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: 16, borderRadius: 12, margin: '16px 0 20px' }}>
                 <strong>{selected.label}</strong><div style={{ fontSize: 12, color: '#64748B', marginTop: 4 }}>{selected.description}</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10, fontSize: 11, color: '#64748B' }}><span>Categoria: {selected.category}</span><span>Permissão: {selected.permission ?? '—'}</span><span>Recomendado: {VIEW_META[selected.recommendedView].label}</span></div>
               </div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 7 }}>Título</label>
               <input value={title} onChange={event => setTitle(event.target.value)} style={{ width: '100%', boxSizing: 'border-box', border: '1px solid #E2E8F0', borderRadius: 8, padding: 10, marginBottom: 18 }} />
@@ -271,6 +275,7 @@ export function AnalyticsDashboard() {
   const [picker, setPicker] = useState(false);
   const [dragging, setDragging] = useState<string>();
   const [updatedAt, setUpdatedAt] = useState<Date>();
+  const hasLockedDashboard = widgets.some(widget => widget.locked);
 
   const ordered = useMemo(() => [...widgets].sort((a, b) => a.positionY - b.positionY), [widgets]);
   const refresh = useCallback(async (items = widgets, currentFilters = filters) => {
@@ -336,6 +341,12 @@ export function AnalyticsDashboard() {
     toast.success('Widget excluído.');
   }
 
+  async function toggleFavorite(widget: DashboardWidget) {
+    await analyticsService.favorite(widget.id, !widget.favorited);
+    setWidgets(current => current.map(item => item.id === widget.id ? { ...item, favorited: !item.favorited } : item));
+    toast.success(widget.favorited ? 'Widget removido dos favoritos.' : 'Widget favoritado.');
+  }
+
   function dropOn(targetId: string) {
     if (!dragging || dragging === targetId) return;
     setWidgets(current => {
@@ -370,6 +381,8 @@ export function AnalyticsDashboard() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
           <div style={{ width: 44, height: 44, borderRadius: 12, display: 'grid', placeItems: 'center', background: 'linear-gradient(135deg,#6366F1,#4F46E5)', color: '#fff' }}><LayoutDashboard size={22} /></div>
           <div style={{ flex: 1 }}><h1 style={{ margin: 0, fontSize: 22, color: '#0F172A' }}>Analytics</h1><div style={{ color: '#64748B', fontSize: 13, marginTop: 3 }}>Dashboard executivo personalizado da rede.</div></div>
+          <Link to="/analytics/templates" style={{ ...button, border: '1px solid #E2E8F0', color: '#475569', textDecoration: 'none' }}>Templates</Link>
+          <Link to="/analytics/catalog" style={{ ...button, border: '1px solid #E2E8F0', color: '#475569', textDecoration: 'none' }}>Catálogo</Link>
           <button onClick={() => refresh()} disabled={loading} style={{ ...button, border: '1px solid #E2E8F0', background: '#fff', color: '#475569' }}><RefreshCw size={15} className={loading ? 'animate-spin' : ''} />Atualizar</button>
           {!editMode && canUpdate && <button onClick={() => { setSavedWidgets(widgets); navigate('/analytics/edit'); }} style={{ ...button, border: '1px solid #6366F1', background: '#fff', color: '#4F46E5' }}><Pencil size={15} />Personalizar</button>}
           {editMode && <><button onClick={() => { setWidgets(savedWidgets); navigate('/analytics'); }} style={{ ...button, border: '1px solid #E2E8F0', background: '#fff' }}><X size={15} />Cancelar</button><button onClick={saveOrder} disabled={saving} style={{ ...button, border: 0, background: '#6366F1', color: '#fff' }}>{saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}Salvar dashboard</button></>}
@@ -377,6 +390,7 @@ export function AnalyticsDashboard() {
       </header>
 
       {editMode && <div style={{ padding: '11px 30px', background: '#FFFBEB', borderBottom: '1px solid #FDE68A', color: '#92400E', fontSize: 13 }}>Modo de edição ativo — arraste os cards para reorganizar e ajuste visualização ou tamanho.</div>}
+      {hasLockedDashboard && <div style={{ padding: '11px 30px', background: '#F5F3FF', borderBottom: '1px solid #DDD6FE', color: '#6D28D9', fontSize: 13 }}><Lock size={14} style={{ display: 'inline', marginRight: 6 }} />Dashboard corporativo: widgets bloqueados podem ser visualizados e favoritados, mas não alterados.</div>}
 
       <div style={{ padding: '12px 30px', background: '#fff', borderBottom: '1px solid #E2E8F0', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         {PERIODS.map(period => <button key={period} onClick={() => setFilters(current => ({ ...current, period }))} style={{ ...button, padding: '6px 13px', border: filters.period === period ? '1px solid #6366F1' : '1px solid #E2E8F0', background: filters.period === period ? '#6366F1' : '#fff', color: filters.period === period ? '#fff' : '#475569', borderRadius: 999 }}>{ANALYTICS_PERIOD_LABELS[period]}</button>)}
@@ -397,14 +411,15 @@ export function AnalyticsDashboard() {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12,minmax(0,1fr))', gap: 16 }}>
             {ordered.map(widget => (
-              <div key={widget.id} draggable={editMode} onDragStart={() => setDragging(widget.id)} onDragOver={event => event.preventDefault()} onDrop={() => dropOn(widget.id)} style={{ gridColumn: `span ${WIDGET_SIZE_COLS[widget.size]}`, minWidth: 0, opacity: dragging === widget.id ? .55 : 1 }}>
-                <WidgetCard widget={widget} definition={definitions.find(item => item.key === widget.metricKey)} result={results[widget.id]} loading={loading} editMode={editMode} canDelete={canDelete} onRemove={() => removeWidget(widget)} onUpdate={changes => updateWidget(widget, changes)} />
+              <div key={widget.id} draggable={editMode && !widget.locked} onDragStart={() => setDragging(widget.id)} onDragOver={event => event.preventDefault()} onDrop={() => dropOn(widget.id)} style={{ gridColumn: `span ${WIDGET_SIZE_COLS[widget.size]}`, minWidth: 0, opacity: dragging === widget.id ? .55 : 1 }}>
+                <WidgetCard widget={widget} definition={definitions.find(item => item.key === widget.metricKey)} result={results[widget.id]} loading={loading} editMode={editMode} canDelete={canDelete} onRemove={() => removeWidget(widget)} onUpdate={changes => updateWidget(widget, changes)} onFavorite={() => void toggleFavorite(widget)} />
               </div>
             ))}
             {editMode && canCreate && <button onClick={() => setPicker(true)} style={{ gridColumn: 'span 4', minHeight: 180, border: '2px dashed rgba(99,102,241,.35)', borderRadius: 14, background: 'transparent', color: '#6366F1', cursor: 'pointer', fontWeight: 700 }}><Plus size={28} style={{ margin: '0 auto 8px' }} />Adicionar widget</button>}
           </div>
         )}
         {updatedAt && <div style={{ textAlign: 'right', color: '#94A3B8', fontSize: 11, marginTop: 18 }}>Atualizado às {updatedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>}
+        {!!widgets.filter(widget => widget.favorited).length && <section style={{ marginTop: 22 }}><h2 style={{ fontSize: 16 }}>Meus Favoritos</h2><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{widgets.filter(widget => widget.favorited).map(widget => <span key={widget.id} style={{ background: '#FFFBEB', color: '#92400E', border: '1px solid #FDE68A', padding: '7px 10px', borderRadius: 999, fontSize: 12 }}><Star size={12} fill="#F59E0B" style={{ display: 'inline', marginRight: 5 }} />{widget.title}</span>)}</div></section>}
       </main>
       <WidgetPicker open={picker} definitions={definitions} onClose={() => setPicker(false)} onAdd={addWidget} />
     </div>
