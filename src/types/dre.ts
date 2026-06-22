@@ -50,3 +50,49 @@ export interface DreComparison {
   current: DreStatement;
   previous: DreStatement;
 }
+
+export interface FinancialGoal {
+  id: number | null;
+  unit_id?: number | null;
+  unit_name?: string | null;
+  year: number;
+  month: number;
+  sales_target: number;
+  profit_target: number;
+  cmv_target: number;
+  royalty_target: number;
+}
+
+export interface DreGoalAnalysis {
+  goal: FinancialGoal;
+  actual: { sales: number; profit: number; cmv: number; royalty: number };
+  achievement: { sales: number; profit: number; cmv: number; royalty: number };
+}
+
+export interface DreHistoryPoint {
+  period: string;
+  label: string;
+  revenue: number;
+  cmv: number;
+  profit: number;
+  margin: number;
+}
+
+export interface DreProjection {
+  period: string;
+  elapsed_days: number;
+  total_days: number;
+  actual: DreSummary;
+  projected: Pick<DreSummary, 'gross_revenue' | 'net_revenue' | 'cmv' | 'net_profit' | 'margin'>;
+}
+
+export interface DreRankingRow {
+  position: number;
+  unit_id: number;
+  unit_name: string;
+  revenue: number;
+  cmv: number;
+  expenses: number;
+  profit: number;
+  margin: number;
+}

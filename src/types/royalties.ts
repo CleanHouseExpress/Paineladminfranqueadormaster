@@ -79,6 +79,32 @@ export interface RoyaltyMetrics {
   extraFeesMonth: number;
 }
 
+export type FinancialPeriodStatus = 'open' | 'closing' | 'closed' | 'reopened';
+
+export interface RoyaltyPeriodSnapshot {
+  id: number;
+  unit_id: number;
+  unit_name?: string | null;
+  base_amount: number;
+  royalty_amount: number;
+  status: string;
+  generated_at?: string | null;
+}
+
+export interface FinancialPeriod {
+  id: number;
+  year: number;
+  month: number;
+  reference: string;
+  status: FinancialPeriodStatus;
+  opened_at?: string | null;
+  closed_at?: string | null;
+  closed_by?: number | null;
+  closed_by_name?: string | null;
+  notes?: string | null;
+  snapshots: RoyaltyPeriodSnapshot[];
+}
+
 export const ROYALTY_PERMISSIONS = {
   view: 'tenant.royalties.view',
   create: 'tenant.royalties.create',
@@ -86,6 +112,7 @@ export const ROYALTY_PERMISSIONS = {
   approve: 'tenant.royalties.approve',
   markPaid: 'tenant.royalties.mark_paid',
   configure: 'tenant.royalties.configure',
+  close: 'tenant.royalties.close',
 } as const;
 
 export const ROYALTY_BASES: Record<RoyaltyCalculationBase, string> = {

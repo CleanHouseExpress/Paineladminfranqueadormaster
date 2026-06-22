@@ -2,6 +2,7 @@ import { apiClient } from './apiClient';
 import type {
   RoyaltyAssignment, RoyaltyAssignmentPayload, RoyaltyCalculation, RoyaltyMetrics,
   RoyaltyRule, RoyaltyRulePayload,
+  FinancialPeriod,
 } from '../types/royalties';
 
 interface ApiList<T> {
@@ -128,4 +129,10 @@ export const royaltyService = {
     })).data),
   cancel: async (id: string) =>
     mapCalculation((await apiClient.post<ApiItem<ApiCalculation>>(`/api/company/royalties/${id}/cancel`)).data),
+  listPeriods: async () =>
+    (await apiClient.get<ApiItem<FinancialPeriod[]>>('/api/company/royalties/periods')).data,
+  closePeriod: async (payload: { year: number; month: number; notes?: string }) =>
+    (await apiClient.post<ApiItem<FinancialPeriod>>('/api/company/royalties/close-period', payload)).data,
+  reopenPeriod: async (id: number, notes?: string) =>
+    (await apiClient.post<ApiItem<FinancialPeriod>>(`/api/company/financial/periods/${id}/reopen`, { notes })).data,
 };

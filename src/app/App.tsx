@@ -35,6 +35,10 @@ const CashFlowPage = lazyPage(() => import('./components/CashFlow'), 'CashFlow')
 const DREPage = lazyPage(() => import('./components/DRE'), 'DRE');
 const CMVPage = lazyPage(() => import('./components/CMV'), 'CMV');
 const RoyaltiesPage = lazyPage(() => import('./components/Royalties'), 'Royalties');
+const DreGoalsPage = lazyPage(() => import('./components/financial/FinancialGovernancePages'), 'DreGoalsPage');
+const DreHistoryPage = lazyPage(() => import('./components/financial/FinancialGovernancePages'), 'DreHistoryPage');
+const DreProjectionPage = lazyPage(() => import('./components/financial/FinancialGovernancePages'), 'DreProjectionPage');
+const RoyaltyPeriodsPage = lazyPage(() => import('./components/financial/FinancialGovernancePages'), 'RoyaltyPeriodsPage');
 
 const ChecklistsDashboardPage = lazyPage(() => import('../modules/checklists'), 'ChecklistsDashboardPage');
 const ChecklistTemplatesPage = lazyPage(() => import('../modules/checklists'), 'ChecklistTemplatesPage');
@@ -94,6 +98,10 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   dre: DREPage,
   cmv: CMVPage,
   royalties: RoyaltiesPage,
+  'dre-goals': DreGoalsPage,
+  'dre-history': DreHistoryPage,
+  'dre-projection': DreProjectionPage,
+  'royalty-periods': RoyaltyPeriodsPage,
   operations: () => <PlaceholderPage title="Operacao" description="Checklists, pendencias e diario de bordo para gestao operacional da rede." />,
   checklists: ChecklistsDashboardPage,
   'checklist-templates': ChecklistTemplatesPage,
