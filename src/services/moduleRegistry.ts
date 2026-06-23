@@ -60,6 +60,33 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     ],
     marketplace: { show: true, category: 'Clientes e CRM', price: 'Incluso' },
   },
+  {
+    id: 'crm', name: 'CRM', description: 'Pipeline comercial, leads e atividades.', icon: 'ContactRound', status: 'active',
+    nav: { show: true, order: 2.5, group: 'main', children: [
+      { label: 'Visao geral', path: '/crm' }, { label: 'Kanban', path: '/crm/kanban' },
+      { label: 'Leads', path: '/crm/leads' }, { label: 'Pipelines', path: '/crm/pipelines' },
+    ] },
+    routes: [
+      { path: '/crm', componentId: 'crm-dashboard', requiredPermissions: ['tenant.crm.view'] },
+      { path: '/crm/kanban', componentId: 'crm-kanban', requiredPermissions: ['tenant.crm.view'] },
+      { path: '/crm/leads', componentId: 'crm-leads', requiredPermissions: ['tenant.crm.view'] },
+      { path: '/crm/leads/new', componentId: 'crm-lead-form', requiredPermissions: ['tenant.crm.create'] },
+      { path: '/crm/leads/:id/edit', componentId: 'crm-lead-form', requiredPermissions: ['tenant.crm.update'] },
+      { path: '/crm/leads/:id', componentId: 'crm-lead-detail', requiredPermissions: ['tenant.crm.view'] },
+      { path: '/crm/pipelines', componentId: 'crm-pipelines', requiredPermissions: ['tenant.crm.manage_pipeline'] },
+      { path: '/crm/settings', componentId: 'crm-settings', requiredPermissions: ['tenant.crm.configure'] },
+    ],
+  },
+  {
+    id: 'catalog', name: 'Catalogo', description: 'Produtos e servicos comercializados.', icon: 'BookOpenCheck', status: 'active',
+    nav: { show: true, order: 2.75, group: 'main' },
+    routes: [
+      { path: '/catalog', componentId: 'catalog-list', requiredPermissions: ['tenant.catalog.view'] },
+      { path: '/catalog/new', componentId: 'catalog-form', requiredPermissions: ['tenant.catalog.create'] },
+      { path: '/catalog/:id/edit', componentId: 'catalog-form', requiredPermissions: ['tenant.catalog.update'] },
+      { path: '/catalog/:id', componentId: 'catalog-detail', requiredPermissions: ['tenant.catalog.view'] },
+    ],
+  },
 
   // ─── Financeiro ───────────────────────────────────────────────────────────────
 
@@ -318,7 +345,6 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     marketplace: { show: true, category: 'Relatórios', price: 'R$ 97/mês' },
     price: 'R$ 97/mês',
   },
-
   // ─── Integrações ──────────────────────────────────────────────────────────────
 
   {
@@ -415,10 +441,10 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
       ],
     },
     routes: [
-      { path: '/noc', componentId: 'noc-dashboard', requiredPermissions: ['tenant.noc.view'] },
-      { path: '/noc/alerts', componentId: 'noc-alerts', requiredPermissions: ['tenant.noc.view'] },
-      { path: '/noc/units', componentId: 'noc-units', requiredPermissions: ['tenant.noc.view'] },
-      { path: '/noc/unit/:id', componentId: 'noc-unit-detail', requiredPermissions: ['tenant.noc.view'] },
+      { path: '/noc', componentId: 'noc-dashboard', moduleId: 'noc', requiredPermissions: ['tenant.noc.view'] },
+      { path: '/noc/alerts', componentId: 'noc-alerts', moduleId: 'noc', requiredPermissions: ['tenant.noc.view'] },
+      { path: '/noc/units', componentId: 'noc-units', moduleId: 'noc', requiredPermissions: ['tenant.noc.view'] },
+      { path: '/noc/unit/:id', componentId: 'noc-unit-detail', moduleId: 'noc', requiredPermissions: ['tenant.noc.view'] },
     ],
   },
 
@@ -523,7 +549,7 @@ export const ALL_ROUTES = MODULE_REGISTRY
   .filter(m => m.routes?.length)
   .flatMap(m => m.routes!.map(route => ({
     ...route,
-    moduleId: m.id,
+    moduleId: route.moduleId ?? m.id,
     requiredPermissions: route.requiredPermissions ?? m.requiredPermissions,
   })));
 
@@ -559,13 +585,14 @@ export function resolveBreadcrumb(pathname: string): Array<{ label: string; path
 
 /** Look up a module by id */
 export function getModule(id: string): ModuleDefinition | undefined {
-  return MODULE_REGISTRY.find(m => m.id === id);
+  return MODULE_REGISTRY.find(m => m.id === (LEGACY_MODULE_ID_ALIASES[id] ?? id));
 }
 
 const LEGACY_MODULE_ID_ALIASES: Record<string, string> = {
   automacoes: 'automations',
   relatorios: 'reports',
   integracoes: 'integrations',
+  noc: 'network_operations_center',
 };
 
 /** Look up a module by current id, accepting old front-end ids used by early mocks */

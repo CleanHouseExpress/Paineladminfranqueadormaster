@@ -1,0 +1,132 @@
+name: E2E Playwright
+
+on:
+  workflow_dispatch:
+    inputs:
+      backend_repository:
+        description: Backend repository in owner/name format
+        required: true
+        default: owner/orchestra-api
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: orchestra
+          POSTGRES_USER: orchestra
+          POSTGRES_PASSWORD: orchestra
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout frontend
+        uses: actions/checkout@v4
+        with:
+          path: frontend
+
+      - name: Checkout backend
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.backend_repository }}
+          path: backend
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_pgsql, pgsql
+          coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Configure backend environment
+        working-directory: backend
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          php artisan config:clear
+        env:
+          APP_ENV: local
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: orchestra
+          DB_USERNAME: orchestra
+          DB_PASSWORD: orchestra
+
+      - name: Prepare backend database
+        working-directory: backend
+        run: |
+          php artisan migrate --force
+          php artisan tenants:migrate --seed
+          php artisan e2e:seed
+        env:
+          APP_ENV: local
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: orchestra
+          DB_USERNAME: orchestra
+          DB_PASSWORD: orchestra
+
+      - name: Run backend
+        working-directory: backend
+        run: php artisan serve --host=0.0.0.0 --port=8000 &
+        env:
+          APP_ENV: local
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: orchestra
+          DB_USERNAME: orchestra
+          DB_PASSWORD: orchestra
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Install Playwright browser
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run frontend
+        working-directory: frontend
+        run: npm run dev -- --host 0.0.0.0 --port 5174 &
+
+      - name: Run E2E suite
+        working-directory: frontend
+        run: npm run test:e2e
+        env:
+          E2E_FRONT_URL: http://127.0.0.1:5174
+          E2E_API_URL: http://127.0.0.1:8000
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            frontend/playwright-report
+            frontend/test-results

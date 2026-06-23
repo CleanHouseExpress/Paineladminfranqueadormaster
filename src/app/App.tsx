@@ -39,6 +39,13 @@ const DreGoalsPage = lazyPage(() => import('./components/financial/FinancialGove
 const DreHistoryPage = lazyPage(() => import('./components/financial/FinancialGovernancePages'), 'DreHistoryPage');
 const DreProjectionPage = lazyPage(() => import('./components/financial/FinancialGovernancePages'), 'DreProjectionPage');
 const RoyaltyPeriodsPage = lazyPage(() => import('./components/financial/FinancialGovernancePages'), 'RoyaltyPeriodsPage');
+const CrmDashboardPage = lazyPage(() => import('../modules/crm'), 'CrmDashboardPage');
+const CrmKanbanPage = lazyPage(() => import('../modules/crm'), 'CrmKanbanPage');
+const CrmLeadsPage = lazyPage(() => import('../modules/crm'), 'CrmLeadsPage');
+const CrmLeadFormPage = lazyPage(() => import('../modules/crm'), 'CrmLeadFormPage');
+const CrmLeadDetailPage = lazyPage(() => import('../modules/crm'), 'CrmLeadDetailPage');
+const CrmPipelinesPage = lazyPage(() => import('../modules/crm'), 'CrmPipelinesPage');
+const CrmSettingsPage = lazyPage(() => import('../modules/crm'), 'CrmSettingsPage');
 const InventoryDashboardPage = lazyPage(() => import('../modules/inventory'), 'InventoryDashboard');
 const InventoryItemsPage = lazyPage(() => import('../modules/inventory'), 'InventoryItems');
 const InventoryItemFormPage = lazyPage(() => import('../modules/inventory'), 'InventoryItemForm');
@@ -55,6 +62,9 @@ const AnalyticsDashboardPage = lazyPage(() => import('./components/analytics/Ana
 const AnalyticsTemplatesPage = lazyPage(() => import('./components/analytics/AnalyticsTemplates'), 'AnalyticsTemplatesPage');
 const AnalyticsTemplateDetailPage = lazyPage(() => import('./components/analytics/AnalyticsTemplates'), 'AnalyticsTemplateDetailPage');
 const AnalyticsCatalogPage = lazyPage(() => import('./components/analytics/AnalyticsTemplates'), 'AnalyticsCatalogPage');
+const CatalogListPage = lazyPage(() => import('../modules/catalog'), 'CatalogListPage');
+const CatalogFormPage = lazyPage(() => import('../modules/catalog'), 'CatalogFormPage');
+const CatalogDetailPage = lazyPage(() => import('../modules/catalog'), 'CatalogDetailPage');
 
 const ChecklistsDashboardPage = lazyPage(() => import('../modules/checklists'), 'ChecklistsDashboardPage');
 const ChecklistTemplatesPage = lazyPage(() => import('../modules/checklists'), 'ChecklistTemplatesPage');
@@ -118,6 +128,13 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   'dre-history': DreHistoryPage,
   'dre-projection': DreProjectionPage,
   'royalty-periods': RoyaltyPeriodsPage,
+  'crm-dashboard': CrmDashboardPage,
+  'crm-kanban': CrmKanbanPage,
+  'crm-leads': CrmLeadsPage,
+  'crm-lead-form': CrmLeadFormPage,
+  'crm-lead-detail': CrmLeadDetailPage,
+  'crm-pipelines': CrmPipelinesPage,
+  'crm-settings': CrmSettingsPage,
   'inventory-dashboard': InventoryDashboardPage,
   'inventory-items': InventoryItemsPage,
   'inventory-item-form': InventoryItemFormPage,
@@ -134,6 +151,10 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   'analytics-templates': AnalyticsTemplatesPage,
   'analytics-template-detail': AnalyticsTemplateDetailPage,
   'analytics-catalog': AnalyticsCatalogPage,
+  'catalog-list': CatalogListPage,
+  'catalog-form': CatalogFormPage,
+  'catalog-detail': CatalogDetailPage,
+  analytics: AnalyticsDashboardPage,
   operations: () => <PlaceholderPage title="Operacao" description="Checklists, pendencias e diario de bordo para gestao operacional da rede." />,
   checklists: ChecklistsDashboardPage,
   'checklist-templates': ChecklistTemplatesPage,

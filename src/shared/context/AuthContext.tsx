@@ -57,12 +57,15 @@ function writeStoredToken(token: string | null) {
 
 function unwrap<T>(payload: unknown): T {
   if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
-    const candidate = payload as { data?: unknown; result?: unknown };
+    const candidate = payload as { data?: unknown; result?: unknown; value?: unknown };
     if ('data' in candidate && candidate.data !== undefined) {
       return candidate.data as T;
     }
     if ('result' in candidate && candidate.result !== undefined) {
       return candidate.result as T;
+    }
+    if ('value' in candidate && Array.isArray(candidate.value)) {
+      return candidate.value as T;
     }
   }
 

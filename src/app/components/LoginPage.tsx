@@ -89,6 +89,7 @@ export function LoginPage() {
           <div>
             <label className="block mb-1.5" style={{ color: '#374151', fontSize: '13px', fontWeight: 500 }}>E-mail</label>
             <input
+              data-testid="login-email"
               required
               type="email"
               value={email}
@@ -100,6 +101,7 @@ export function LoginPage() {
           <div>
             <label className="block mb-1.5" style={{ color: '#374151', fontSize: '13px', fontWeight: 500 }}>Senha</label>
             <input
+              data-testid="login-password"
               required
               type="password"
               value={password}
@@ -117,6 +119,7 @@ export function LoginPage() {
         )}
 
         <button
+          data-testid="login-submit"
           type="submit"
           disabled={isLoading}
           className="mt-5 w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white transition-opacity hover:opacity-90 disabled:opacity-60"

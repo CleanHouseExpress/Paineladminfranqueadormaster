@@ -158,7 +158,7 @@ export function Dashboard() {
         </div>
         <div className="flex items-end justify-between">
           <div>
-            <h1 style={{ color: "#0F172A" }}>Painel Executivo</h1>
+            <h1 data-testid="dashboard-title" style={{ color: "#0F172A" }}>Painel Executivo</h1>
             <p style={{ fontSize: "13px", color: "#64748B", marginTop: "2px" }}>Janeiro 2024 · Última atualização há 5 minutos</p>
           </div>
           <div className="flex gap-2">

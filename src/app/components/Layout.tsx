@@ -53,6 +53,7 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
       return (
         <div key={mod.id}>
           <button
+            data-testid={`sidebar-${mod.id}`}
             onClick={() => toggleExpand(mod.id)}
             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg mb-0.5 transition-colors"
             style={baseStyle}
@@ -78,6 +79,7 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
                 const childActive = location.pathname === child.path;
                 return (
                   <Link
+                    data-testid={`sidebar-${mod.id}-${child.path.split('/').filter(Boolean).pop() ?? 'index'}`}
                     key={child.path}
                     to={child.path}
                     className="flex items-center justify-between px-3 py-1.5 rounded-md mb-0.5 transition-colors"
@@ -107,6 +109,7 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
 
     return (
       <Link
+        data-testid={`sidebar-${mod.id}`}
         key={mod.id}
         to={primaryPath}
         className="flex items-center gap-2.5 px-3 py-2 rounded-lg mb-0.5 transition-colors"
@@ -126,7 +129,7 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
   }
 
   return (
-    <nav className="flex-1 overflow-y-auto py-3 px-2" data-tour="sidebar-nav">
+    <nav className="flex-1 overflow-y-auto py-3 px-2" data-tour="sidebar-nav" data-testid="main-sidebar">
       {mainModules.map(mod => (
         <div key={mod.id} data-tour={`nav-${mod.id}`}>{renderItem(mod)}</div>
       ))}
@@ -193,6 +196,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </div>
           )}
           <button
+            data-testid="logout-button"
             type="button"
             disabled={loggingOut}
             onClick={async () => {
