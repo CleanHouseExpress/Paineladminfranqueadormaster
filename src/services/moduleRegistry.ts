@@ -198,6 +198,33 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   // ─── Operação ─────────────────────────────────────────────────────────────────
 
   {
+    id: 'loyalty',
+    name: 'Fidelidade',
+    description: 'Cashback, regras de concessao, carteiras de clientes e indicadores de passivo.',
+    icon: 'Gift',
+    status: 'active',
+    nav: {
+      show: true,
+      order: 6.5,
+      group: 'main',
+      children: [
+        { label: 'Dashboard', path: '/loyalty/cashback' },
+        { label: 'Regras', path: '/loyalty/cashback/rules' },
+        { label: 'Carteiras', path: '/loyalty/cashback/wallets' },
+        { label: 'Configuracoes', path: '/loyalty/cashback/settings' },
+      ],
+    },
+    routes: [
+      { path: '/loyalty', componentId: 'loyalty-dashboard', moduleId: 'loyalty', requiredPermissions: ['tenant.loyalty.view'] },
+      { path: '/loyalty/cashback', componentId: 'loyalty-dashboard', moduleId: 'loyalty', requiredPermissions: ['tenant.loyalty.view'] },
+      { path: '/loyalty/cashback/rules', componentId: 'loyalty-rules', moduleId: 'loyalty', requiredPermissions: ['tenant.loyalty.rules.view'] },
+      { path: '/loyalty/cashback/wallets', componentId: 'loyalty-wallets', moduleId: 'loyalty', requiredPermissions: ['tenant.loyalty.wallets.view'] },
+      { path: '/loyalty/cashback/wallets/:customerId', componentId: 'loyalty-wallet-detail', moduleId: 'loyalty', requiredPermissions: ['tenant.loyalty.wallets.view'] },
+      { path: '/loyalty/cashback/settings', componentId: 'loyalty-settings', moduleId: 'loyalty', requiredPermissions: ['tenant.loyalty.configure'] },
+    ],
+    marketplace: { show: true, category: 'Comercial', price: 'Incluso' },
+  },
+  {
     id: 'inventory',
     name: 'Estoque & Suprimentos',
     description: 'Estoque configurável, movimentações, transferências e inventário físico.',

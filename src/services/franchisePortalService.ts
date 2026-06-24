@@ -1,4 +1,5 @@
 import { apiClient, apiClientConfig, AUTH_TOKEN_STORAGE_KEY } from './apiClient';
+import { franchiseCashbackService } from './loyaltyService';
 import type { FranchiseDashboardData, FranchisePortalContextData, FranchiseUnit } from '../types/franchisePortal';
 
 interface ApiList<T> { data: T[]; meta: { total: number } }
@@ -39,6 +40,9 @@ export const franchisePortalService = {
   documents: () => apiClient.get<ApiList<Record<string, unknown>>>('/api/franchise/documents?per_page=100'),
   contracts: () => apiClient.get<ApiList<Record<string, unknown>>>('/api/franchise/contracts?per_page=100'),
   tasks: () => apiClient.get<ApiList<Record<string, unknown>>>('/api/franchise/tasks?per_page=100'),
+  cashbackSummary: franchiseCashbackService.summary,
+  cashbackWallets: franchiseCashbackService.wallets,
+  cashbackWallet: franchiseCashbackService.wallet,
   updateTaskStatus: (id: string | number, status: 'open' | 'in_progress' | 'completed') =>
     apiClient.patch<DataResponse<Record<string, unknown>>>(`/api/franchise/tasks/${id}/status`, { status }),
   async downloadDocument(id: string | number, fileName: string) {

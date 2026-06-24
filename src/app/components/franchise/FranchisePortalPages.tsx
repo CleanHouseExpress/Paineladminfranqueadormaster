@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 import {
-  AlertCircle, CheckCircle2, Clock3, Download, Lock, Receipt, TrendingDown,
+  AlertCircle, CheckCircle2, Clock3, Download, Gift, Lock, Receipt, TrendingDown,
   TrendingUp, WalletCards,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -86,6 +86,23 @@ export function FranchiseSales() {
   return <State result={result}>{response => <Shell title="Vendas" description="Pedidos e vendas registrados para sua unidade."><Table headers={['Número', 'Data', 'Cliente', 'Status', 'Pagamento', 'Total']} rows={response.data.map(row => [String(row.number ?? '—'), String(row.sale_date ?? '—'), String(row.customer_name ?? '—'), String(row.status ?? '—'), String(row.payment_status ?? '—'), <strong>{money(row.total)}</strong>])} /></Shell>}</State>;
 }
 
+export function FranchiseCashback() {
+  const summary = useLoad(franchisePortalService.cashbackSummary);
+  const wallets = useLoad(franchisePortalService.cashbackWallets);
+  if (summary.loading || wallets.loading) return <ModuleStateView state="loading" />;
+  if (!summary.data || !wallets.data) return <ModuleStateView state="error" errorMessage={summary.error || wallets.error} />;
+  return <Shell title="Cashback" description="Indicadores e carteiras de clientes vinculados a sua unidade.">
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 16 }} data-testid="franchise-cashback-summary">
+      {[
+        ['Disponivel', summary.data.availableTotal],
+        ['Pendente', summary.data.pendingTotal],
+        ['Resgatado', summary.data.redeemedTotal],
+        ['Passivo', summary.data.liabilityTotal],
+      ].map(([label, value]) => <div key={String(label)} style={{ ...card, padding: 15 }}><Gift size={16} color="#EC4899" /><strong style={{ display: 'block', marginTop: 8 }}>{money(value)}</strong><span style={{ color: '#64748B', fontSize: 11 }}>{label}</span></div>)}
+    </div>
+    <Table headers={['Cliente', 'Disponivel', 'Pendente', 'Expirado', 'Resgatado']} rows={wallets.data.map(wallet => [wallet.customerName, money(wallet.availableBalance), money(wallet.pendingBalance), money(wallet.expiredBalance), money(wallet.redeemedTotal)])} />
+  </Shell>;
+}
 export function FranchiseFinancial() {
   const transactions = useLoad(franchisePortalService.transactions);
   const metrics = useLoad(franchisePortalService.financialMetrics);
@@ -170,6 +187,7 @@ export function FranchisePortalRoutes() {
     <Route index element={<Navigate to="/franchise/dashboard" replace />} />
     <Route path="dashboard" element={<FranchiseDashboard />} />
     <Route path="sales" element={<FranchiseSales />} />
+    <Route path="cashback" element={<FranchiseCashback />} />
     <Route path="financial" element={<FranchiseFinancial />} />
     <Route path="dre" element={<FranchiseDre />} />
     <Route path="royalties" element={<FranchiseRoyalties />} />

@@ -27,6 +27,8 @@ export interface SalesOrder {
   subtotal: number;
   discountTotal: number;
   total: number;
+  cashbackEarnedAmount: number;
+  cashbackRedeemedAmount: number;
   financialTransactionId?: string | null;
   notes?: string | null;
   items: SalesOrderItem[];

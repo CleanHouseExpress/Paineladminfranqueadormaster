@@ -30,6 +30,8 @@ function mapOrder(order: ApiOrder): SalesOrder {
     subtotal: Number(order.subtotal),
     discountTotal: Number(order.discount_total),
     total: Number(order.total),
+    cashbackEarnedAmount: Number(order.cashback_earned_amount ?? 0),
+    cashbackRedeemedAmount: Number(order.cashback_redeemed_amount ?? 0),
     financialTransactionId: order.financial_transaction_id ? String(order.financial_transaction_id) : null,
     notes: order.notes,
     items: (order.items ?? []).map((item: ApiOrder) => ({

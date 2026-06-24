@@ -11,6 +11,9 @@ export default defineConfig({
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: process.env.E2E_FRONT_URL ?? 'http://orchestra-e2e.localhost:5174',
+    launchOptions: {
+      args: ['--host-resolver-rules=MAP orchestra-e2e.localhost 127.0.0.1'],
+    },
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
     video: 'retain-on-failure',

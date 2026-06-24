@@ -25,3 +25,9 @@ export type {
   SalesOrderItem, SalesOrderPayload, SalesOrderStatus, SalesPaymentStatus,
 } from './sales';
 export { SALES_ORDER_STATUS_CONFIG, SALES_PAYMENT_STATUS_CONFIG, SALES_PERMISSIONS } from './sales';
+export type {
+  CashbackAdjustmentPayload, CashbackCalculationBase, CashbackMetrics, CashbackRedeemPayload,
+  CashbackRule, CashbackRulePayload, CashbackRuleType, CashbackSettings,
+  CashbackTransaction, CashbackTransactionStatus, CashbackTransactionType, CashbackWallet,
+} from './loyalty';
+export { LOYALTY_PERMISSIONS } from './loyalty';

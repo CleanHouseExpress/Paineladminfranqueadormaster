@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import {
   BarChart3, BookOpen, Boxes, CheckSquare, DollarSign, FileText, GraduationCap,
-  ListTodo, LogOut, Menu, Receipt, ShoppingCart, TrendingDown, X,
+  Gift, ListTodo, LogOut, Menu, Receipt, ShoppingCart, TrendingDown, X,
 } from 'lucide-react';
 import { useAuth } from '../../../shared/context/AuthContext';
 import { useFranchisePortal } from '../../../shared/context/FranchisePortalContext';
@@ -11,6 +11,7 @@ import { ModuleStateView } from '../../../shared/components/ModuleStateView';
 const items = [
   ['/franchise/dashboard', 'Dashboard', BarChart3, 'tenant.franchise_portal.dashboard'],
   ['/franchise/sales', 'Vendas', ShoppingCart, 'tenant.franchise_portal.sales.view'],
+  ['/franchise/cashback', 'Cashback', Gift, 'tenant.franchise_portal.cashback.view'],
   ['/franchise/financial', 'Financeiro', DollarSign, 'tenant.franchise_portal.financial.view'],
   ['/franchise/dre', 'DRE', TrendingDown, 'tenant.franchise_portal.dre.view'],
   ['/franchise/royalties', 'Royalties', Receipt, 'tenant.franchise_portal.royalties.view'],
