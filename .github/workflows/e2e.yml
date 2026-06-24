@@ -7,6 +7,14 @@ on:
         description: Backend repository in owner/name format
         required: true
         default: owner/orchestra-api
+      suite:
+        description: E2E suite to run
+        required: true
+        type: choice
+        default: smoke
+        options:
+          - smoke
+          - full
 
 jobs:
   e2e:
@@ -117,7 +125,12 @@ jobs:
 
       - name: Run E2E suite
         working-directory: frontend
-        run: npm run test:e2e
+        run: |
+          if [ "${{ inputs.suite }}" = "full" ]; then
+            npm run test:e2e:full
+          else
+            npm run test:e2e
+          fi
         env:
           E2E_FRONT_URL: http://127.0.0.1:5174
           E2E_API_URL: http://127.0.0.1:8000

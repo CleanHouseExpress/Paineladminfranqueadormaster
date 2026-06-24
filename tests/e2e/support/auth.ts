@@ -40,8 +40,14 @@ export async function disableOnboarding(page: Page) {
 export async function login(page: Page, credentials: { email: string; password: string }) {
   await disableOnboarding(page);
   await page.goto('/login');
+  await page.evaluate(() => {
+    window.localStorage.removeItem('orchestra_auth_token');
+    window.sessionStorage.clear();
+  });
+  await page.reload();
   await page.getByTestId(ids.loginEmail).fill(credentials.email);
   await page.getByTestId(ids.loginPassword).fill(credentials.password);
+  await expect(page.getByTestId(ids.loginSubmit)).toBeEnabled();
   await page.getByTestId(ids.loginSubmit).click();
   await expect(page).not.toHaveURL(/\/login$/);
   await page.waitForFunction(() => Boolean(window.localStorage.getItem('orchestra_auth_token')));

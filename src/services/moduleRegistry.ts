@@ -24,7 +24,10 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     icon: 'LayoutDashboard',
     status: 'active',
     nav: { show: true, order: 0, group: 'main' },
-    routes: [{ path: '/', componentId: 'dashboard' }],
+    routes: [
+      { path: '/', componentId: 'dashboard' },
+      { path: '/dashboard', componentId: 'dashboard' },
+    ],
   },
 
   // ─── Gestão da Rede ───────────────────────────────────────────────────────────
@@ -118,11 +121,13 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
       { path: '/financial/transactions', componentId: 'financial-transactions', moduleId: 'financial', requiredPermissions: ['tenant.finance.view'] },
       { path: '/financial/accounts', componentId: 'financial-accounts', moduleId: 'financial', requiredPermissions: ['tenant.financial.accounts.view'] },
       { path: '/financial/cashflow', componentId: 'cashflow', requiredPermissions: ['tenant.finance.view'] },
+      { path: '/dre', componentId: 'dre', moduleId: 'financial', requiredPermissions: ['tenant.finance.view'] },
       { path: '/financial/dre', componentId: 'dre', requiredPermissions: ['tenant.finance.view'] },
       { path: '/dre/goals', componentId: 'dre-goals', moduleId: 'financial', requiredPermissions: ['tenant.dre.view'] },
       { path: '/dre/history', componentId: 'dre-history', moduleId: 'financial', requiredPermissions: ['tenant.dre.view'] },
       { path: '/dre/projection', componentId: 'dre-projection', moduleId: 'financial', requiredPermissions: ['tenant.dre.view'] },
       { path: '/financial/royalties', componentId: 'royalties', requiredPermissions: ['tenant.finance.view'] },
+      { path: '/royalties', componentId: 'royalties', moduleId: 'financial', requiredPermissions: ['tenant.finance.view'] },
       { path: '/royalties/periods', componentId: 'royalty-periods', moduleId: 'royalties', requiredPermissions: ['tenant.royalties.view'] },
     ],
     marketplace: { show: true, category: 'Financeiro', price: 'Incluso' },

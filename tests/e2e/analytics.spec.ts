@@ -1,7 +1,7 @@
 import { test, expect } from './support/fixtures';
 import { unique } from './support/test-data';
 
-test('widget de Analytics e criado, renderizado e salvo no dashboard', async ({ masterPage: page }) => {
+test('@smoke widget de Analytics e criado, renderizado e salvo no dashboard', async ({ masterPage: page }) => {
   const title = unique('Widget E2E');
   await page.goto('/analytics');
   await expect(page.getByRole('heading', { name: /Analytics/i })).toBeVisible();

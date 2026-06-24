@@ -1,7 +1,7 @@
 import { test, expect } from './support/fixtures';
 import { unique } from './support/test-data';
 
-test('lead vira cliente, venda confirmada e receita recebida', async ({ masterPage: page }) => {
+test('@smoke lead vira cliente, venda confirmada e receita recebida', async ({ masterPage: page }) => {
   const lead = unique('Lead E2E');
   await page.goto('/crm/leads/new');
   await expect(page.getByRole('heading', { name: /Novo lead/i })).toBeVisible();

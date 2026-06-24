@@ -1,6 +1,6 @@
 import { test, expect } from './support/fixtures';
 
-test('entrada, checklist e baixa de estoque atualizam o CMV sem duplicidade', async ({ masterPage: page }) => {
+test('@smoke entrada, checklist e baixa de estoque atualizam o CMV sem duplicidade', async ({ masterPage: page }) => {
   await page.goto('/inventory/movements?new=1');
   await expect(page.getByRole('heading', { name: /Movimenta/i })).toBeVisible();
   await expect(page.getByText(/Nova Movimenta/i).last()).toBeVisible();
