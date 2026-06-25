@@ -20,6 +20,7 @@ const conversationsPayload = {
       customer_phone: '+55 11 99999-0000',
       channel: 'whatsapp',
       status: 'open',
+      service_mode: 'human',
       handoff_status: 'none',
       assignment_status: 'assigned',
       assigned_to_name: 'Marina',
@@ -113,7 +114,10 @@ async function mockAuth(page: Page) {
   }));
 }
 
-async function mockInbox(page: Page, options: { empty?: boolean; error?: boolean; closed?: boolean; failSend?: boolean } = {}) {
+async function mockInbox(
+  page: Page,
+  options: { empty?: boolean; error?: boolean; closed?: boolean; failSend?: boolean; failReturnToAi?: boolean } = {},
+) {
   const calls = {
     summary: 0,
     conversations: 0,
@@ -124,6 +128,7 @@ async function mockInbox(page: Page, options: { empty?: boolean; error?: boolean
     reopen: 0,
     handoff: 0,
     sendMessage: 0,
+    returnToAi: 0,
   };
   let currentConversation = {
     ...conversationsPayload.data[0],
@@ -178,7 +183,31 @@ async function mockInbox(page: Page, options: { empty?: boolean; error?: boolean
 
     if (path.endsWith('/conversations/c-1/reopen') && method === 'POST') {
       calls.reopen += 1;
-      currentConversation = { ...currentConversation, status: 'open' };
+      currentConversation = { ...currentConversation, status: 'open', service_mode: 'human' };
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: currentConversation }),
+      });
+    }
+
+    if (path.endsWith('/conversations/c-1/return-to-ai') && method === 'POST') {
+      calls.returnToAi += 1;
+      if (options.failReturnToAi) {
+        return route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({ message: 'return unavailable' }),
+        });
+      }
+
+      currentConversation = {
+        ...currentConversation,
+        service_mode: 'ai',
+        handoff_status: 'none',
+        assignment_status: 'unassigned',
+        assigned_to_name: null,
+      };
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -298,6 +327,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
 
     await expect(page.getByTestId('communication-action-assign')).toBeVisible();
     await expect(page.getByTestId('communication-action-handoff')).toBeVisible();
+    await expect(page.getByTestId('communication-action-return-ai')).toBeVisible();
     await expect(page.getByTestId('communication-action-close')).toBeVisible();
   });
 
@@ -323,7 +353,47 @@ test.describe('@smoke @communication Communication Inbox', () => {
 
     await expect.poll(() => calls.handoff).toBe(1);
     await expect.poll(() => calls.summary).toBeGreaterThan(1);
-    await expect(page.getByText('requested')).toBeVisible();
+    await expect(page.getByText('Aguardando humano')).toBeVisible();
+  });
+
+  test('mostra botao Voltar para IA em conversa humana', async ({ page }) => {
+    await mockAuth(page);
+    await mockInbox(page);
+
+    await page.goto('/communication/inbox');
+
+    await expect(page.getByText('Humano')).toBeVisible();
+    await expect(page.getByTestId('communication-action-return-ai')).toBeVisible();
+  });
+
+  test('voltar para IA chama API e atualiza UI', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page);
+    page.on('dialog', dialog => dialog.accept());
+
+    await page.goto('/communication/inbox');
+    await page.getByTestId('communication-action-return-ai').click();
+
+    await expect.poll(() => calls.returnToAi).toBe(1);
+    await expect.poll(() => calls.messages).toBeGreaterThan(1);
+    await expect.poll(() => calls.summary).toBeGreaterThan(1);
+    await expect.poll(() => calls.conversations).toBeGreaterThan(1);
+    await expect(page.getByText('IA')).toBeVisible();
+    await expect(page.getByTestId('communication-composer-ai')).toBeVisible();
+    await expect(page.getByTestId('communication-message-input')).toBeDisabled();
+  });
+
+  test('erro ao voltar para IA exibe mensagem segura', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page, { failReturnToAi: true });
+    page.on('dialog', dialog => dialog.accept());
+
+    await page.goto('/communication/inbox');
+    await page.getByTestId('communication-action-return-ai').click();
+
+    await expect.poll(() => calls.returnToAi).toBe(1);
+    await expect(page.getByTestId('communication-action-error')).toBeVisible();
+    await expect(page.getByTestId('communication-action-return-ai')).toBeVisible();
   });
 
   test('close chama API e exibe reabrir', async ({ page }) => {

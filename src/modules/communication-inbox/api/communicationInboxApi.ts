@@ -118,6 +118,14 @@ export const communicationInboxApi = {
     return normalizeConversationPayload(payload);
   },
 
+  async returnToAi(conversationId: string | number, reason?: string): Promise<CommunicationConversation> {
+    const payload = await apiClient.post<unknown>(
+      `${INBOX_BASE}/conversations/${conversationId}/return-to-ai`,
+      reason ? { reason } : {},
+    );
+    return normalizeConversationPayload(payload);
+  },
+
   async sendMessage(conversationId: string | number, text: string): Promise<CommunicationMessage> {
     const payload = await apiClient.post<unknown>(
       `${INBOX_BASE}/conversations/${conversationId}/messages`,

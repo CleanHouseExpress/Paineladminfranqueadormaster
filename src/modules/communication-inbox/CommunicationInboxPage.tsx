@@ -20,6 +20,7 @@ import {
   useInboxSummary,
   useReopenConversation,
   useRequestHandoff,
+  useReturnToAi,
   useSendMessage,
 } from './hooks';
 
@@ -62,6 +63,20 @@ function SummaryCard({ label, value }: { label: string; value: number }) {
       <p className="mt-2 text-2xl font-semibold text-slate-950">{value}</p>
     </div>
   );
+}
+
+function formatServiceModeLabel(value?: string | null) {
+  const mode = String(value ?? '').toLowerCase();
+  if (mode === 'ai') return 'IA';
+  if (mode === 'human') return 'Humano';
+  return value ?? '';
+}
+
+function formatHandoffStatusLabel(value?: string | null) {
+  const status = String(value ?? '').toLowerCase();
+  if (status === 'requested') return 'Aguardando humano';
+  if (status === 'assigned') return 'Assumido';
+  return value ?? '';
 }
 
 function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
@@ -117,6 +132,16 @@ function ConversationItem({
           <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-medium">
             <span className="rounded bg-slate-100 px-2 py-0.5 text-slate-700">{conversation.channel}</span>
             <span className="rounded bg-blue-50 px-2 py-0.5 text-blue-700">{conversation.status}</span>
+            {conversation.serviceMode && (
+              <span className="rounded bg-violet-50 px-2 py-0.5 text-violet-700">
+                {formatServiceModeLabel(conversation.serviceMode)}
+              </span>
+            )}
+            {conversation.handoffStatus && (
+              <span className="rounded bg-amber-50 px-2 py-0.5 text-amber-700">
+                {formatHandoffStatusLabel(conversation.handoffStatus)}
+              </span>
+            )}
             {conversation.assignmentStatus && (
               <span className="rounded bg-emerald-50 px-2 py-0.5 text-emerald-700">
                 {conversation.assignmentStatus}
@@ -150,6 +175,12 @@ const isAssignedToCurrentUser = (conversation: CommunicationConversation | null)
   return ['assigned_to_me', 'mine', 'me'].includes(status);
 };
 
+const isHumanConversation = (conversation: CommunicationConversation | null) => {
+  const serviceMode = String(conversation?.serviceMode ?? '').toLowerCase();
+  const handoffStatus = String(conversation?.handoffStatus ?? '').toLowerCase();
+  return serviceMode === 'human' || handoffStatus === 'assigned';
+};
+
 export function CommunicationInboxPage() {
   const [filters, setFilters] = useState<ConversationFilters>({
     status: 'all',
@@ -166,6 +197,7 @@ export function CommunicationInboxPage() {
   const assignMutation = useAssignConversation();
   const closeMutation = useCloseConversation();
   const reopenMutation = useReopenConversation();
+  const returnToAiMutation = useReturnToAi();
   const sendMessageMutation = useSendMessage();
   const [actionError, setActionError] = useState<string | null>(null);
   const [messageText, setMessageText] = useState('');
@@ -229,11 +261,12 @@ export function CommunicationInboxPage() {
 
   const runConversationAction = async (
     action: () => Promise<unknown>,
+    refresh: () => Promise<void> = refreshSelectedConversation,
   ) => {
     setActionError(null);
     try {
       await action();
-      await refreshSelectedConversation();
+      await refresh();
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Nao foi possivel executar a acao.');
     }
@@ -243,18 +276,22 @@ export function CommunicationInboxPage() {
     requestHandoffMutation.isLoading ||
     assignMutation.isLoading ||
     closeMutation.isLoading ||
-    reopenMutation.isLoading;
+    reopenMutation.isLoading ||
+    returnToAiMutation.isLoading;
   const conversationClosed = isClosedConversation(selectedConversation);
+  const conversationInHumanMode = isHumanConversation(selectedConversation);
   const canRequestHandoff =
     Boolean(selectedConversationId) && !conversationClosed && !hasRequestedHandoff(selectedConversation);
   const canAssign =
     Boolean(selectedConversationId) && !conversationClosed && !isAssignedToCurrentUser(selectedConversation);
   const canClose = Boolean(selectedConversationId) && !conversationClosed;
   const canReopen = Boolean(selectedConversationId) && conversationClosed;
+  const canReturnToAi = Boolean(selectedConversationId) && !conversationClosed && conversationInHumanMode;
   const trimmedMessageText = messageText.trim();
   const canSendMessage =
     Boolean(selectedConversationId) &&
     !conversationClosed &&
+    conversationInHumanMode &&
     Boolean(trimmedMessageText) &&
     !sendMessageMutation.isLoading;
 
@@ -409,8 +446,15 @@ export function CommunicationInboxPage() {
                     {selectedConversation?.status && (
                       <span className="rounded bg-blue-50 px-2 py-1 text-blue-700">{selectedConversation.status}</span>
                     )}
+                    {selectedConversation?.serviceMode && (
+                      <span className="rounded bg-violet-50 px-2 py-1 text-violet-700">
+                        {formatServiceModeLabel(selectedConversation.serviceMode)}
+                      </span>
+                    )}
                     {selectedConversation?.handoffStatus && (
-                      <span className="rounded bg-amber-50 px-2 py-1 text-amber-700">{selectedConversation.handoffStatus}</span>
+                      <span className="rounded bg-amber-50 px-2 py-1 text-amber-700">
+                        {formatHandoffStatusLabel(selectedConversation.handoffStatus)}
+                      </span>
                     )}
                     {selectedConversation?.assignedToName && (
                       <span className="rounded bg-slate-100 px-2 py-1 text-slate-700">
@@ -455,6 +499,24 @@ export function CommunicationInboxPage() {
                       data-testid="communication-action-close"
                     >
                       {closeMutation.isLoading ? 'Fechando...' : 'Fechar'}
+                    </button>
+                  )}
+                  {canReturnToAi && (
+                    <button
+                      type="button"
+                      disabled={actionInProgress}
+                      onClick={() => {
+                        if (!selectedConversationId) return;
+                        if (!window.confirm('Voltar esta conversa para IA?')) return;
+                        void runConversationAction(
+                          () => returnToAiMutation.mutate(selectedConversationId),
+                          refreshConversationAfterMessage,
+                        );
+                      }}
+                      className="rounded-md border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-800 hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      data-testid="communication-action-return-ai"
+                    >
+                      {returnToAiMutation.isLoading ? 'Retornando...' : 'Voltar para IA'}
                     </button>
                   )}
                   {canReopen && (
@@ -536,6 +598,11 @@ export function CommunicationInboxPage() {
                     Esta conversa esta fechada. Reabra para enviar uma nova mensagem.
                   </div>
                 )}
+                {!conversationClosed && !conversationInHumanMode && (
+                  <div className="mb-3 rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-800" data-testid="communication-composer-ai">
+                    Esta conversa esta em modo IA. O envio manual fica disponivel apenas em atendimento humano.
+                  </div>
+                )}
                 {sendError && (
                   <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" data-testid="communication-send-error">
                     {sendError}
@@ -551,9 +618,15 @@ export function CommunicationInboxPage() {
                         void handleSendMessage();
                       }
                     }}
-                    disabled={!selectedConversationId || conversationClosed || sendMessageMutation.isLoading}
+                    disabled={!selectedConversationId || conversationClosed || !conversationInHumanMode || sendMessageMutation.isLoading}
                     rows={2}
-                    placeholder={conversationClosed ? 'Reabra a conversa para responder' : 'Digite uma mensagem...'}
+                    placeholder={
+                      conversationClosed
+                        ? 'Reabra a conversa para responder'
+                        : conversationInHumanMode
+                          ? 'Digite uma mensagem...'
+                          : 'Conversa em modo IA'
+                    }
                     className="min-h-[44px] flex-1 resize-none rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
                     data-testid="communication-message-input"
                   />

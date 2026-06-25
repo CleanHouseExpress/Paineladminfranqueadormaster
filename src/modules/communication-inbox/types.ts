@@ -26,6 +26,7 @@ export interface CommunicationConversation {
   customerPhone?: string | null;
   channel: string;
   status: string;
+  serviceMode?: string | null;
   handoffStatus?: string | null;
   assignmentStatus?: string | null;
   assignedToName?: string | null;

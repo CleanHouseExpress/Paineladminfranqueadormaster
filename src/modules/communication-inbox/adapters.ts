@@ -62,6 +62,7 @@ export function normalizeConversation(payload: unknown): CommunicationConversati
     ) as string | null | undefined,
     channel: toStringValue(pick(conversation, ['channel', 'source']), 'unknown'),
     status: toStringValue(pick(conversation, ['status']), 'unknown'),
+    serviceMode: pick(conversation, ['service_mode', 'serviceMode']) as string | null | undefined,
     handoffStatus: (
       pick(conversation, ['handoff_status', 'handoff'])
       ?? pick(assignment, ['handoff_status'])

@@ -179,6 +179,12 @@ export function useReopenConversation() {
   );
 }
 
+export function useReturnToAi() {
+  return useAsyncMutation((conversationId: string, reason?: string) =>
+    communicationInboxApi.returnToAi(conversationId, reason)
+  );
+}
+
 export function useSendMessage() {
   return useAsyncMutation((conversationId: string, text: string) =>
     communicationInboxApi.sendMessage(conversationId, text)
