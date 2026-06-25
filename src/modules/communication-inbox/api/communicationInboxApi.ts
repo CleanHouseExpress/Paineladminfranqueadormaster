@@ -4,10 +4,12 @@ import {
   normalizeMessage,
   normalizePaginated,
   normalizeSummary,
+  normalizeTimelineEvent,
 } from '../adapters';
 import type {
   CommunicationConversation,
   CommunicationMessage,
+  ConversationTimelineEvent,
   ConversationFilters,
   InboxSummary,
   MessageFilters,
@@ -84,6 +86,13 @@ export const communicationInboxApi = {
       withParams(`${INBOX_BASE}/conversations/${conversationId}/messages`, filters),
     );
     return normalizePaginated(payload, normalizeMessage);
+  },
+
+  async listTimeline(conversationId: string | number): Promise<ConversationTimelineEvent[]> {
+    const payload = await apiClient.get<unknown>(
+      `${INBOX_BASE}/conversations/${conversationId}/timeline`,
+    );
+    return normalizePaginated(payload, normalizeTimelineEvent).data;
   },
 
   async requestHandoff(conversationId: string | number, reason?: string): Promise<CommunicationConversation> {

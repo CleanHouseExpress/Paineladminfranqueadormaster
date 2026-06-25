@@ -11,9 +11,11 @@ import {
   UserRound,
 } from 'lucide-react';
 import type { CommunicationConversation, ConversationFilters } from './types';
+import { ConversationTimelinePanel } from './ConversationTimelinePanel';
 import {
   useConversation,
   useConversationMessages,
+  useConversationTimeline,
   useAssignConversation,
   useCloseConversation,
   useInboxConversations,
@@ -188,11 +190,15 @@ export function CommunicationInboxPage() {
     assignmentStatus: 'all',
   });
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [activeConversationTab, setActiveConversationTab] = useState<'messages' | 'timeline'>('messages');
 
   const summaryQuery = useInboxSummary(filters);
   const conversationsQuery = useInboxConversations(filters);
   const selectedConversationQuery = useConversation(selectedConversationId);
   const messagesQuery = useConversationMessages(selectedConversationId);
+  const timelineQuery = useConversationTimeline(
+    activeConversationTab === 'timeline' ? selectedConversationId : null,
+  );
   const requestHandoffMutation = useRequestHandoff();
   const assignMutation = useAssignConversation();
   const closeMutation = useCloseConversation();
@@ -240,6 +246,7 @@ export function CommunicationInboxPage() {
   const updateFilter = (key: keyof ConversationFilters, value: string) => {
     setFilters(current => ({ ...current, [key]: value }));
     setSelectedConversationId(null);
+    setActiveConversationTab('messages');
   };
 
   const refreshSelectedConversation = async () => {
@@ -416,7 +423,10 @@ export function CommunicationInboxPage() {
                   key={conversation.id}
                   conversation={conversation}
                   selected={conversation.id === selectedConversationId}
-                  onSelect={() => setSelectedConversationId(conversation.id)}
+                  onSelect={() => {
+                    setSelectedConversationId(conversation.id);
+                    setActiveConversationTab('messages');
+                  }}
                 />
               ))}
             </div>
@@ -536,8 +546,36 @@ export function CommunicationInboxPage() {
                     {actionError}
                   </div>
                 )}
+                <div className="mt-4 flex gap-2 border-t border-slate-100 pt-4" data-testid="communication-conversation-tabs">
+                  <button
+                    type="button"
+                    onClick={() => setActiveConversationTab('messages')}
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+                      activeConversationTab === 'messages'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                    data-testid="communication-tab-messages"
+                  >
+                    Mensagens
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveConversationTab('timeline')}
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+                      activeConversationTab === 'timeline'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                    data-testid="communication-tab-timeline"
+                  >
+                    Timeline
+                  </button>
+                </div>
               </div>
 
+              {activeConversationTab === 'messages' ? (
+                <>
               <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-5" data-testid="communication-message-list">
                 {messagesQuery.isLoading ? (
                   <div className="flex items-center gap-2 text-sm text-slate-600">
@@ -645,6 +683,20 @@ export function CommunicationInboxPage() {
                   </button>
                 </div>
               </form>
+                </>
+              ) : (
+                <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50" data-testid="communication-timeline-panel">
+                  <ConversationTimelinePanel
+                    events={timelineQuery.data ?? []}
+                    isLoading={timelineQuery.isLoading}
+                    isError={timelineQuery.isError}
+                    errorMessage={timelineQuery.error?.message}
+                    onRetry={() => {
+                      void timelineQuery.refetch();
+                    }}
+                  />
+                </div>
+              )}
             </div>
           )}
         </section>

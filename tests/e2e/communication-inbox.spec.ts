@@ -76,6 +76,38 @@ const messagesPayload = {
   },
 };
 
+const timelinePayload = {
+  data: [
+    {
+      id: 't-1',
+      event_type: 'conversation_created',
+      actor_type: 'system',
+      actor_name: 'Orchestra',
+      description: 'Conversa criada pelo canal WhatsApp.',
+      metadata: { channel: 'whatsapp' },
+      occurred_at: '2026-06-25T12:29:00.000Z',
+    },
+    {
+      id: 't-2',
+      event_type: 'handoff_requested',
+      actor_type: 'agent',
+      actor_name: 'IA',
+      description: 'A IA solicitou atendimento humano.',
+      metadata: { reason: 'intent_handoff' },
+      occurred_at: '2026-06-25T12:31:00.000Z',
+    },
+    {
+      id: 't-3',
+      event_type: 'conversation_returned_to_ai',
+      actor_type: 'human',
+      actor_name: 'Admin Master',
+      description: 'Conversa retornada para IA.',
+      metadata: { reason: 'resolved' },
+      occurred_at: '2026-06-25T12:33:00.000Z',
+    },
+  ],
+};
+
 async function mockAuth(page: Page) {
   await disableOnboarding(page);
   await page.addInitScript(() => {
@@ -116,7 +148,15 @@ async function mockAuth(page: Page) {
 
 async function mockInbox(
   page: Page,
-  options: { empty?: boolean; error?: boolean; closed?: boolean; failSend?: boolean; failReturnToAi?: boolean } = {},
+  options: {
+    empty?: boolean;
+    error?: boolean;
+    closed?: boolean;
+    failSend?: boolean;
+    failReturnToAi?: boolean;
+    emptyTimeline?: boolean;
+    failTimeline?: boolean;
+  } = {},
 ) {
   const calls = {
     summary: 0,
@@ -129,6 +169,9 @@ async function mockInbox(
     handoff: 0,
     sendMessage: 0,
     returnToAi: 0,
+    timeline: 0,
+    timelinePaths: [] as string[],
+    timelineMethods: [] as string[],
   };
   let currentConversation = {
     ...conversationsPayload.data[0],
@@ -266,6 +309,23 @@ async function mockInbox(
       });
     }
 
+    if (path.endsWith('/conversations/c-1/timeline')) {
+      calls.timeline += 1;
+      calls.timelinePaths.push(path);
+      calls.timelineMethods.push(method);
+      return route.fulfill({
+        status: options.failTimeline ? 404 : 200,
+        contentType: 'application/json',
+        body: JSON.stringify(
+          options.failTimeline
+            ? { message: 'timeline unavailable' }
+            : options.emptyTimeline
+              ? { data: [] }
+              : timelinePayload,
+        ),
+      });
+    }
+
     if (path.endsWith('/conversations/c-1')) {
       calls.detail += 1;
       return route.fulfill({
@@ -317,6 +377,52 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await expect(page.getByText('Bruno Cliente')).toBeVisible();
     await expect(page.getByText('Preciso remarcar meu horario').first()).toBeVisible();
     await expect(page.getByText('Claro, vou verificar as opcoes.')).toBeVisible();
+  });
+
+  test('aba Timeline aparece, chama endpoint e renderiza eventos', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page);
+
+    await page.goto('/communication/inbox');
+
+    await expect(page.getByTestId('communication-tab-timeline')).toBeVisible();
+    expect(calls.timeline).toBe(0);
+
+    await page.getByTestId('communication-tab-timeline').click();
+
+    await expect.poll(() => calls.timeline).toBe(1);
+    await expect(page.getByTestId('communication-timeline-panel')).toBeVisible();
+    await expect(page.getByTestId('communication-timeline-list')).toContainText('Conversa criada');
+    await expect(page.getByTestId('communication-timeline-list')).toContainText('Atendimento humano solicitado');
+    await expect(page.getByTestId('communication-timeline-list')).toContainText('Retornado para IA');
+    await expect(page.getByText('Admin Master')).toBeVisible();
+    expect(calls.timelinePaths).toEqual([
+      '/api/tenant/communication/inbox/conversations/c-1/timeline',
+    ]);
+    expect(calls.timelineMethods).toEqual(['GET']);
+  });
+
+  test('timeline renderiza estado vazio', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page, { emptyTimeline: true });
+
+    await page.goto('/communication/inbox');
+    await page.getByTestId('communication-tab-timeline').click();
+
+    await expect.poll(() => calls.timeline).toBe(1);
+    await expect(page.getByTestId('communication-timeline-empty')).toBeVisible();
+  });
+
+  test('timeline renderiza erro seguro', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page, { failTimeline: true });
+
+    await page.goto('/communication/inbox');
+    await page.getByTestId('communication-tab-timeline').click();
+
+    await expect.poll(() => calls.timeline).toBe(1);
+    await expect(page.getByTestId('communication-timeline-error')).toBeVisible();
+    await expect(page.getByText('Nao foi possivel carregar a timeline.')).toBeVisible();
   });
 
   test('renderiza botoes de acao', async ({ page }) => {

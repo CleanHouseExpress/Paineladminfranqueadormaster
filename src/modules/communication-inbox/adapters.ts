@@ -1,6 +1,7 @@
 import type {
   CommunicationConversation,
   CommunicationMessage,
+  ConversationTimelineEvent,
   InboxSummary,
   PaginatedResult,
 } from './types';
@@ -97,6 +98,30 @@ export function normalizeMessage(payload: unknown): CommunicationMessage {
     ) as string | null | undefined,
     body: toStringValue(pick(message, ['body', 'message', 'content', 'text'])),
     createdAt: toStringValue(pick(message, ['created_at', 'createdAt', 'timestamp']), new Date(0).toISOString()),
+  };
+}
+
+export function normalizeTimelineEvent(payload: unknown): ConversationTimelineEvent {
+  const event = asRecord(payload);
+  const actor = asRecord(pick(event, ['actor', 'user']));
+  const metadata = pick(event, ['metadata', 'meta']);
+
+  return {
+    id: toStringValue(pick(event, ['id', 'event_id'])),
+    eventType: toStringValue(pick(event, ['event_type', 'eventType', 'type']), 'unknown'),
+    actorType: (
+      pick(event, ['actor_type', 'actorType'])
+      ?? pick(actor, ['type'])
+    ) as string | null | undefined,
+    actorName: (
+      pick(event, ['actor_name', 'actorName'])
+      ?? pick(actor, ['name'])
+    ) as string | null | undefined,
+    description: pick(event, ['description', 'message', 'label']) as string | null | undefined,
+    metadata: metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+      ? metadata as Record<string, unknown>
+      : null,
+    occurredAt: toStringValue(pick(event, ['occurred_at', 'occurredAt', 'created_at', 'createdAt', 'timestamp'])),
   };
 }
 

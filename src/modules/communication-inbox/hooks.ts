@@ -3,6 +3,7 @@ import { communicationInboxApi } from './api/communicationInboxApi';
 import type {
   CommunicationConversation,
   CommunicationMessage,
+  ConversationTimelineEvent,
   ConversationFilters,
   InboxSummary,
   MessageFilters,
@@ -151,6 +152,14 @@ export function useConversationMessages(conversationId?: string | null, filters:
   return useAsyncQuery<PaginatedResult<CommunicationMessage>>(
     () => communicationInboxApi.listMessages(conversationId as string, stableFilters),
     [conversationId, stableFilters],
+    Boolean(conversationId),
+  );
+}
+
+export function useConversationTimeline(conversationId?: string | null) {
+  return useAsyncQuery<ConversationTimelineEvent[]>(
+    () => communicationInboxApi.listTimeline(conversationId as string),
+    [conversationId],
     Boolean(conversationId),
   );
 }

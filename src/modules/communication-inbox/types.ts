@@ -45,6 +45,16 @@ export interface CommunicationMessage {
   createdAt: string;
 }
 
+export interface ConversationTimelineEvent {
+  id: string;
+  eventType: string;
+  actorType?: string | null;
+  actorName?: string | null;
+  description?: string | null;
+  metadata?: Record<string, unknown> | null;
+  occurredAt: string;
+}
+
 export interface PaginatedResult<T> {
   data: T[];
   meta: {
