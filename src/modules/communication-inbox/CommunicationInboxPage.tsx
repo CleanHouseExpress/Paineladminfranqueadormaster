@@ -7,6 +7,7 @@ import {
   MessageCircle,
   RefreshCcw,
   Search,
+  Send,
   UserRound,
 } from 'lucide-react';
 import type { CommunicationConversation, ConversationFilters } from './types';
@@ -19,6 +20,7 @@ import {
   useInboxSummary,
   useReopenConversation,
   useRequestHandoff,
+  useSendMessage,
 } from './hooks';
 
 const statusOptions = [
@@ -164,7 +166,10 @@ export function CommunicationInboxPage() {
   const assignMutation = useAssignConversation();
   const closeMutation = useCloseConversation();
   const reopenMutation = useReopenConversation();
+  const sendMessageMutation = useSendMessage();
   const [actionError, setActionError] = useState<string | null>(null);
+  const [messageText, setMessageText] = useState('');
+  const [sendError, setSendError] = useState<string | null>(null);
 
   const conversations = conversationsQuery.data?.data ?? [];
   const selectedConversation = selectedConversationQuery.data
@@ -213,6 +218,15 @@ export function CommunicationInboxPage() {
     ]);
   };
 
+  const refreshConversationAfterMessage = async () => {
+    await Promise.all([
+      summaryQuery.refetch(),
+      conversationsQuery.refetch(),
+      selectedConversationId ? selectedConversationQuery.refetch() : Promise.resolve(),
+      selectedConversationId ? messagesQuery.refetch() : Promise.resolve(),
+    ]);
+  };
+
   const runConversationAction = async (
     action: () => Promise<unknown>,
   ) => {
@@ -237,6 +251,25 @@ export function CommunicationInboxPage() {
     Boolean(selectedConversationId) && !conversationClosed && !isAssignedToCurrentUser(selectedConversation);
   const canClose = Boolean(selectedConversationId) && !conversationClosed;
   const canReopen = Boolean(selectedConversationId) && conversationClosed;
+  const trimmedMessageText = messageText.trim();
+  const canSendMessage =
+    Boolean(selectedConversationId) &&
+    !conversationClosed &&
+    Boolean(trimmedMessageText) &&
+    !sendMessageMutation.isLoading;
+
+  const handleSendMessage = async () => {
+    if (!selectedConversationId || !canSendMessage) return;
+
+    setSendError(null);
+    try {
+      await sendMessageMutation.mutate(selectedConversationId, trimmedMessageText);
+      setMessageText('');
+      await refreshConversationAfterMessage();
+    } catch (error) {
+      setSendError(error instanceof Error ? error.message : 'Nao foi possivel enviar a mensagem.');
+    }
+  };
 
   return (
     <main className="flex h-full min-h-0 flex-col bg-slate-50" data-testid="communication-inbox-page">
@@ -489,6 +522,56 @@ export function CommunicationInboxPage() {
                   </div>
                 )}
               </div>
+
+              <form
+                className="border-t border-slate-200 bg-white p-4"
+                data-testid="communication-composer"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void handleSendMessage();
+                }}
+              >
+                {conversationClosed && (
+                  <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800" data-testid="communication-composer-closed">
+                    Esta conversa esta fechada. Reabra para enviar uma nova mensagem.
+                  </div>
+                )}
+                {sendError && (
+                  <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" data-testid="communication-send-error">
+                    {sendError}
+                  </div>
+                )}
+                <div className="flex items-end gap-2">
+                  <textarea
+                    value={messageText}
+                    onChange={event => setMessageText(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && !event.shiftKey) {
+                        event.preventDefault();
+                        void handleSendMessage();
+                      }
+                    }}
+                    disabled={!selectedConversationId || conversationClosed || sendMessageMutation.isLoading}
+                    rows={2}
+                    placeholder={conversationClosed ? 'Reabra a conversa para responder' : 'Digite uma mensagem...'}
+                    className="min-h-[44px] flex-1 resize-none rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+                    data-testid="communication-message-input"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!canSendMessage}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    data-testid="communication-send-button"
+                  >
+                    {sendMessageMutation.isLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                    Enviar
+                  </button>
+                </div>
+              </form>
             </div>
           )}
         </section>

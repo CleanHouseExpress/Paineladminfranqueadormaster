@@ -113,7 +113,7 @@ async function mockAuth(page: Page) {
   }));
 }
 
-async function mockInbox(page: Page, options: { empty?: boolean; error?: boolean; closed?: boolean } = {}) {
+async function mockInbox(page: Page, options: { empty?: boolean; error?: boolean; closed?: boolean; failSend?: boolean } = {}) {
   const calls = {
     summary: 0,
     conversations: 0,
@@ -123,11 +123,13 @@ async function mockInbox(page: Page, options: { empty?: boolean; error?: boolean
     close: 0,
     reopen: 0,
     handoff: 0,
+    sendMessage: 0,
   };
   let currentConversation = {
     ...conversationsPayload.data[0],
     status: options.closed ? 'closed' : conversationsPayload.data[0].status,
   };
+  let currentMessages = [...messagesPayload.data];
 
   await page.route('**/api/tenant/communication/inbox/**', route => {
     const request = route.request();
@@ -184,12 +186,54 @@ async function mockInbox(page: Page, options: { empty?: boolean; error?: boolean
       });
     }
 
+    if (path.endsWith('/conversations/c-1/messages') && method === 'POST') {
+      calls.sendMessage += 1;
+      if (options.failSend) {
+        return route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({ message: 'send unavailable' }),
+        });
+      }
+
+      const body = request.postDataJSON() as { text?: string };
+      const nextMessage = {
+        id: `m-${currentMessages.length + 1}`,
+        conversation_id: 'c-1',
+        direction: 'outbound',
+        sender_type: 'human',
+        sender_name: 'Admin Master',
+        body: body.text ?? '',
+        created_at: '2026-06-25T12:32:00.000Z',
+      };
+      currentMessages = [...currentMessages, nextMessage];
+      currentConversation = {
+        ...currentConversation,
+        last_message: body.text ?? '',
+        last_message_at: nextMessage.created_at,
+      };
+
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: nextMessage }),
+      });
+    }
+
     if (path.endsWith('/conversations/c-1/messages')) {
       calls.messages += 1;
       return route.fulfill({
         status: options.error ? 500 : 200,
         contentType: 'application/json',
-        body: JSON.stringify(options.error ? { message: 'messages unavailable' } : messagesPayload),
+        body: JSON.stringify(
+          options.error
+            ? { message: 'messages unavailable' }
+            : {
+              ...messagesPayload,
+              data: currentMessages,
+              meta: { ...messagesPayload.meta, total: currentMessages.length },
+            },
+        ),
       });
     }
 
@@ -303,6 +347,73 @@ test.describe('@smoke @communication Communication Inbox', () => {
 
     await expect.poll(() => calls.reopen).toBe(1);
     await expect(page.getByTestId('communication-action-close')).toBeVisible();
+  });
+
+  test('composer aparece em conversa aberta', async ({ page }) => {
+    await mockAuth(page);
+    await mockInbox(page);
+
+    await page.goto('/communication/inbox');
+
+    await expect(page.getByTestId('communication-composer')).toBeVisible();
+    await expect(page.getByTestId('communication-message-input')).toBeEnabled();
+    await expect(page.getByTestId('communication-send-button')).toBeDisabled();
+  });
+
+  test('digitar e enviar chama API, limpa input e atualiza mensagens', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page);
+
+    await page.goto('/communication/inbox');
+    await page.getByTestId('communication-message-input').fill('Mensagem do atendente');
+    await page.getByTestId('communication-send-button').click();
+
+    await expect.poll(() => calls.sendMessage).toBe(1);
+    await expect.poll(() => calls.messages).toBeGreaterThan(1);
+    await expect.poll(() => calls.summary).toBeGreaterThan(1);
+    await expect.poll(() => calls.conversations).toBeGreaterThan(1);
+    await expect(page.getByTestId('communication-message-input')).toHaveValue('');
+    await expect(page.getByTestId('communication-message-list')).toContainText('Mensagem do atendente');
+  });
+
+  test('enter envia e shift enter preserva quebra de linha', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page);
+
+    await page.goto('/communication/inbox');
+    await page.getByTestId('communication-message-input').fill('Linha 1');
+    await page.getByTestId('communication-message-input').press('Shift+Enter');
+    await page.getByTestId('communication-message-input').type('Linha 2');
+    await expect(page.getByTestId('communication-message-input')).toHaveValue('Linha 1\nLinha 2');
+    await page.getByTestId('communication-message-input').press('Enter');
+
+    await expect.poll(() => calls.sendMessage).toBe(1);
+    await expect(page.getByTestId('communication-message-input')).toHaveValue('');
+  });
+
+  test('conversa fechada nao permite envio', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page, { closed: true });
+
+    await page.goto('/communication/inbox');
+
+    await expect(page.getByTestId('communication-composer-closed')).toBeVisible();
+    await expect(page.getByTestId('communication-message-input')).toBeDisabled();
+    await expect(page.getByTestId('communication-send-button')).toBeDisabled();
+    expect(calls.sendMessage).toBe(0);
+  });
+
+  test('erro de envio exibe mensagem segura', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page, { failSend: true });
+
+    await page.goto('/communication/inbox');
+    await page.getByTestId('communication-message-input').fill('Mensagem com falha');
+    await page.getByTestId('communication-send-button').click();
+
+    await expect.poll(() => calls.sendMessage).toBe(1);
+    await expect(page.getByTestId('communication-send-error')).toBeVisible();
+    await expect(page.getByTestId('communication-message-input')).toHaveValue('Mensagem com falha');
   });
 
   test('seleciona conversa e lista mensagens da conversa selecionada', async ({ page }) => {

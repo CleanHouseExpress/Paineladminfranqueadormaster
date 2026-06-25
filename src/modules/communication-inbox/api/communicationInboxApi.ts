@@ -50,6 +50,16 @@ const normalizeConversationPayload = (payload: unknown) =>
     return data;
   })());
 
+const normalizeMessagePayload = (payload: unknown) =>
+  normalizeMessage((() => {
+    if (!payload || typeof payload !== 'object' || !('data' in payload)) return payload;
+    const data = (payload as { data: unknown }).data;
+    if (data && typeof data === 'object' && 'message' in data) {
+      return (data as { message: unknown }).message;
+    }
+    return data;
+  })());
+
 export const communicationInboxApi = {
   async getSummary(filters?: ConversationFilters): Promise<InboxSummary> {
     const payload = await apiClient.get<unknown>(withParams(`${INBOX_BASE}/summary`, filters));
@@ -106,5 +116,13 @@ export const communicationInboxApi = {
       {},
     );
     return normalizeConversationPayload(payload);
+  },
+
+  async sendMessage(conversationId: string | number, text: string): Promise<CommunicationMessage> {
+    const payload = await apiClient.post<unknown>(
+      `${INBOX_BASE}/conversations/${conversationId}/messages`,
+      { text },
+    );
+    return normalizeMessagePayload(payload);
   },
 };

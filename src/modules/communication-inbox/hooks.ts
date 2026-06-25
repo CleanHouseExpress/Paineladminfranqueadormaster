@@ -178,3 +178,9 @@ export function useReopenConversation() {
     communicationInboxApi.reopenConversation(conversationId)
   );
 }
+
+export function useSendMessage() {
+  return useAsyncMutation((conversationId: string, text: string) =>
+    communicationInboxApi.sendMessage(conversationId, text)
+  );
+}
