@@ -192,8 +192,11 @@ export function CommunicationInboxPage() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [activeConversationTab, setActiveConversationTab] = useState<'messages' | 'timeline'>('messages');
 
+  // TODO realtime: subscribe to tenant inbox updates when a concrete provider is available.
   const summaryQuery = useInboxSummary(filters);
   const conversationsQuery = useInboxConversations(filters);
+
+  // TODO realtime: subscribe to the selected conversation and refresh its detail, messages and timeline.
   const selectedConversationQuery = useConversation(selectedConversationId);
   const messagesQuery = useConversationMessages(selectedConversationId);
   const timelineQuery = useConversationTimeline(
