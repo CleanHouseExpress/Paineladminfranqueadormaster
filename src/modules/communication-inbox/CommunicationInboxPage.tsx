@@ -13,8 +13,12 @@ import type { CommunicationConversation, ConversationFilters } from './types';
 import {
   useConversation,
   useConversationMessages,
+  useAssignConversation,
+  useCloseConversation,
   useInboxConversations,
   useInboxSummary,
+  useReopenConversation,
+  useRequestHandoff,
 } from './hooks';
 
 const statusOptions = [
@@ -131,6 +135,19 @@ function ConversationItem({
   );
 }
 
+const isClosedConversation = (conversation: CommunicationConversation | null) =>
+  String(conversation?.status ?? '').toLowerCase() === 'closed';
+
+const hasRequestedHandoff = (conversation: CommunicationConversation | null) => {
+  const status = String(conversation?.handoffStatus ?? '').toLowerCase();
+  return ['requested', 'pending', 'waiting', 'waiting_handoff', 'handoff_requested'].includes(status);
+};
+
+const isAssignedToCurrentUser = (conversation: CommunicationConversation | null) => {
+  const status = String(conversation?.assignmentStatus ?? '').toLowerCase();
+  return ['assigned_to_me', 'mine', 'me'].includes(status);
+};
+
 export function CommunicationInboxPage() {
   const [filters, setFilters] = useState<ConversationFilters>({
     status: 'all',
@@ -143,6 +160,11 @@ export function CommunicationInboxPage() {
   const conversationsQuery = useInboxConversations(filters);
   const selectedConversationQuery = useConversation(selectedConversationId);
   const messagesQuery = useConversationMessages(selectedConversationId);
+  const requestHandoffMutation = useRequestHandoff();
+  const assignMutation = useAssignConversation();
+  const closeMutation = useCloseConversation();
+  const reopenMutation = useReopenConversation();
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const conversations = conversationsQuery.data?.data ?? [];
   const selectedConversation = selectedConversationQuery.data
@@ -182,6 +204,39 @@ export function CommunicationInboxPage() {
     setFilters(current => ({ ...current, [key]: value }));
     setSelectedConversationId(null);
   };
+
+  const refreshSelectedConversation = async () => {
+    await Promise.all([
+      summaryQuery.refetch(),
+      conversationsQuery.refetch(),
+      selectedConversationId ? selectedConversationQuery.refetch() : Promise.resolve(),
+    ]);
+  };
+
+  const runConversationAction = async (
+    action: () => Promise<unknown>,
+  ) => {
+    setActionError(null);
+    try {
+      await action();
+      await refreshSelectedConversation();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Nao foi possivel executar a acao.');
+    }
+  };
+
+  const actionInProgress =
+    requestHandoffMutation.isLoading ||
+    assignMutation.isLoading ||
+    closeMutation.isLoading ||
+    reopenMutation.isLoading;
+  const conversationClosed = isClosedConversation(selectedConversation);
+  const canRequestHandoff =
+    Boolean(selectedConversationId) && !conversationClosed && !hasRequestedHandoff(selectedConversation);
+  const canAssign =
+    Boolean(selectedConversationId) && !conversationClosed && !isAssignedToCurrentUser(selectedConversation);
+  const canClose = Boolean(selectedConversationId) && !conversationClosed;
+  const canReopen = Boolean(selectedConversationId) && conversationClosed;
 
   return (
     <main className="flex h-full min-h-0 flex-col bg-slate-50" data-testid="communication-inbox-page">
@@ -321,6 +376,9 @@ export function CommunicationInboxPage() {
                     {selectedConversation?.status && (
                       <span className="rounded bg-blue-50 px-2 py-1 text-blue-700">{selectedConversation.status}</span>
                     )}
+                    {selectedConversation?.handoffStatus && (
+                      <span className="rounded bg-amber-50 px-2 py-1 text-amber-700">{selectedConversation.handoffStatus}</span>
+                    )}
                     {selectedConversation?.assignedToName && (
                       <span className="rounded bg-slate-100 px-2 py-1 text-slate-700">
                         {selectedConversation.assignedToName}
@@ -328,6 +386,61 @@ export function CommunicationInboxPage() {
                     )}
                   </div>
                 </div>
+                <div className="mt-4 flex flex-wrap gap-2" data-testid="communication-actions">
+                  {canAssign && (
+                    <button
+                      type="button"
+                      disabled={actionInProgress}
+                      onClick={() => selectedConversationId && void runConversationAction(() => assignMutation.mutate(selectedConversationId))}
+                      className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      data-testid="communication-action-assign"
+                    >
+                      {assignMutation.isLoading ? 'Assumindo...' : 'Assumir'}
+                    </button>
+                  )}
+                  {canRequestHandoff && (
+                    <button
+                      type="button"
+                      disabled={actionInProgress}
+                      onClick={() => selectedConversationId && void runConversationAction(() => requestHandoffMutation.mutate(selectedConversationId))}
+                      className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      data-testid="communication-action-handoff"
+                    >
+                      {requestHandoffMutation.isLoading ? 'Solicitando...' : 'Solicitar handoff'}
+                    </button>
+                  )}
+                  {canClose && (
+                    <button
+                      type="button"
+                      disabled={actionInProgress}
+                      onClick={() => {
+                        if (!selectedConversationId) return;
+                        if (!window.confirm('Fechar esta conversa?')) return;
+                        void runConversationAction(() => closeMutation.mutate(selectedConversationId));
+                      }}
+                      className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      data-testid="communication-action-close"
+                    >
+                      {closeMutation.isLoading ? 'Fechando...' : 'Fechar'}
+                    </button>
+                  )}
+                  {canReopen && (
+                    <button
+                      type="button"
+                      disabled={actionInProgress}
+                      onClick={() => selectedConversationId && void runConversationAction(() => reopenMutation.mutate(selectedConversationId))}
+                      className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      data-testid="communication-action-reopen"
+                    >
+                      {reopenMutation.isLoading ? 'Reabrindo...' : 'Reabrir'}
+                    </button>
+                  )}
+                </div>
+                {actionError && (
+                  <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" data-testid="communication-action-error">
+                    {actionError}
+                  </div>
+                )}
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-5" data-testid="communication-message-list">

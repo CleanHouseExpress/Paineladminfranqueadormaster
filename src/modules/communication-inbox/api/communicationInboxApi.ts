@@ -40,6 +40,16 @@ const withParams = (path: string, filters?: ConversationFilters | MessageFilters
   return query ? `${path}?${query}` : path;
 };
 
+const normalizeConversationPayload = (payload: unknown) =>
+  normalizeConversation((() => {
+    if (!payload || typeof payload !== 'object' || !('data' in payload)) return payload;
+    const data = (payload as { data: unknown }).data;
+    if (data && typeof data === 'object' && 'conversation' in data) {
+      return (data as { conversation: unknown }).conversation;
+    }
+    return data;
+  })());
+
 export const communicationInboxApi = {
   async getSummary(filters?: ConversationFilters): Promise<InboxSummary> {
     const payload = await apiClient.get<unknown>(withParams(`${INBOX_BASE}/summary`, filters));
@@ -53,11 +63,7 @@ export const communicationInboxApi = {
 
   async getConversation(conversationId: string | number): Promise<CommunicationConversation> {
     const payload = await apiClient.get<unknown>(`${INBOX_BASE}/conversations/${conversationId}`);
-    return normalizeConversation(
-      payload && typeof payload === 'object' && 'data' in payload
-        ? (payload as { data: unknown }).data
-        : payload,
-    );
+    return normalizeConversationPayload(payload);
   },
 
   async listMessages(
@@ -68,5 +74,37 @@ export const communicationInboxApi = {
       withParams(`${INBOX_BASE}/conversations/${conversationId}/messages`, filters),
     );
     return normalizePaginated(payload, normalizeMessage);
+  },
+
+  async requestHandoff(conversationId: string | number, reason?: string): Promise<CommunicationConversation> {
+    const payload = await apiClient.post<unknown>(
+      `${INBOX_BASE}/conversations/${conversationId}/request-handoff`,
+      reason ? { reason } : {},
+    );
+    return normalizeConversationPayload(payload);
+  },
+
+  async assignConversation(conversationId: string | number): Promise<CommunicationConversation> {
+    const payload = await apiClient.post<unknown>(
+      `${INBOX_BASE}/conversations/${conversationId}/assign`,
+      {},
+    );
+    return normalizeConversationPayload(payload);
+  },
+
+  async closeConversation(conversationId: string | number, reason?: string): Promise<CommunicationConversation> {
+    const payload = await apiClient.post<unknown>(
+      `${INBOX_BASE}/conversations/${conversationId}/close`,
+      reason ? { reason } : {},
+    );
+    return normalizeConversationPayload(payload);
+  },
+
+  async reopenConversation(conversationId: string | number): Promise<CommunicationConversation> {
+    const payload = await apiClient.post<unknown>(
+      `${INBOX_BASE}/conversations/${conversationId}/reopen`,
+      {},
+    );
+    return normalizeConversationPayload(payload);
   },
 };

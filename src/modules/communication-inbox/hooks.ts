@@ -17,6 +17,14 @@ interface QueryState<T> {
   refetch: () => Promise<void>;
 }
 
+interface MutationState<TArgs extends unknown[], TResult> {
+  isLoading: boolean;
+  isError: boolean;
+  error: Error | null;
+  mutate: (...args: TArgs) => Promise<TResult>;
+  reset: () => void;
+}
+
 function toError(error: unknown) {
   return error instanceof Error ? error : new Error('Nao foi possivel carregar os dados.');
 }
@@ -79,6 +87,35 @@ function useAsyncQuery<T>(
   };
 }
 
+function useAsyncMutation<TArgs extends unknown[], TResult>(
+  action: (...args: TArgs) => Promise<TResult>,
+): MutationState<TArgs, TResult> {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  const mutate = useCallback(async (...args: TArgs) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      return await action(...args);
+    } catch (nextError) {
+      const normalizedError = toError(nextError);
+      setError(normalizedError);
+      throw normalizedError;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [action]);
+
+  return {
+    isLoading,
+    isError: Boolean(error),
+    error,
+    mutate,
+    reset: () => setError(null),
+  };
+}
+
 export function useInboxSummary(filters: ConversationFilters) {
   const stableFilters = useMemo(() => filters, [filters.status, filters.handoff, filters.assignmentStatus]);
   return useAsyncQuery<InboxSummary>(
@@ -115,5 +152,29 @@ export function useConversationMessages(conversationId?: string | null, filters:
     () => communicationInboxApi.listMessages(conversationId as string, stableFilters),
     [conversationId, stableFilters],
     Boolean(conversationId),
+  );
+}
+
+export function useRequestHandoff() {
+  return useAsyncMutation((conversationId: string, reason?: string) =>
+    communicationInboxApi.requestHandoff(conversationId, reason)
+  );
+}
+
+export function useAssignConversation() {
+  return useAsyncMutation((conversationId: string) =>
+    communicationInboxApi.assignConversation(conversationId)
+  );
+}
+
+export function useCloseConversation() {
+  return useAsyncMutation((conversationId: string, reason?: string) =>
+    communicationInboxApi.closeConversation(conversationId, reason)
+  );
+}
+
+export function useReopenConversation() {
+  return useAsyncMutation((conversationId: string) =>
+    communicationInboxApi.reopenConversation(conversationId)
   );
 }

@@ -20,7 +20,7 @@ const conversationsPayload = {
       customer_phone: '+55 11 99999-0000',
       channel: 'whatsapp',
       status: 'open',
-      handoff_status: 'requested',
+      handoff_status: 'none',
       assignment_status: 'assigned',
       assigned_to_name: 'Marina',
       last_message: 'Preciso remarcar meu horario',
@@ -113,33 +113,121 @@ async function mockAuth(page: Page) {
   }));
 }
 
-async function mockInbox(page: Page, options: { empty?: boolean; error?: boolean } = {}) {
-  await page.route('**/api/tenant/communication/inbox/summary**', route => route.fulfill({
-    status: options.error ? 500 : 200,
-    contentType: 'application/json',
-    body: JSON.stringify(options.error ? { message: 'summary unavailable' } : summaryPayload),
-  }));
-  await page.route('**/api/tenant/communication/inbox/conversations/c-1/messages**', route => route.fulfill({
-    status: options.error ? 500 : 200,
-    contentType: 'application/json',
-    body: JSON.stringify(options.error ? { message: 'messages unavailable' } : messagesPayload),
-  }));
-  await page.route('**/api/tenant/communication/inbox/conversations/c-1', route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify({ data: conversationsPayload.data[0] }),
-  }));
-  await page.route('**/api/tenant/communication/inbox/conversations**', route => route.fulfill({
-    status: options.error ? 500 : 200,
-    contentType: 'application/json',
-    body: JSON.stringify(
-      options.error
-        ? { message: 'conversations unavailable' }
-        : options.empty
-          ? { data: [], meta: { current_page: 1, last_page: 1, per_page: 25, total: 0 } }
-          : conversationsPayload,
-    ),
-  }));
+async function mockInbox(page: Page, options: { empty?: boolean; error?: boolean; closed?: boolean } = {}) {
+  const calls = {
+    summary: 0,
+    conversations: 0,
+    detail: 0,
+    messages: 0,
+    assign: 0,
+    close: 0,
+    reopen: 0,
+    handoff: 0,
+  };
+  let currentConversation = {
+    ...conversationsPayload.data[0],
+    status: options.closed ? 'closed' : conversationsPayload.data[0].status,
+  };
+
+  await page.route('**/api/tenant/communication/inbox/**', route => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname;
+    const method = request.method();
+
+    if (path.endsWith('/summary')) {
+      calls.summary += 1;
+      return route.fulfill({
+        status: options.error ? 500 : 200,
+        contentType: 'application/json',
+        body: JSON.stringify(options.error ? { message: 'summary unavailable' } : summaryPayload),
+      });
+    }
+
+    if (path.endsWith('/conversations/c-1/request-handoff') && method === 'POST') {
+      calls.handoff += 1;
+      currentConversation = { ...currentConversation, handoff_status: 'requested' };
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: currentConversation }),
+      });
+    }
+
+    if (path.endsWith('/conversations/c-1/assign') && method === 'POST') {
+      calls.assign += 1;
+      currentConversation = { ...currentConversation, assignment_status: 'assigned_to_me', assigned_to_name: 'Admin Master' };
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: currentConversation }),
+      });
+    }
+
+    if (path.endsWith('/conversations/c-1/close') && method === 'POST') {
+      calls.close += 1;
+      currentConversation = { ...currentConversation, status: 'closed' };
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: currentConversation }),
+      });
+    }
+
+    if (path.endsWith('/conversations/c-1/reopen') && method === 'POST') {
+      calls.reopen += 1;
+      currentConversation = { ...currentConversation, status: 'open' };
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: currentConversation }),
+      });
+    }
+
+    if (path.endsWith('/conversations/c-1/messages')) {
+      calls.messages += 1;
+      return route.fulfill({
+        status: options.error ? 500 : 200,
+        contentType: 'application/json',
+        body: JSON.stringify(options.error ? { message: 'messages unavailable' } : messagesPayload),
+      });
+    }
+
+    if (path.endsWith('/conversations/c-1')) {
+      calls.detail += 1;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: currentConversation }),
+      });
+    }
+
+    if (path.endsWith('/conversations')) {
+      calls.conversations += 1;
+      return route.fulfill({
+        status: options.error ? 500 : 200,
+        contentType: 'application/json',
+        body: JSON.stringify(
+          options.error
+            ? { message: 'conversations unavailable' }
+            : options.empty
+              ? { data: [], meta: { current_page: 1, last_page: 1, per_page: 25, total: 0 } }
+              : {
+                ...conversationsPayload,
+                data: [currentConversation, conversationsPayload.data[1]],
+              },
+        ),
+      });
+    }
+
+    return route.fulfill({
+      status: 404,
+      contentType: 'application/json',
+      body: JSON.stringify({ message: `Unhandled inbox mock: ${method} ${path}` }),
+    });
+  });
+
+  return calls;
 }
 
 test.describe('@smoke @communication Communication Inbox', () => {
@@ -156,6 +244,65 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await expect(page.getByText('Bruno Cliente')).toBeVisible();
     await expect(page.getByText('Preciso remarcar meu horario').first()).toBeVisible();
     await expect(page.getByText('Claro, vou verificar as opcoes.')).toBeVisible();
+  });
+
+  test('renderiza botoes de acao', async ({ page }) => {
+    await mockAuth(page);
+    await mockInbox(page);
+
+    await page.goto('/communication/inbox');
+
+    await expect(page.getByTestId('communication-action-assign')).toBeVisible();
+    await expect(page.getByTestId('communication-action-handoff')).toBeVisible();
+    await expect(page.getByTestId('communication-action-close')).toBeVisible();
+  });
+
+  test('assign chama API e refaz chamadas principais', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page);
+
+    await page.goto('/communication/inbox');
+    await page.getByTestId('communication-action-assign').click();
+
+    await expect.poll(() => calls.assign).toBe(1);
+    await expect.poll(() => calls.summary).toBeGreaterThan(1);
+    await expect.poll(() => calls.conversations).toBeGreaterThan(1);
+    await expect(page.getByText('Admin Master')).toBeVisible();
+  });
+
+  test('request handoff chama API e atualiza UI', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page);
+
+    await page.goto('/communication/inbox');
+    await page.getByTestId('communication-action-handoff').click();
+
+    await expect.poll(() => calls.handoff).toBe(1);
+    await expect.poll(() => calls.summary).toBeGreaterThan(1);
+    await expect(page.getByText('requested')).toBeVisible();
+  });
+
+  test('close chama API e exibe reabrir', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page);
+    page.on('dialog', dialog => dialog.accept());
+
+    await page.goto('/communication/inbox');
+    await page.getByTestId('communication-action-close').click();
+
+    await expect.poll(() => calls.close).toBe(1);
+    await expect(page.getByTestId('communication-action-reopen')).toBeVisible();
+  });
+
+  test('reopen chama API e volta a exibir fechar', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page, { closed: true });
+
+    await page.goto('/communication/inbox');
+    await page.getByTestId('communication-action-reopen').click();
+
+    await expect.poll(() => calls.reopen).toBe(1);
+    await expect(page.getByTestId('communication-action-close')).toBeVisible();
   });
 
   test('seleciona conversa e lista mensagens da conversa selecionada', async ({ page }) => {
