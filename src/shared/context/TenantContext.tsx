@@ -13,7 +13,7 @@ const DEFAULT_TENANT: TenantConfig = {
     'crm', 'sales',
     'operations', 'checklists', 'documents', 'contracts', 'catalog', 'inventory', 'trainings', 'pendencias', 'diario',
     'automation', 'tasks', 'noc', 'network_operations_center', 'analytics',
-    'support', 'marketplace', 'access', 'settings',
+    'support', 'communication-inbox', 'marketplace', 'access', 'settings',
   ],
   pendingModuleIds: ['instagram'],
   blockedModuleIds: [],

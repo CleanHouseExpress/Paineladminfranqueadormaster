@@ -96,6 +96,7 @@ const NocUnitDetailPage = lazyPage(() => import('../modules/noc'), 'NocUnitDetai
 const AutomationRulesPage = lazyPage(() => import('../modules/automation'), 'AutomationRulesPage');
 const TasksPage = lazyPage(() => import('../modules/automation'), 'TasksPage');
 const TaskDetailPage = lazyPage(() => import('../modules/automation'), 'TaskDetailPage');
+const CommunicationInboxPage = lazyPage(() => import('../modules/communication-inbox'), 'CommunicationInboxPage');
 
 const MarketplacePage = lazyPage(() => import('./components/ModulesMarketplace'), 'ModulesMarketplace');
 const ModuleDetailPage = lazyPage(() => import('./components/ModuleDetail'), 'ModuleDetail');
@@ -183,6 +184,7 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   'automation-rules': AutomationRulesPage,
   'tasks-list': TasksPage,
   'task-detail': TaskDetailPage,
+  'communication-inbox': CommunicationInboxPage,
   support: () => <PlaceholderPage title="Atendimento" description="Central de atendimento multicanal. Ative o modulo WhatsApp ou Instagram para comecar." />,
   automations: () => <PlaceholderPage title="Automacoes" description="Fluxos automatizados para notificacoes, cobrancas e processos repetitivos." />,
   reports: () => <PlaceholderPage title="Relatorios" description="Relatorios customizados com exportacao e agendamento automatico." />,

@@ -317,6 +317,17 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     routes: [{ path: '/support', componentId: 'support' }],
   },
   {
+    id: 'communication-inbox',
+    name: 'Communication Inbox',
+    description: 'Caixa de entrada de comunicacao multicanal em modo leitura.',
+    icon: 'Inbox',
+    status: 'active',
+    nav: { show: true, order: 5.1, group: 'main' },
+    routes: [
+      { path: '/communication/inbox', componentId: 'communication-inbox' },
+    ],
+  },
+  {
     id: 'whatsapp',
     name: 'Atendimento WhatsApp',
     description: 'Central de atendimento multicanal via WhatsApp com distribuição por unidade.',
