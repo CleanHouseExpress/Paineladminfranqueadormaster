@@ -24,15 +24,22 @@ export class ApiError extends Error {
   }
 }
 
+interface ApiClientEnv {
+  VITE_API_PORT?: string;
+  VITE_API_BASE_URL?: string;
+}
+
+const viteEnv = ((import.meta as ImportMeta & { env?: ApiClientEnv }).env ?? {});
+
 function defaultTenantApiBaseUrl() {
   if (typeof window === 'undefined') return '';
 
-  const apiPort = import.meta.env.VITE_API_PORT ?? '8000';
+  const apiPort = viteEnv.VITE_API_PORT ?? '8000';
 
   return `${window.location.protocol}//${window.location.hostname}:${apiPort}`;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || defaultTenantApiBaseUrl();
+const API_BASE_URL = viteEnv.VITE_API_BASE_URL || defaultTenantApiBaseUrl();
 export const AUTH_TOKEN_STORAGE_KEY = 'orchestra_auth_token';
 export const AUTH_SESSION_EXPIRED_EVENT = 'orchestra:auth-session-expired';
 
