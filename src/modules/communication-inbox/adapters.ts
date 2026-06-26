@@ -4,6 +4,7 @@ import type {
   CommunicationMessage,
   ConversationTimelineEvent,
   InboxSummary,
+  MessageDeliveryStatus,
   PaginatedResult,
 } from './types';
 
@@ -99,6 +100,28 @@ export function normalizeMessage(payload: unknown): CommunicationMessage {
     ) as string | null | undefined,
     body: toStringValue(pick(message, ['body', 'message', 'content', 'text'])),
     createdAt: toStringValue(pick(message, ['created_at', 'createdAt', 'timestamp']), new Date(0).toISOString()),
+    status: pick(message, ['status', 'delivery_status', 'deliveryStatus']) as string | null | undefined,
+    sentAt: pick(message, ['sent_at', 'sentAt']) as string | null | undefined,
+    deliveredAt: pick(message, ['delivered_at', 'deliveredAt']) as string | null | undefined,
+    readAt: pick(message, ['read_at', 'readAt']) as string | null | undefined,
+    failedAt: pick(message, ['failed_at', 'failedAt']) as string | null | undefined,
+  };
+}
+
+export function normalizeMessageDeliveryStatus(payload: unknown): MessageDeliveryStatus {
+  const status = asRecord(payload);
+  const message = asRecord(pick(status, ['message']));
+
+  return {
+    messageId: toStringValue(
+      pick(status, ['message_id', 'messageId', 'id'])
+        ?? pick(message, ['id', 'message_id']),
+    ),
+    status: toStringValue(pick(status, ['status', 'delivery_status', 'deliveryStatus']), 'unknown'),
+    sentAt: pick(status, ['sent_at', 'sentAt']) as string | null | undefined,
+    deliveredAt: pick(status, ['delivered_at', 'deliveredAt']) as string | null | undefined,
+    readAt: pick(status, ['read_at', 'readAt']) as string | null | undefined,
+    failedAt: pick(status, ['failed_at', 'failedAt']) as string | null | undefined,
   };
 }
 

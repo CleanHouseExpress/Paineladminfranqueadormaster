@@ -180,6 +180,7 @@ async function mockInbox(
     failTimeline?: boolean;
     failAssignees?: boolean;
     failTransfer?: boolean;
+    messageStatus?: 'sent' | 'delivered' | 'read' | 'failed' | 'pending';
   } = {},
 ) {
   const calls = {
@@ -187,6 +188,7 @@ async function mockInbox(
     conversations: 0,
     detail: 0,
     messages: 0,
+    messageStatuses: 0,
     assign: 0,
     close: 0,
     reopen: 0,
@@ -206,6 +208,18 @@ async function mockInbox(
     status: options.closed ? 'closed' : conversationsPayload.data[0].status,
   };
   let currentMessages = [...messagesPayload.data];
+  let currentMessageStatuses = [
+    {
+      message_id: 'm-2',
+      status: options.messageStatus ?? 'sent',
+      sent_at: '2026-06-25T12:31:01.000Z',
+      delivered_at: ['delivered', 'read'].includes(options.messageStatus ?? '')
+        ? '2026-06-25T12:31:02.000Z'
+        : null,
+      read_at: options.messageStatus === 'read' ? '2026-06-25T12:31:03.000Z' : null,
+      failed_at: options.messageStatus === 'failed' ? '2026-06-25T12:31:04.000Z' : null,
+    },
+  ];
 
   await page.route('**/api/tenant/communication/inbox/**', route => {
     const request = route.request();
@@ -347,6 +361,17 @@ async function mockInbox(
         created_at: '2026-06-25T12:32:00.000Z',
       };
       currentMessages = [...currentMessages, nextMessage];
+      currentMessageStatuses = [
+        ...currentMessageStatuses,
+        {
+          message_id: nextMessage.id,
+          status: 'sent',
+          sent_at: nextMessage.created_at,
+          delivered_at: null,
+          read_at: null,
+          failed_at: null,
+        },
+      ];
       currentConversation = {
         ...currentConversation,
         last_message: body.text ?? '',
@@ -357,6 +382,15 @@ async function mockInbox(
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ data: nextMessage }),
+      });
+    }
+
+    if (path.endsWith('/conversations/c-1/messages/status')) {
+      calls.messageStatuses += 1;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: currentMessageStatuses }),
       });
     }
 
@@ -486,6 +520,53 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await page.getByTestId('communication-page-next').click();
 
     await expect.poll(() => calls.conversationQueries.some(query => query.includes('page=2'))).toBeTruthy();
+  });
+
+  test('mensagem outbound sent mostra enviada', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page, { messageStatus: 'sent' });
+
+    await page.goto('/communication/inbox');
+
+    await expect.poll(() => calls.messageStatuses).toBeGreaterThan(0);
+    await expect(page.getByTestId('communication-message-status-m-2')).toContainText('Enviada');
+  });
+
+  test('mensagem outbound delivered mostra entregue', async ({ page }) => {
+    await mockAuth(page);
+    await mockInbox(page, { messageStatus: 'delivered' });
+
+    await page.goto('/communication/inbox');
+
+    await expect(page.getByTestId('communication-message-status-m-2')).toContainText('Entregue');
+  });
+
+  test('mensagem outbound read mostra lida', async ({ page }) => {
+    await mockAuth(page);
+    await mockInbox(page, { messageStatus: 'read' });
+
+    await page.goto('/communication/inbox');
+
+    await expect(page.getByTestId('communication-message-status-m-2')).toContainText('Lida');
+  });
+
+  test('mensagem outbound failed mostra falhou', async ({ page }) => {
+    await mockAuth(page);
+    await mockInbox(page, { messageStatus: 'failed' });
+
+    await page.goto('/communication/inbox');
+
+    await expect(page.getByTestId('communication-message-status-m-2')).toContainText('Falhou');
+  });
+
+  test('mensagem inbound nao mostra status de entrega', async ({ page }) => {
+    await mockAuth(page);
+    await mockInbox(page);
+
+    await page.goto('/communication/inbox');
+
+    await expect(page.getByTestId('communication-message-status-m-1')).toHaveCount(0);
+    await expect(page.getByTestId('communication-message-list')).toContainText('Preciso remarcar meu horario');
   });
 
   test('aba Timeline aparece, chama endpoint e renderiza eventos', async ({ page }) => {
@@ -722,10 +803,12 @@ test.describe('@smoke @communication Communication Inbox', () => {
 
     await expect.poll(() => calls.sendMessage).toBe(1);
     await expect.poll(() => calls.messages).toBeGreaterThan(1);
+    await expect.poll(() => calls.messageStatuses).toBeGreaterThan(1);
     await expect.poll(() => calls.summary).toBeGreaterThan(1);
     await expect.poll(() => calls.conversations).toBeGreaterThan(1);
     await expect(page.getByTestId('communication-message-input')).toHaveValue('');
     await expect(page.getByTestId('communication-message-list')).toContainText('Mensagem do atendente');
+    await expect(page.getByTestId('communication-message-status-m-3')).toContainText('Enviada');
   });
 
   test('enter envia e shift enter preserva quebra de linha', async ({ page }) => {

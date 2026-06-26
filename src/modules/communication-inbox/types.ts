@@ -51,6 +51,20 @@ export interface CommunicationMessage {
   senderName?: string | null;
   body: string;
   createdAt: string;
+  status?: string | null;
+  sentAt?: string | null;
+  deliveredAt?: string | null;
+  readAt?: string | null;
+  failedAt?: string | null;
+}
+
+export interface MessageDeliveryStatus {
+  messageId: string;
+  status: string;
+  sentAt?: string | null;
+  deliveredAt?: string | null;
+  readAt?: string | null;
+  failedAt?: string | null;
 }
 
 export interface ConversationTimelineEvent {

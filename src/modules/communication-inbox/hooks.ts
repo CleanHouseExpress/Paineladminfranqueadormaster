@@ -7,6 +7,7 @@ import type {
   ConversationTimelineEvent,
   ConversationFilters,
   InboxSummary,
+  MessageDeliveryStatus,
   MessageFilters,
   PaginatedResult,
 } from './types';
@@ -156,6 +157,14 @@ export function useConversationMessages(conversationId?: string | null, filters:
   return useAsyncQuery<PaginatedResult<CommunicationMessage>>(
     () => communicationInboxApi.listMessages(conversationId as string, stableFilters),
     [conversationId, stableFilters],
+    Boolean(conversationId),
+  );
+}
+
+export function useConversationMessageStatuses(conversationId?: string | null) {
+  return useAsyncQuery<MessageDeliveryStatus[]>(
+    () => communicationInboxApi.listMessageStatuses(conversationId as string),
+    [conversationId],
     Boolean(conversationId),
   );
 }

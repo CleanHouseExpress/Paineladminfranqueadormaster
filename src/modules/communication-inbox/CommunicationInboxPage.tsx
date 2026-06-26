@@ -21,6 +21,7 @@ import type { CommunicationAssignee, CommunicationConversation, ConversationFilt
 import { ConversationTimelinePanel } from './ConversationTimelinePanel';
 import {
   useConversation,
+  useConversationMessageStatuses,
   useConversationMessages,
   useConversationTimeline,
   useCommunicationAssignees,
@@ -99,6 +100,25 @@ function formatHandoffStatusLabel(value?: string | null) {
   if (status === 'requested') return 'Aguardando humano';
   if (status === 'assigned') return 'Assumido';
   return value ?? '';
+}
+
+function formatDeliveryStatusLabel(value?: string | null) {
+  const status = String(value ?? '').toLowerCase();
+  if (['pending', 'sending'].includes(status)) return 'Enviando...';
+  if (status === 'sent') return 'Enviada ✓';
+  if (status === 'delivered') return 'Entregue ✓✓';
+  if (status === 'read') return 'Lida ✓✓';
+  if (status === 'failed') return 'Falhou';
+  return value ?? '';
+}
+
+function getDeliveryStatusClass(value?: string | null) {
+  const status = String(value ?? '').toLowerCase();
+  if (status === 'failed') return 'bg-red-50 text-red-700';
+  if (status === 'read') return 'bg-emerald-50 text-emerald-700';
+  if (status === 'delivered') return 'bg-blue-50 text-blue-700';
+  if (status === 'sent') return 'bg-slate-100 text-slate-600';
+  return 'bg-slate-100 text-slate-500';
 }
 
 function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
@@ -257,6 +277,7 @@ export function CommunicationInboxPage() {
   // TODO realtime: subscribe to the selected conversation and refresh its detail, messages and timeline.
   const selectedConversationQuery = useConversation(selectedConversationId);
   const messagesQuery = useConversationMessages(selectedConversationId);
+  const messageStatusesQuery = useConversationMessageStatuses(selectedConversationId);
   const timelineQuery = useConversationTimeline(
     activeConversationTab === 'timeline' ? selectedConversationId : null,
   );
@@ -281,6 +302,10 @@ export function CommunicationInboxPage() {
   const selectedConversation = selectedConversationQuery.data
     ?? conversations.find(conversation => conversation.id === selectedConversationId)
     ?? null;
+  const messageStatusById = useMemo(() => {
+    const statuses = new Map(messageStatusesQuery.data?.map(status => [status.messageId, status]) ?? []);
+    return statuses;
+  }, [messageStatusesQuery.data]);
 
   useEffect(() => {
     if (!selectedConversationId && conversations.length > 0) {
@@ -344,6 +369,7 @@ export function CommunicationInboxPage() {
       conversationsQuery.refetch(),
       selectedConversationId ? selectedConversationQuery.refetch() : Promise.resolve(),
       selectedConversationId ? messagesQuery.refetch() : Promise.resolve(),
+      selectedConversationId ? messageStatusesQuery.refetch() : Promise.resolve(),
     ]);
   };
 
@@ -764,6 +790,9 @@ export function CommunicationInboxPage() {
                     {messagesQuery.data?.data.map(message => {
                       const outbound = message.direction === 'outbound';
                       const Icon = message.senderType === 'bot' ? Bot : UserRound;
+                      const deliveryStatus = messageStatusById.get(message.id);
+                      const statusValue = deliveryStatus?.status ?? message.status;
+                      const statusLabel = outbound ? formatDeliveryStatusLabel(statusValue) : '';
                       return (
                         <article
                           key={message.id}
@@ -785,6 +814,22 @@ export function CommunicationInboxPage() {
                               <span>{formatDateTime(message.createdAt)}</span>
                             </div>
                             <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.body || 'Mensagem sem texto'}</p>
+                            {outbound && statusLabel && (
+                              <div className="mt-2 flex justify-end">
+                                <span
+                                  className={`rounded px-2 py-0.5 text-[11px] font-medium ${getDeliveryStatusClass(statusValue)}`}
+                                  title={[
+                                    deliveryStatus?.sentAt ?? message.sentAt ? `Enviada: ${formatDateTime(deliveryStatus?.sentAt ?? message.sentAt)}` : '',
+                                    deliveryStatus?.deliveredAt ?? message.deliveredAt ? `Entregue: ${formatDateTime(deliveryStatus?.deliveredAt ?? message.deliveredAt)}` : '',
+                                    deliveryStatus?.readAt ?? message.readAt ? `Lida: ${formatDateTime(deliveryStatus?.readAt ?? message.readAt)}` : '',
+                                    deliveryStatus?.failedAt ?? message.failedAt ? `Falhou: ${formatDateTime(deliveryStatus?.failedAt ?? message.failedAt)}` : '',
+                                  ].filter(Boolean).join(' | ')}
+                                  data-testid={`communication-message-status-${message.id}`}
+                                >
+                                  {statusLabel}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </article>
                       );
