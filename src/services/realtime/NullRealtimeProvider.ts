@@ -1,6 +1,8 @@
 import type { RealtimeEventHandler, RealtimeProvider } from './RealtimeProvider';
 
 export class NullRealtimeProvider implements RealtimeProvider {
+  readonly isAvailable = false;
+
   connect(): void {}
 
   disconnect(): void {}

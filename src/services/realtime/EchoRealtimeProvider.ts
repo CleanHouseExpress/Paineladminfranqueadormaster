@@ -24,6 +24,8 @@ function normalizePrivateChannelName(channel: string) {
 }
 
 export class EchoRealtimeProvider implements RealtimeProvider {
+  readonly isAvailable = true;
+
   private echo: Echo<'reverb'> | null = null;
   private readonly channels = new Map<string, EchoChannel>();
   private readonly listeners: ListenerRegistration[] = [];

@@ -37,9 +37,39 @@ Nesta sprint nao ha dependencia de Echo, Reverb ou Pusher e nenhuma conexao e in
 
 ## Communication Inbox
 
-A `CommunicationInboxPage` possui marcadores `TODO realtime` junto aos pontos futuros de assinatura:
+A `CommunicationInboxPage` consome `useRealtime()` sem depender de Echo diretamente.
 
-- atualizacoes globais da inbox, para summary e lista;
-- atualizacoes da conversa selecionada, para detalhe, mensagens e timeline.
+Ao montar, a inbox assina o canal privado do tenant:
 
-Esses pontos nao executam logica de Realtime nesta fase.
+- `tenant.{tenantId}.communication`
+
+Ao selecionar uma conversa, assina:
+
+- `conversation.{conversationId}`
+
+Ao trocar de conversa, o canal anterior e desassinado. Ao desmontar a tela, todos os listeners e canais usados pela pagina sao limpos pelo ciclo de vida do React.
+
+Eventos consumidos:
+
+- `ConversationCreated`
+- `ConversationUpdated`
+- `ConversationAssigned`
+- `ConversationReturnedToAi`
+- `ConversationClosed`
+- `ConversationReopened`
+- `ConversationHandoffRequested`
+- `MessageReceived`
+- `MessageSent`
+- `MessageStatusUpdated`
+- `TimelineUpdated`
+
+Comportamento:
+
+- eventos de conversa atualizam summary e lista;
+- eventos da conversa aberta tambem recarregam detalhe;
+- `MessageReceived` e `MessageSent` recarregam mensagens quando a conversa aberta corresponde ao payload;
+- `MessageStatusUpdated` recarrega status de entrega quando a conversa aberta corresponde ao payload;
+- `TimelineUpdated` recarrega timeline somente quando a aba Timeline esta aberta;
+- ha dedupe curto para reduzir refetch duplicado quando o mesmo evento chegar pelo canal do tenant e pelo canal da conversa.
+
+Com `NullRealtimeProvider`, as chamadas sao operacoes vazias e a UI continua funcionando normalmente.

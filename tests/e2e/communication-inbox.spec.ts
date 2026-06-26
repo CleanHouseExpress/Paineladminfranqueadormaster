@@ -168,6 +168,12 @@ async function mockAuth(page: Page) {
   }));
 }
 
+async function enableRealtimeTestProvider(page: Page) {
+  await page.addInitScript(() => {
+    (window as Window & { __ORCHESTRA_REALTIME_TEST__?: boolean }).__ORCHESTRA_REALTIME_TEST__ = true;
+  });
+}
+
 async function mockInbox(
   page: Page,
   options: {
@@ -207,6 +213,7 @@ async function mockInbox(
     ...conversationsPayload.data[0],
     status: options.closed ? 'closed' : conversationsPayload.data[0].status,
   };
+  const secondConversation = conversationsPayload.data[1];
   let currentMessages = [...messagesPayload.data];
   let currentMessageStatuses = [
     {
@@ -220,6 +227,37 @@ async function mockInbox(
       failed_at: options.messageStatus === 'failed' ? '2026-06-25T12:31:04.000Z' : null,
     },
   ];
+  const helpers = {
+    pushInboundMessage(body = 'Mensagem nova em tempo real') {
+      const nextMessage = {
+        id: `m-${currentMessages.length + 1}`,
+        conversation_id: 'c-1',
+        direction: 'inbound',
+        sender_type: 'client',
+        sender_name: 'Ana Cliente',
+        body,
+        created_at: '2026-06-25T12:40:00.000Z',
+      };
+      currentMessages = [...currentMessages, nextMessage];
+      currentConversation = {
+        ...currentConversation,
+        last_message: body,
+        last_message_at: nextMessage.created_at,
+      };
+      return nextMessage;
+    },
+    setMessageStatus(status: 'sent' | 'delivered' | 'read' | 'failed' | 'pending') {
+      currentMessageStatuses = currentMessageStatuses.map(item => item.message_id === 'm-2'
+        ? {
+          ...item,
+          status,
+          delivered_at: ['delivered', 'read'].includes(status) ? '2026-06-25T12:31:02.000Z' : null,
+          read_at: status === 'read' ? '2026-06-25T12:31:03.000Z' : null,
+          failed_at: status === 'failed' ? '2026-06-25T12:31:04.000Z' : null,
+        }
+        : item);
+    },
+  };
 
   await page.route('**/api/tenant/communication/inbox/**', route => {
     const request = route.request();
@@ -394,6 +432,15 @@ async function mockInbox(
       });
     }
 
+    if (path.endsWith('/conversations/c-2/messages/status')) {
+      calls.messageStatuses += 1;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: [] }),
+      });
+    }
+
     if (path.endsWith('/conversations/c-1/messages')) {
       calls.messages += 1;
       return route.fulfill({
@@ -408,6 +455,28 @@ async function mockInbox(
               meta: { ...messagesPayload.meta, total: currentMessages.length },
             },
         ),
+      });
+    }
+
+    if (path.endsWith('/conversations/c-2/messages')) {
+      calls.messages += 1;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: [
+            {
+              id: 'm-c2-1',
+              conversation_id: 'c-2',
+              direction: 'inbound',
+              sender_type: 'client',
+              sender_name: 'Bruno Cliente',
+              body: 'Ola',
+              created_at: '2026-06-25T11:00:00.000Z',
+            },
+          ],
+          meta: { current_page: 1, last_page: 1, per_page: 50, total: 1 },
+        }),
       });
     }
 
@@ -434,6 +503,15 @@ async function mockInbox(
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ data: currentConversation }),
+      });
+    }
+
+    if (path.endsWith('/conversations/c-2')) {
+      calls.detail += 1;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: secondConversation }),
       });
     }
 
@@ -469,7 +547,28 @@ async function mockInbox(
     });
   });
 
-  return calls;
+  return Object.assign(calls, helpers);
+}
+
+async function emitRealtimeEvent(page: Page, event: string, payload?: unknown) {
+  await page.evaluate(({ event: eventName, payload: eventPayload }) => {
+    (window as Window & {
+      __ORCHESTRA_REALTIME_EMIT__?: (event: string, payload?: unknown) => void;
+    }).__ORCHESTRA_REALTIME_EMIT__?.(eventName, eventPayload);
+  }, { event, payload });
+}
+
+async function getRealtimeTestState(page: Page) {
+  return page.evaluate(() => (window as Window & {
+    __ORCHESTRA_REALTIME_TEST_STATE__?: {
+      channels: string[];
+      subscribed: string[];
+      unsubscribed: string[];
+      listened: string[];
+      stopped: string[];
+      connected: boolean;
+    };
+  }).__ORCHESTRA_REALTIME_TEST_STATE__);
 }
 
 test.describe('@smoke @communication Communication Inbox', () => {
@@ -486,6 +585,85 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await expect(page.getByTestId('communication-conversation-list')).toContainText('Bruno Cliente');
     await expect(page.getByText('Preciso remarcar meu horario').first()).toBeVisible();
     await expect(page.getByText('Claro, vou verificar as opcoes.')).toBeVisible();
+  });
+
+  test('realtime desligado nao quebra a tela', async ({ page }) => {
+    await mockAuth(page);
+    await mockInbox(page);
+
+    await page.goto('/communication/inbox');
+
+    await expect(page.getByTestId('communication-inbox-page')).toBeVisible();
+    await expect(page.getByTestId('communication-realtime-status')).toContainText('Offline / tempo real indisponivel');
+  });
+
+  test('realtime ativo assina canais de tenant e conversa', async ({ page }) => {
+    await enableRealtimeTestProvider(page);
+    await mockAuth(page);
+    await mockInbox(page);
+
+    await page.goto('/communication/inbox');
+
+    await expect(page.getByTestId('communication-realtime-status')).toContainText('Tempo real ativo');
+    await expect.poll(async () => {
+      const state = await getRealtimeTestState(page);
+      return state?.channels.includes('tenant.1.communication') && state.channels.includes('conversation.c-1');
+    }).toBeTruthy();
+  });
+
+  test('evento MessageReceived recarrega mensagens da conversa atual', async ({ page }) => {
+    await enableRealtimeTestProvider(page);
+    await mockAuth(page);
+    const calls = await mockInbox(page);
+
+    await page.goto('/communication/inbox');
+    await expect(page.getByTestId('communication-message-list')).toContainText('Claro, vou verificar as opcoes.');
+
+    const initialMessages = calls.messages;
+    calls.pushInboundMessage('Nova mensagem por realtime');
+    await emitRealtimeEvent(page, 'MessageReceived', { conversation_id: 'c-1' });
+
+    await expect.poll(() => calls.messages).toBeGreaterThan(initialMessages);
+    await expect(page.getByTestId('communication-message-list')).toContainText('Nova mensagem por realtime');
+  });
+
+  test('evento MessageStatusUpdated recarrega status das mensagens', async ({ page }) => {
+    await enableRealtimeTestProvider(page);
+    await mockAuth(page);
+    const calls = await mockInbox(page, { messageStatus: 'sent' });
+
+    await page.goto('/communication/inbox');
+    await expect(page.getByTestId('communication-message-status-m-2')).toContainText('Enviada');
+
+    const initialStatuses = calls.messageStatuses;
+    calls.setMessageStatus('read');
+    await emitRealtimeEvent(page, 'MessageStatusUpdated', { conversation_id: 'c-1', message_id: 'm-2' });
+
+    await expect.poll(() => calls.messageStatuses).toBeGreaterThan(initialStatuses);
+    await expect(page.getByTestId('communication-message-status-m-2')).toContainText('Lida');
+  });
+
+  test('troca de conversa desassina canal anterior', async ({ page }) => {
+    await enableRealtimeTestProvider(page);
+    await mockAuth(page);
+    await mockInbox(page);
+
+    await page.goto('/communication/inbox');
+    await expect.poll(async () => {
+      const state = await getRealtimeTestState(page);
+      return state?.channels.includes('conversation.c-1');
+    }).toBeTruthy();
+
+    await page.getByTestId('communication-conversation-list').getByText('Bruno Cliente').click();
+
+    await expect.poll(async () => {
+      const state = await getRealtimeTestState(page);
+      return Boolean(
+        state?.unsubscribed.includes('conversation.c-1') &&
+        state.channels.includes('conversation.c-2') &&
+        !state.channels.includes('conversation.c-1'),
+      );
+    }).toBeTruthy();
   });
 
   test('exibe painel de detalhes da conversa selecionada', async ({ page }) => {

@@ -4,7 +4,7 @@
 
 O Realtime permanece desligado por padrao. Com `VITE_REALTIME_ENABLED=false` ou sem essa variavel, o `RealtimeContextProvider` usa `NullRealtimeProvider` e nenhuma conexao websocket e aberta.
 
-Ainda nao existem inscricoes da Communication Inbox. A feature flag apenas seleciona e conecta o provider.
+A Communication Inbox ja registra inscricoes e listeners por meio da interface `RealtimeProvider`. Com a feature flag desligada, essas chamadas usam `NullRealtimeProvider` e nao abrem websocket.
 
 ## Variaveis de ambiente
 
@@ -58,7 +58,7 @@ Defina `VITE_REALTIME_ENABLED=false` ou remova a variavel. O contexto voltara a 
 
 ## Limitacoes atuais
 
-- A Communication Inbox ainda nao assina canais nem eventos.
-- Nao ha presenca, typing, polling ou estrategia de atualizacao de cache.
-- Nao ha UI de status da conexao.
+- A Communication Inbox assina canais de tenant e conversa, mas nao faz presenca ou typing.
+- Nao ha polling ou reconciliacao complexa de cache; eventos disparam refetchs focados.
+- O indicador da UI mostra se ha provider realtime disponivel, nao um diagnostico detalhado de reconexao do Echo.
 - Falhas sao isoladas e registradas no console; elas nao tornam o websocket obrigatorio para usar a aplicacao.

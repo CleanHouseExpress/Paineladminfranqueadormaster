@@ -1,5 +1,6 @@
 import { EchoRealtimeProvider } from './EchoRealtimeProvider';
 import { nullRealtimeProvider } from './NullRealtimeProvider';
+import { TestRealtimeProvider } from './TestRealtimeProvider';
 import type { RealtimeProvider } from './RealtimeProvider';
 import {
   createEchoRealtimeConfig,
@@ -8,6 +9,10 @@ import {
 import type { RealtimeEnv } from './realtimeConfig';
 
 export function createRealtimeProvider(env: RealtimeEnv): RealtimeProvider {
+  if (typeof window !== 'undefined' && window.__ORCHESTRA_REALTIME_TEST__) {
+    return new TestRealtimeProvider();
+  }
+
   if (!isRealtimeEnabled(env)) return nullRealtimeProvider;
   return new EchoRealtimeProvider(createEchoRealtimeConfig(env));
 }

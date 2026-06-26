@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   Bot,
@@ -19,6 +19,9 @@ import {
 } from 'lucide-react';
 import type { CommunicationAssignee, CommunicationConversation, ConversationFilters } from './types';
 import { ConversationTimelinePanel } from './ConversationTimelinePanel';
+import { useAuth } from '../../shared/context/AuthContext';
+import { useTenant } from '../../shared/context/TenantContext';
+import { useRealtime } from '../../services/realtime';
 import {
   useConversation,
   useConversationMessageStatuses,
@@ -55,6 +58,54 @@ const assignmentOptions = [
   { value: 'assigned', label: 'Atribuidas' },
   { value: 'unassigned', label: 'Sem responsavel' },
 ];
+
+const realtimeEvents = [
+  'ConversationCreated',
+  'ConversationUpdated',
+  'ConversationAssigned',
+  'ConversationReturnedToAi',
+  'ConversationClosed',
+  'ConversationReopened',
+  'ConversationHandoffRequested',
+  'MessageReceived',
+  'MessageSent',
+  'MessageStatusUpdated',
+  'TimelineUpdated',
+] as const;
+
+type CommunicationRealtimeEvent = typeof realtimeEvents[number];
+
+const messageRealtimeEvents: CommunicationRealtimeEvent[] = ['MessageReceived', 'MessageSent'];
+
+function readStringField(payload: unknown, keys: string[]): string | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const record = payload as Record<string, unknown>;
+
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'string' || typeof value === 'number') return String(value);
+  }
+
+  return null;
+}
+
+function getRealtimeConversationId(payload: unknown): string | null {
+  const direct = readStringField(payload, ['conversation_id', 'conversationId']);
+  if (direct) return direct;
+
+  if (payload && typeof payload === 'object') {
+    const record = payload as Record<string, unknown>;
+    const conversation = record.conversation;
+    const fromConversation = readStringField(conversation, ['id', 'conversation_id', 'conversationId']);
+    if (fromConversation) return fromConversation;
+
+    const message = record.message;
+    const fromMessage = readStringField(message, ['conversation_id', 'conversationId']);
+    if (fromMessage) return fromMessage;
+  }
+
+  return null;
+}
 
 function formatDateTime(value?: string | null) {
   if (!value) return 'Sem data';
@@ -259,6 +310,9 @@ const isHumanConversation = (conversation: CommunicationConversation | null) => 
 };
 
 export function CommunicationInboxPage() {
+  const realtime = useRealtime();
+  const { context, company } = useAuth();
+  const { tenant } = useTenant();
   const [filters, setFilters] = useState<ConversationFilters>({
     search: '',
     status: 'all',
@@ -269,12 +323,15 @@ export function CommunicationInboxPage() {
   });
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [activeConversationTab, setActiveConversationTab] = useState<'messages' | 'timeline'>('messages');
+  const realtimeDedupeRef = useRef(new Map<string, number>());
+  const tenantId = String(context?.companyId ?? company?.id ?? tenant.id ?? '').trim();
+  const tenantRealtimeChannel = tenantId ? `tenant.${tenantId}.communication` : null;
+  const conversationRealtimeChannel = selectedConversationId ? `conversation.${selectedConversationId}` : null;
+  const realtimeAvailable = realtime.isAvailable === true;
 
-  // TODO realtime: subscribe to tenant inbox updates when a concrete provider is available.
   const summaryQuery = useInboxSummary(filters);
   const conversationsQuery = useInboxConversations(filters);
 
-  // TODO realtime: subscribe to the selected conversation and refresh its detail, messages and timeline.
   const selectedConversationQuery = useConversation(selectedConversationId);
   const messagesQuery = useConversationMessages(selectedConversationId);
   const messageStatusesQuery = useConversationMessageStatuses(selectedConversationId);
@@ -373,6 +430,71 @@ export function CommunicationInboxPage() {
     ]);
   };
 
+  const handleRealtimeEvent = useCallback((event: CommunicationRealtimeEvent, payload: unknown) => {
+    const conversationId = getRealtimeConversationId(payload);
+    const dedupeKey = `${event}:${conversationId ?? 'global'}`;
+    const now = Date.now();
+    const lastRunAt = realtimeDedupeRef.current.get(dedupeKey) ?? 0;
+
+    if (now - lastRunAt < 250) return;
+    realtimeDedupeRef.current.set(dedupeKey, now);
+
+    const shouldRefreshSelectedConversation =
+      Boolean(conversationId && selectedConversationId && conversationId === selectedConversationId);
+    const shouldRefreshMessages = shouldRefreshSelectedConversation && messageRealtimeEvents.includes(event);
+    const shouldRefreshStatuses = shouldRefreshSelectedConversation && event === 'MessageStatusUpdated';
+    const shouldRefreshTimeline =
+      shouldRefreshSelectedConversation &&
+      event === 'TimelineUpdated' &&
+      activeConversationTab === 'timeline';
+
+    void Promise.all([
+      summaryQuery.refetch(),
+      conversationsQuery.refetch(),
+      shouldRefreshSelectedConversation ? selectedConversationQuery.refetch() : Promise.resolve(),
+      shouldRefreshMessages ? messagesQuery.refetch() : Promise.resolve(),
+      shouldRefreshStatuses ? messageStatusesQuery.refetch() : Promise.resolve(),
+      shouldRefreshTimeline ? timelineQuery.refetch() : Promise.resolve(),
+    ]);
+  }, [
+    activeConversationTab,
+    conversationsQuery,
+    messageStatusesQuery,
+    messagesQuery,
+    selectedConversationId,
+    selectedConversationQuery,
+    summaryQuery,
+    timelineQuery,
+  ]);
+
+  useEffect(() => {
+    if (!realtimeAvailable || !tenantRealtimeChannel) return undefined;
+
+    realtime.subscribe(tenantRealtimeChannel);
+    return () => realtime.unsubscribe(tenantRealtimeChannel);
+  }, [realtime, realtimeAvailable, tenantRealtimeChannel]);
+
+  useEffect(() => {
+    if (!realtimeAvailable || !conversationRealtimeChannel) return undefined;
+
+    realtime.subscribe(conversationRealtimeChannel);
+    return () => realtime.unsubscribe(conversationRealtimeChannel);
+  }, [conversationRealtimeChannel, realtime, realtimeAvailable]);
+
+  useEffect(() => {
+    if (!realtimeAvailable) return undefined;
+
+    const registrations = realtimeEvents.map(event => {
+      const handler = (payload: unknown) => handleRealtimeEvent(event, payload);
+      realtime.listen(event, handler);
+      return { event, handler };
+    });
+
+    return () => {
+      registrations.forEach(({ event, handler }) => realtime.stopListening(event, handler));
+    };
+  }, [handleRealtimeEvent, realtime, realtimeAvailable]);
+
   const runConversationAction = async (
     action: () => Promise<unknown>,
     refresh: () => Promise<void> = refreshSelectedConversation,
@@ -463,6 +585,21 @@ export function CommunicationInboxPage() {
             </div>
             <h1 className="mt-1 text-2xl font-semibold text-slate-950">Caixa de comunicacao</h1>
             <p className="mt-1 text-sm text-slate-600">Leitura de conversas e mensagens vindas da orchestra-api.</p>
+            <div
+              className={`mt-2 inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium ${
+                realtimeAvailable
+                  ? 'bg-emerald-50 text-emerald-700'
+                  : 'bg-slate-100 text-slate-600'
+              }`}
+              data-testid="communication-realtime-status"
+            >
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  realtimeAvailable ? 'bg-emerald-500' : 'bg-slate-400'
+                }`}
+              />
+              {realtimeAvailable ? 'Tempo real ativo' : 'Offline / tempo real indisponivel'}
+            </div>
           </div>
           <button
             type="button"

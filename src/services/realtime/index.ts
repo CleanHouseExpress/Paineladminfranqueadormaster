@@ -1,6 +1,7 @@
 export { createRealtimeProvider, defaultRealtimeProvider } from './createRealtimeProvider';
 export { EchoRealtimeProvider } from './EchoRealtimeProvider';
 export { NullRealtimeProvider, nullRealtimeProvider } from './NullRealtimeProvider';
+export { TestRealtimeProvider } from './TestRealtimeProvider';
 export { RealtimeContext, RealtimeContextProvider } from './RealtimeContext';
 export type { RealtimeEventHandler, RealtimeProvider } from './RealtimeProvider';
 export {
