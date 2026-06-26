@@ -1,4 +1,5 @@
 import type {
+  CommunicationAssignee,
   CommunicationConversation,
   CommunicationMessage,
   ConversationTimelineEvent,
@@ -98,6 +99,31 @@ export function normalizeMessage(payload: unknown): CommunicationMessage {
     ) as string | null | undefined,
     body: toStringValue(pick(message, ['body', 'message', 'content', 'text'])),
     createdAt: toStringValue(pick(message, ['created_at', 'createdAt', 'timestamp']), new Date(0).toISOString()),
+  };
+}
+
+export function normalizeAssignee(payload: unknown): CommunicationAssignee {
+  const assignee = asRecord(payload);
+  const user = asRecord(pick(assignee, ['user', 'assignee', 'attendant']));
+
+  return {
+    id: toStringValue(
+      pick(assignee, ['id', 'user_id', 'assignee_id'])
+        ?? pick(user, ['id', 'user_id']),
+    ),
+    name: toStringValue(
+      pick(assignee, ['name', 'full_name', 'display_name'])
+        ?? pick(user, ['name', 'full_name', 'display_name']),
+      'Atendente sem nome',
+    ),
+    email: (
+      pick(assignee, ['email'])
+      ?? pick(user, ['email'])
+    ) as string | null | undefined,
+    role: (
+      pick(assignee, ['role', 'role_name', 'profile'])
+      ?? pick(user, ['role', 'role_name', 'profile'])
+    ) as string | null | undefined,
   };
 }
 

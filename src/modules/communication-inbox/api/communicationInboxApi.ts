@@ -1,5 +1,6 @@
 import { apiClient } from '../../../services/apiClient';
 import {
+  normalizeAssignee,
   normalizeConversation,
   normalizeMessage,
   normalizePaginated,
@@ -7,6 +8,7 @@ import {
   normalizeTimelineEvent,
 } from '../adapters';
 import type {
+  CommunicationAssignee,
   CommunicationConversation,
   CommunicationMessage,
   ConversationTimelineEvent,
@@ -95,6 +97,16 @@ export const communicationInboxApi = {
     return normalizePaginated(payload, normalizeTimelineEvent).data;
   },
 
+  async listAssignees(search?: string): Promise<CommunicationAssignee[]> {
+    const params = new URLSearchParams();
+    if (search?.trim()) params.set('search', search.trim());
+    const query = params.toString();
+    const payload = await apiClient.get<unknown>(
+      `${INBOX_BASE}/assignees${query ? `?${query}` : ''}`,
+    );
+    return normalizePaginated(payload, normalizeAssignee).data;
+  },
+
   async requestHandoff(conversationId: string | number, reason?: string): Promise<CommunicationConversation> {
     const payload = await apiClient.post<unknown>(
       `${INBOX_BASE}/conversations/${conversationId}/request-handoff`,
@@ -131,6 +143,17 @@ export const communicationInboxApi = {
     const payload = await apiClient.post<unknown>(
       `${INBOX_BASE}/conversations/${conversationId}/return-to-ai`,
       reason ? { reason } : {},
+    );
+    return normalizeConversationPayload(payload);
+  },
+
+  async transferConversation(
+    conversationId: string | number,
+    assigneeId: string | number,
+  ): Promise<CommunicationConversation> {
+    const payload = await apiClient.post<unknown>(
+      `${INBOX_BASE}/conversations/${conversationId}/transfer`,
+      { assignee_id: assigneeId },
     );
     return normalizeConversationPayload(payload);
   },

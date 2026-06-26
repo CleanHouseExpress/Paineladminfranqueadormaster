@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type DependencyList } from 'react';
 import { communicationInboxApi } from './api/communicationInboxApi';
 import type {
+  CommunicationAssignee,
   CommunicationConversation,
   CommunicationMessage,
   ConversationTimelineEvent,
@@ -167,6 +168,15 @@ export function useConversationTimeline(conversationId?: string | null) {
   );
 }
 
+export function useCommunicationAssignees(search = '', enabled = true) {
+  const stableSearch = useMemo(() => search.trim(), [search]);
+  return useAsyncQuery<CommunicationAssignee[]>(
+    () => communicationInboxApi.listAssignees(stableSearch),
+    [stableSearch, enabled],
+    enabled,
+  );
+}
+
 export function useRequestHandoff() {
   return useAsyncMutation((conversationId: string, reason?: string) =>
     communicationInboxApi.requestHandoff(conversationId, reason)
@@ -200,5 +210,11 @@ export function useReturnToAi() {
 export function useSendMessage() {
   return useAsyncMutation((conversationId: string, text: string) =>
     communicationInboxApi.sendMessage(conversationId, text)
+  );
+}
+
+export function useTransferConversation() {
+  return useAsyncMutation((conversationId: string, assigneeId: string) =>
+    communicationInboxApi.transferConversation(conversationId, assigneeId)
   );
 }

@@ -36,6 +36,13 @@ export interface CommunicationConversation {
   unreadCount: number;
 }
 
+export interface CommunicationAssignee {
+  id: string;
+  name: string;
+  email?: string | null;
+  role?: string | null;
+}
+
 export interface CommunicationMessage {
   id: string;
   conversationId: string;

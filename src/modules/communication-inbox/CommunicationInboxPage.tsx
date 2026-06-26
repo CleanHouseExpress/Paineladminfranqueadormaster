@@ -12,14 +12,18 @@ import {
   Search,
   Send,
   Tag,
+  UserCheck,
+  UserPlus,
   UserRound,
+  X,
 } from 'lucide-react';
-import type { CommunicationConversation, ConversationFilters } from './types';
+import type { CommunicationAssignee, CommunicationConversation, ConversationFilters } from './types';
 import { ConversationTimelinePanel } from './ConversationTimelinePanel';
 import {
   useConversation,
   useConversationMessages,
   useConversationTimeline,
+  useCommunicationAssignees,
   useAssignConversation,
   useCloseConversation,
   useInboxConversations,
@@ -28,6 +32,7 @@ import {
   useRequestHandoff,
   useReturnToAi,
   useSendMessage,
+  useTransferConversation,
 } from './hooks';
 
 const statusOptions = [
@@ -179,6 +184,41 @@ function ConversationItem({
   );
 }
 
+function AssigneeItem({
+  assignee,
+  selected,
+  onSelect,
+}: {
+  assignee: CommunicationAssignee;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`flex w-full items-start gap-3 rounded-md border px-3 py-3 text-left transition ${
+        selected
+          ? 'border-blue-300 bg-blue-50'
+          : 'border-slate-200 bg-white hover:bg-slate-50'
+      }`}
+      data-testid={`communication-assignee-${assignee.id}`}
+    >
+      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600">
+        <UserRound className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-slate-950">{assignee.name}</p>
+        <p className="mt-0.5 truncate text-xs text-slate-600">{assignee.email ?? 'Sem e-mail'}</p>
+        {assignee.role && (
+          <p className="mt-1 text-xs font-medium text-slate-500">{assignee.role}</p>
+        )}
+      </div>
+      {selected && <UserCheck className="mt-1 h-4 w-4 flex-shrink-0 text-blue-600" />}
+    </button>
+  );
+}
+
 const isClosedConversation = (conversation: CommunicationConversation | null) =>
   String(conversation?.status ?? '').toLowerCase() === 'closed';
 
@@ -226,9 +266,15 @@ export function CommunicationInboxPage() {
   const reopenMutation = useReopenConversation();
   const returnToAiMutation = useReturnToAi();
   const sendMessageMutation = useSendMessage();
+  const transferMutation = useTransferConversation();
   const [actionError, setActionError] = useState<string | null>(null);
   const [messageText, setMessageText] = useState('');
   const [sendError, setSendError] = useState<string | null>(null);
+  const [transferPanelOpen, setTransferPanelOpen] = useState(false);
+  const [assigneeSearch, setAssigneeSearch] = useState('');
+  const [selectedAssigneeId, setSelectedAssigneeId] = useState<string | null>(null);
+  const [transferError, setTransferError] = useState<string | null>(null);
+  const assigneesQuery = useCommunicationAssignees(assigneeSearch, transferPanelOpen);
 
   const conversations = conversationsQuery.data?.data ?? [];
   const conversationMeta = conversationsQuery.data?.meta;
@@ -244,6 +290,13 @@ export function CommunicationInboxPage() {
       setSelectedConversationId(conversations[0].id);
     }
   }, [conversations, selectedConversationId]);
+
+  useEffect(() => {
+    setTransferPanelOpen(false);
+    setAssigneeSearch('');
+    setSelectedAssigneeId(null);
+    setTransferError(null);
+  }, [selectedConversationId]);
 
   const summaryCards = useMemo(() => {
     const summary = summaryQuery.data ?? {
@@ -312,7 +365,8 @@ export function CommunicationInboxPage() {
     assignMutation.isLoading ||
     closeMutation.isLoading ||
     reopenMutation.isLoading ||
-    returnToAiMutation.isLoading;
+    returnToAiMutation.isLoading ||
+    transferMutation.isLoading;
   const conversationClosed = isClosedConversation(selectedConversation);
   const conversationInHumanMode = isHumanConversation(selectedConversation);
   const canRequestHandoff =
@@ -322,6 +376,7 @@ export function CommunicationInboxPage() {
   const canClose = Boolean(selectedConversationId) && !conversationClosed;
   const canReopen = Boolean(selectedConversationId) && conversationClosed;
   const canReturnToAi = Boolean(selectedConversationId) && !conversationClosed && conversationInHumanMode;
+  const canTransfer = Boolean(selectedConversationId) && !conversationClosed;
   const trimmedMessageText = messageText.trim();
   const canSendMessage =
     Boolean(selectedConversationId) &&
@@ -348,6 +403,26 @@ export function CommunicationInboxPage() {
       await refreshConversationAfterMessage();
     } catch (error) {
       setSendError(error instanceof Error ? error.message : 'Nao foi possivel enviar a mensagem.');
+    }
+  };
+
+  const closeTransferPanel = () => {
+    setTransferPanelOpen(false);
+    setAssigneeSearch('');
+    setSelectedAssigneeId(null);
+    setTransferError(null);
+  };
+
+  const handleTransferConversation = async () => {
+    if (!selectedConversationId || !selectedAssigneeId || transferMutation.isLoading) return;
+
+    setTransferError(null);
+    try {
+      await transferMutation.mutate(selectedConversationId, selectedAssigneeId);
+      closeTransferPanel();
+      await refreshSelectedConversation();
+    } catch (error) {
+      setTransferError(error instanceof Error ? error.message : 'Nao foi possivel transferir a conversa.');
     }
   };
 
@@ -575,6 +650,20 @@ export function CommunicationInboxPage() {
                       data-testid="communication-action-handoff"
                     >
                       {requestHandoffMutation.isLoading ? 'Solicitando...' : 'Solicitar handoff'}
+                    </button>
+                  )}
+                  {canTransfer && (
+                    <button
+                      type="button"
+                      disabled={actionInProgress}
+                      onClick={() => {
+                        setTransferPanelOpen(true);
+                        setTransferError(null);
+                      }}
+                      className="rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-800 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      data-testid="communication-action-transfer"
+                    >
+                      Transferir
                     </button>
                   )}
                   {canClose && (
@@ -842,6 +931,115 @@ export function CommunicationInboxPage() {
           )}
         </aside>
       </section>
+
+      {transferPanelOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4 py-6" data-testid="communication-transfer-modal">
+          <div className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+              <div>
+                <div className="flex items-center gap-2 text-sm font-semibold text-blue-700">
+                  <UserPlus className="h-4 w-4" />
+                  Transferir conversa
+                </div>
+                <p className="mt-1 text-sm text-slate-600">
+                  Responsavel atual: {selectedConversation?.assignedToName ?? 'Nao informado'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeTransferPanel}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                aria-label="Fechar transferencia"
+                data-testid="communication-transfer-close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 overflow-y-auto px-5 py-4">
+              <label className="text-sm font-medium text-slate-700">
+                Buscar atendente
+                <div className="relative mt-1">
+                  <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                  <input
+                    type="search"
+                    value={assigneeSearch}
+                    onChange={event => {
+                      setAssigneeSearch(event.target.value);
+                      setSelectedAssigneeId(null);
+                      setTransferError(null);
+                    }}
+                    className="w-full rounded-md border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900"
+                    placeholder="Nome ou e-mail"
+                    data-testid="communication-assignee-search"
+                  />
+                </div>
+              </label>
+
+              {assigneesQuery.isLoading ? (
+                <div className="space-y-2" data-testid="communication-assignees-loading">
+                  {Array.from({ length: 3 }).map((_, index) => (
+                    <div key={index} className="h-16 animate-pulse rounded-md bg-slate-100" />
+                  ))}
+                </div>
+              ) : assigneesQuery.isError ? (
+                <div data-testid="communication-assignees-error">
+                  <ErrorState
+                    message={assigneesQuery.error?.message ?? 'Erro ao carregar atendentes.'}
+                    onRetry={assigneesQuery.refetch}
+                  />
+                </div>
+              ) : (assigneesQuery.data?.length ?? 0) === 0 ? (
+                <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-600" data-testid="communication-assignees-empty">
+                  Nenhum atendente encontrado.
+                </div>
+              ) : (
+                <div className="space-y-2" data-testid="communication-assignee-list">
+                  {assigneesQuery.data?.map(assignee => (
+                    <AssigneeItem
+                      key={assignee.id}
+                      assignee={assignee}
+                      selected={assignee.id === selectedAssigneeId}
+                      onSelect={() => {
+                        setSelectedAssigneeId(assignee.id);
+                        setTransferError(null);
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {transferError && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" data-testid="communication-transfer-error">
+                  {transferError}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-4">
+              <button
+                type="button"
+                onClick={closeTransferPanel}
+                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={!selectedAssigneeId || transferMutation.isLoading}
+                onClick={() => {
+                  void handleTransferConversation();
+                }}
+                className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                data-testid="communication-transfer-confirm"
+              >
+                {transferMutation.isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                Confirmar transferencia
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

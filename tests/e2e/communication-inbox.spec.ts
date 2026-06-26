@@ -108,6 +108,23 @@ const timelinePayload = {
   ],
 };
 
+const assigneesPayload = {
+  data: [
+    {
+      id: 'u-1',
+      name: 'Marina',
+      email: 'marina@orchestra.test',
+      role: 'Atendente',
+    },
+    {
+      id: 'u-2',
+      name: 'Carlos Atendimento',
+      email: 'carlos@orchestra.test',
+      role: 'Supervisor',
+    },
+  ],
+};
+
 async function mockAuth(page: Page) {
   await disableOnboarding(page);
   await page.addInitScript(() => {
@@ -161,6 +178,8 @@ async function mockInbox(
     failReturnToAi?: boolean;
     emptyTimeline?: boolean;
     failTimeline?: boolean;
+    failAssignees?: boolean;
+    failTransfer?: boolean;
   } = {},
 ) {
   const calls = {
@@ -174,10 +193,13 @@ async function mockInbox(
     handoff: 0,
     sendMessage: 0,
     returnToAi: 0,
+    assignees: 0,
+    transfer: 0,
     timeline: 0,
     timelinePaths: [] as string[],
     timelineMethods: [] as string[],
     conversationQueries: [] as string[],
+    assigneeQueries: [] as string[],
   };
   let currentConversation = {
     ...conversationsPayload.data[0],
@@ -200,6 +222,22 @@ async function mockInbox(
       });
     }
 
+    if (path.endsWith('/assignees')) {
+      calls.assignees += 1;
+      calls.assigneeQueries.push(url.search);
+      const search = String(url.searchParams.get('search') ?? '').toLowerCase();
+      const data = search
+        ? assigneesPayload.data.filter(assignee =>
+          assignee.name.toLowerCase().includes(search) || assignee.email.toLowerCase().includes(search)
+        )
+        : assigneesPayload.data;
+      return route.fulfill({
+        status: options.failAssignees ? 500 : 200,
+        contentType: 'application/json',
+        body: JSON.stringify(options.failAssignees ? { message: 'assignees unavailable' } : { data }),
+      });
+    }
+
     if (path.endsWith('/conversations/c-1/request-handoff') && method === 'POST') {
       calls.handoff += 1;
       currentConversation = { ...currentConversation, handoff_status: 'requested' };
@@ -213,6 +251,30 @@ async function mockInbox(
     if (path.endsWith('/conversations/c-1/assign') && method === 'POST') {
       calls.assign += 1;
       currentConversation = { ...currentConversation, assignment_status: 'assigned_to_me', assigned_to_name: 'Admin Master' };
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: currentConversation }),
+      });
+    }
+
+    if (path.endsWith('/conversations/c-1/transfer') && method === 'POST') {
+      calls.transfer += 1;
+      if (options.failTransfer) {
+        return route.fulfill({
+          status: 422,
+          contentType: 'application/json',
+          body: JSON.stringify({ message: 'transfer unavailable' }),
+        });
+      }
+
+      const body = JSON.parse(request.postData() || '{}') as { assignee_id?: string };
+      const assignee = assigneesPayload.data.find(item => item.id === body.assignee_id);
+      currentConversation = {
+        ...currentConversation,
+        assignment_status: 'assigned',
+        assigned_to_name: assignee?.name ?? 'Atendente transferido',
+      };
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -480,8 +542,75 @@ test.describe('@smoke @communication Communication Inbox', () => {
 
     await expect(page.getByTestId('communication-action-assign')).toBeVisible();
     await expect(page.getByTestId('communication-action-handoff')).toBeVisible();
+    await expect(page.getByTestId('communication-action-transfer')).toBeVisible();
     await expect(page.getByTestId('communication-action-return-ai')).toBeVisible();
     await expect(page.getByTestId('communication-action-close')).toBeVisible();
+  });
+
+  test('abre modal de transferencia e lista assignees', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page);
+
+    await page.goto('/communication/inbox');
+    await page.getByTestId('communication-action-transfer').click();
+
+    await expect(page.getByTestId('communication-transfer-modal')).toBeVisible();
+    await expect(page.getByTestId('communication-transfer-modal')).toContainText('Responsavel atual: Marina');
+    await expect.poll(() => calls.assignees).toBe(1);
+    await expect(page.getByTestId('communication-assignee-list')).toContainText('Marina');
+    await expect(page.getByTestId('communication-assignee-list')).toContainText('Carlos Atendimento');
+  });
+
+  test('busca assignee no endpoint novo', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page);
+
+    await page.goto('/communication/inbox');
+    await page.getByTestId('communication-action-transfer').click();
+    await page.getByTestId('communication-assignee-search').fill('Carlos');
+
+    await expect.poll(() => calls.assigneeQueries.some(query => query.includes('search=Carlos'))).toBeTruthy();
+    await expect(page.getByTestId('communication-assignee-list')).toContainText('Carlos Atendimento');
+  });
+
+  test('transfere conversa e recarrega dados principais', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page);
+
+    await page.goto('/communication/inbox');
+    await page.getByTestId('communication-action-transfer').click();
+    await page.getByTestId('communication-assignee-u-2').click();
+    await page.getByTestId('communication-transfer-confirm').click();
+
+    await expect.poll(() => calls.transfer).toBe(1);
+    await expect.poll(() => calls.summary).toBeGreaterThan(1);
+    await expect.poll(() => calls.conversations).toBeGreaterThan(1);
+    await expect(page.getByTestId('communication-transfer-modal')).toHaveCount(0);
+    await expect(page.getByTestId('communication-conversation-details')).toContainText('Carlos Atendimento');
+  });
+
+  test('erro na transferencia exibe mensagem segura', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page, { failTransfer: true });
+
+    await page.goto('/communication/inbox');
+    await page.getByTestId('communication-action-transfer').click();
+    await page.getByTestId('communication-assignee-u-2').click();
+    await page.getByTestId('communication-transfer-confirm').click();
+
+    await expect.poll(() => calls.transfer).toBe(1);
+    await expect(page.getByTestId('communication-transfer-modal')).toBeVisible();
+    await expect(page.getByTestId('communication-transfer-error')).toBeVisible();
+  });
+
+  test('conversa fechada nao permite transferencia', async ({ page }) => {
+    await mockAuth(page);
+    await mockInbox(page, { closed: true });
+
+    await page.goto('/communication/inbox');
+
+    await expect(page.getByTestId('communication-action-transfer')).toHaveCount(0);
+    await expect(page.getByTestId('communication-action-reopen')).toBeVisible();
   });
 
   test('assign chama API e refaz chamadas principais', async ({ page }) => {
