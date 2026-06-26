@@ -185,7 +185,7 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   'tasks-list': TasksPage,
   'task-detail': TaskDetailPage,
   'communication-inbox': CommunicationInboxPage,
-  support: () => <PlaceholderPage title="Atendimento" description="Central de atendimento multicanal. Ative o modulo WhatsApp ou Instagram para comecar." />,
+  support: CommunicationInboxPage,
   automations: () => <PlaceholderPage title="Automacoes" description="Fluxos automatizados para notificacoes, cobrancas e processos repetitivos." />,
   reports: () => <PlaceholderPage title="Relatorios" description="Relatorios customizados com exportacao e agendamento automatico." />,
   marketplace: MarketplacePage,

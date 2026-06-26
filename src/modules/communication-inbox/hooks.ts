@@ -118,7 +118,10 @@ function useAsyncMutation<TArgs extends unknown[], TResult>(
 }
 
 export function useInboxSummary(filters: ConversationFilters) {
-  const stableFilters = useMemo(() => filters, [filters.status, filters.handoff, filters.assignmentStatus]);
+  const stableFilters = useMemo(
+    () => filters,
+    [filters.search, filters.status, filters.handoff, filters.assignmentStatus],
+  );
   return useAsyncQuery<InboxSummary>(
     () => communicationInboxApi.getSummary(stableFilters),
     [stableFilters],
@@ -128,7 +131,7 @@ export function useInboxSummary(filters: ConversationFilters) {
 export function useInboxConversations(filters: ConversationFilters) {
   const stableFilters = useMemo(
     () => ({ ...filters, page: filters.page ?? 1, perPage: filters.perPage ?? 25 }),
-    [filters.status, filters.handoff, filters.assignmentStatus, filters.page, filters.perPage],
+    [filters.search, filters.status, filters.handoff, filters.assignmentStatus, filters.page, filters.perPage],
   );
   return useAsyncQuery<PaginatedResult<CommunicationConversation>>(
     () => communicationInboxApi.listConversations(stableFilters),

@@ -8,6 +8,7 @@ export interface InboxSummary {
 }
 
 export interface ConversationFilters {
+  search?: string;
   status?: string;
   handoff?: string;
   assignmentStatus?: string;

@@ -14,7 +14,7 @@ VITE_REVERB_APP_KEY=
 VITE_REVERB_HOST=
 VITE_REVERB_PORT=8080
 VITE_REVERB_SCHEME=http
-VITE_REVERB_AUTH_ENDPOINT=/broadcasting/auth
+VITE_REVERB_AUTH_ENDPOINT=/api/tenant/communication/broadcasting/auth
 ```
 
 - `VITE_REALTIME_ENABLED`: use `true` para selecionar o provider Echo.
@@ -51,7 +51,8 @@ Defina `VITE_REALTIME_ENABLED=false` ou remova a variavel. O contexto voltara a 
 
 - Verifique o console por mensagens prefixadas com `[realtime]`.
 - Confirme app key, host, porta e scheme.
-- Verifique a aba Network para o websocket e o `POST /broadcasting/auth`.
+- Verifique a aba Network para o websocket e o
+  `POST /api/tenant/communication/broadcasting/auth`.
 - Confirme se token e cookies pertencem ao tenant correto.
 - Respostas `401` e `403` no auth endpoint indicam falha de sessao ou autorizacao de canal.
 

@@ -2,12 +2,16 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
   Bot,
+  ChevronLeft,
+  ChevronRight,
   Inbox,
   Loader2,
   MessageCircle,
+  Phone,
   RefreshCcw,
   Search,
   Send,
+  Tag,
   UserRound,
 } from 'lucide-react';
 import type { CommunicationConversation, ConversationFilters } from './types';
@@ -63,6 +67,17 @@ function SummaryCard({ label, value }: { label: string; value: number }) {
     <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
       <p className="mt-2 text-2xl font-semibold text-slate-950">{value}</p>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value?: string | number | null }) {
+  const displayValue = value === undefined || value === null || value === '' ? 'Nao informado' : value;
+
+  return (
+    <div className="border-b border-slate-100 py-3 last:border-b-0">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-1 break-words text-sm font-medium text-slate-900">{displayValue}</p>
     </div>
   );
 }
@@ -185,9 +200,12 @@ const isHumanConversation = (conversation: CommunicationConversation | null) => 
 
 export function CommunicationInboxPage() {
   const [filters, setFilters] = useState<ConversationFilters>({
+    search: '',
     status: 'all',
     handoff: 'all',
     assignmentStatus: 'all',
+    page: 1,
+    perPage: 25,
   });
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [activeConversationTab, setActiveConversationTab] = useState<'messages' | 'timeline'>('messages');
@@ -213,6 +231,7 @@ export function CommunicationInboxPage() {
   const [sendError, setSendError] = useState<string | null>(null);
 
   const conversations = conversationsQuery.data?.data ?? [];
+  const conversationMeta = conversationsQuery.data?.meta;
   const selectedConversation = selectedConversationQuery.data
     ?? conversations.find(conversation => conversation.id === selectedConversationId)
     ?? null;
@@ -247,7 +266,13 @@ export function CommunicationInboxPage() {
   }, [summaryQuery.data]);
 
   const updateFilter = (key: keyof ConversationFilters, value: string) => {
-    setFilters(current => ({ ...current, [key]: value }));
+    setFilters(current => ({ ...current, [key]: value, page: 1 }));
+    setSelectedConversationId(null);
+    setActiveConversationTab('messages');
+  };
+
+  const updateConversationPage = (page: number) => {
+    setFilters(current => ({ ...current, page }));
     setSelectedConversationId(null);
     setActiveConversationTab('messages');
   };
@@ -305,12 +330,20 @@ export function CommunicationInboxPage() {
     Boolean(trimmedMessageText) &&
     !sendMessageMutation.isLoading;
 
-  const handleSendMessage = async () => {
-    if (!selectedConversationId || !canSendMessage) return;
+  const handleSendMessage = async (nextMessageText = messageText) => {
+    const textToSend = nextMessageText.trim();
+    const canSendText =
+      Boolean(selectedConversationId) &&
+      !conversationClosed &&
+      conversationInHumanMode &&
+      Boolean(textToSend) &&
+      !sendMessageMutation.isLoading;
+
+    if (!selectedConversationId || !canSendText) return;
 
     setSendError(null);
     try {
-      await sendMessageMutation.mutate(selectedConversationId, trimmedMessageText);
+      await sendMessageMutation.mutate(selectedConversationId, textToSend);
       setMessageText('');
       await refreshConversationAfterMessage();
     } catch (error) {
@@ -359,7 +392,21 @@ export function CommunicationInboxPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-white p-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-white p-4 md:grid-cols-2 xl:grid-cols-4">
+          <label className="text-sm font-medium text-slate-700">
+            Busca
+            <div className="relative mt-1">
+              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <input
+                type="search"
+                value={filters.search ?? ''}
+                onChange={event => updateFilter('search', event.target.value)}
+                className="w-full rounded-md border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900"
+                placeholder="Nome, telefone ou texto"
+                data-testid="communication-filter-search"
+              />
+            </div>
+          </label>
           <label className="text-sm font-medium text-slate-700">
             Status
             <select
@@ -396,8 +443,8 @@ export function CommunicationInboxPage() {
         </div>
       </section>
 
-      <section className="grid min-h-0 flex-1 grid-cols-1 gap-4 px-6 pb-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-        <aside className="min-h-[360px] overflow-hidden rounded-lg border border-slate-200 bg-white">
+      <section className="grid min-h-0 flex-1 grid-cols-1 gap-4 px-6 pb-6 xl:grid-cols-[360px_minmax(0,1fr)_300px] 2xl:grid-cols-[420px_minmax(0,1fr)_320px]">
+        <aside className="flex min-h-[360px] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
           <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-3">
             <Search className="h-4 w-4 text-slate-500" />
             <h2 className="text-sm font-semibold text-slate-950">Conversas</h2>
@@ -420,19 +467,50 @@ export function CommunicationInboxPage() {
               <p className="mt-1 text-xs">Ajuste os filtros ou tente novamente mais tarde.</p>
             </div>
           ) : (
-            <div className="max-h-[58vh] overflow-y-auto" data-testid="communication-conversation-list">
-              {conversations.map(conversation => (
-                <ConversationItem
-                  key={conversation.id}
-                  conversation={conversation}
-                  selected={conversation.id === selectedConversationId}
-                  onSelect={() => {
-                    setSelectedConversationId(conversation.id);
-                    setActiveConversationTab('messages');
-                  }}
-                />
-              ))}
-            </div>
+            <>
+              <div className="min-h-0 flex-1 overflow-y-auto" data-testid="communication-conversation-list">
+                {conversations.map(conversation => (
+                  <ConversationItem
+                    key={conversation.id}
+                    conversation={conversation}
+                    selected={conversation.id === selectedConversationId}
+                    onSelect={() => {
+                      setSelectedConversationId(conversation.id);
+                      setActiveConversationTab('messages');
+                    }}
+                  />
+                ))}
+              </div>
+              {conversationMeta && conversationMeta.total > conversationMeta.perPage && (
+                <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-xs text-slate-600">
+                  <span data-testid="communication-conversation-pagination-label">
+                    Pagina {conversationMeta.currentPage} de {conversationMeta.lastPage}
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={conversationMeta.currentPage <= 1 || conversationsQuery.isLoading}
+                      onClick={() => updateConversationPage(conversationMeta.currentPage - 1)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label="Pagina anterior"
+                      data-testid="communication-page-previous"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={conversationMeta.currentPage >= conversationMeta.lastPage || conversationsQuery.isLoading}
+                      onClick={() => updateConversationPage(conversationMeta.currentPage + 1)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label="Proxima pagina"
+                      data-testid="communication-page-next"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </aside>
 
@@ -452,7 +530,7 @@ export function CommunicationInboxPage() {
                       {selectedConversation?.customerName ?? 'Conversa'}
                     </h2>
                     <p className="mt-1 text-sm text-slate-600">
-                      {selectedConversation?.customerPhone ?? 'Sem telefone'} · {selectedConversation?.channel ?? 'canal'}
+                      {selectedConversation?.customerPhone ?? 'Sem telefone'} - {selectedConversation?.channel ?? 'canal'}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2 text-xs font-medium">
@@ -656,7 +734,7 @@ export function CommunicationInboxPage() {
                     onKeyDown={(event) => {
                       if (event.key === 'Enter' && !event.shiftKey) {
                         event.preventDefault();
-                        void handleSendMessage();
+                        void handleSendMessage(event.currentTarget.value);
                       }
                     }}
                     disabled={!selectedConversationId || conversationClosed || !conversationInHumanMode || sendMessageMutation.isLoading}
@@ -672,7 +750,10 @@ export function CommunicationInboxPage() {
                     data-testid="communication-message-input"
                   />
                   <button
-                    type="submit"
+                    type="button"
+                    onClick={() => {
+                      void handleSendMessage();
+                    }}
                     disabled={!canSendMessage}
                     className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                     data-testid="communication-send-button"
@@ -703,6 +784,63 @@ export function CommunicationInboxPage() {
             </div>
           )}
         </section>
+
+        <aside className="min-h-[360px] overflow-hidden rounded-lg border border-slate-200 bg-white" data-testid="communication-conversation-details">
+          <div className="flex items-center gap-2 border-b border-slate-200 px-4 py-3">
+            <UserRound className="h-4 w-4 text-slate-500" />
+            <h2 className="text-sm font-semibold text-slate-950">Detalhes</h2>
+          </div>
+          {!selectedConversationId ? (
+            <div className="flex h-80 flex-col items-center justify-center px-6 text-center text-slate-500">
+              <UserRound className="mb-3 h-10 w-10 text-slate-300" />
+              <p className="text-sm font-medium text-slate-700">Nenhuma conversa selecionada</p>
+            </div>
+          ) : selectedConversationQuery.isLoading && !selectedConversation ? (
+            <div className="space-y-3 p-4">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div key={index} className="h-12 animate-pulse rounded-md bg-slate-100" />
+              ))}
+            </div>
+          ) : selectedConversationQuery.isError ? (
+            <div className="p-4">
+              <ErrorState message={selectedConversationQuery.error?.message ?? 'Erro ao carregar detalhes.'} onRetry={selectedConversationQuery.refetch} />
+            </div>
+          ) : (
+            <div className="p-4">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700">
+                    <UserRound className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-950">
+                      {selectedConversation?.customerName ?? 'Cliente sem nome'}
+                    </p>
+                    <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-600">
+                      <Phone className="h-3.5 w-3.5" />
+                      {selectedConversation?.customerPhone ?? 'Sem telefone'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 rounded-lg border border-slate-200 px-4">
+                <DetailRow label="Canal" value={selectedConversation?.channel} />
+                <DetailRow label="Status" value={selectedConversation?.status} />
+                <DetailRow label="Modo" value={formatServiceModeLabel(selectedConversation?.serviceMode)} />
+                <DetailRow label="Handoff" value={formatHandoffStatusLabel(selectedConversation?.handoffStatus)} />
+                <DetailRow label="Atribuicao" value={selectedConversation?.assignmentStatus} />
+                <DetailRow label="Responsavel" value={selectedConversation?.assignedToName} />
+                <DetailRow label="Ultima mensagem" value={selectedConversation?.lastMessage} />
+                <DetailRow label="Atualizacao" value={formatDateTime(selectedConversation?.lastMessageAt)} />
+                <DetailRow label="Nao lidas" value={selectedConversation?.unreadCount} />
+              </div>
+              <div className="mt-3 flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                <Tag className="h-3.5 w-3.5 flex-shrink-0" />
+                Dados limitados ao contrato atual da Orchestra API.
+              </div>
+            </div>
+          )}
+        </aside>
       </section>
     </main>
   );

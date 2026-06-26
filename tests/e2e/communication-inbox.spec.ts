@@ -144,6 +144,11 @@ async function mockAuth(page: Page) {
     contentType: 'application/json',
     body: JSON.stringify({ data: [] }),
   }));
+  await page.route('**/api/me/units', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify([]),
+  }));
 }
 
 async function mockInbox(
@@ -172,6 +177,7 @@ async function mockInbox(
     timeline: 0,
     timelinePaths: [] as string[],
     timelineMethods: [] as string[],
+    conversationQueries: [] as string[],
   };
   let currentConversation = {
     ...conversationsPayload.data[0],
@@ -262,13 +268,13 @@ async function mockInbox(
       calls.sendMessage += 1;
       if (options.failSend) {
         return route.fulfill({
-          status: 500,
+          status: 422,
           contentType: 'application/json',
           body: JSON.stringify({ message: 'send unavailable' }),
         });
       }
 
-      const body = request.postDataJSON() as { text?: string };
+      const body = JSON.parse(request.postData() || '{}') as { text?: string };
       const nextMessage = {
         id: `m-${currentMessages.length + 1}`,
         conversation_id: 'c-1',
@@ -337,6 +343,7 @@ async function mockInbox(
 
     if (path.endsWith('/conversations')) {
       calls.conversations += 1;
+      calls.conversationQueries.push(url.search);
       return route.fulfill({
         status: options.error ? 500 : 200,
         contentType: 'application/json',
@@ -348,6 +355,12 @@ async function mockInbox(
               : {
                 ...conversationsPayload,
                 data: [currentConversation, conversationsPayload.data[1]],
+                meta: {
+                  ...conversationsPayload.meta,
+                  current_page: Number(url.searchParams.get('page') ?? 1),
+                  last_page: 2,
+                  total: 50,
+                },
               },
         ),
       });
@@ -373,10 +386,44 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await expect(page.getByTestId('communication-inbox-page')).toBeVisible();
     await expect(page.getByTestId('communication-inbox-summary')).toContainText('Total');
     await expect(page.getByText('2').first()).toBeVisible();
-    await expect(page.getByText('Ana Cliente')).toBeVisible();
-    await expect(page.getByText('Bruno Cliente')).toBeVisible();
+    await expect(page.getByTestId('communication-conversation-list')).toContainText('Ana Cliente');
+    await expect(page.getByTestId('communication-conversation-list')).toContainText('Bruno Cliente');
     await expect(page.getByText('Preciso remarcar meu horario').first()).toBeVisible();
     await expect(page.getByText('Claro, vou verificar as opcoes.')).toBeVisible();
+  });
+
+  test('exibe painel de detalhes da conversa selecionada', async ({ page }) => {
+    await mockAuth(page);
+    await mockInbox(page);
+
+    await page.goto('/communication/inbox');
+
+    await expect(page.getByTestId('communication-conversation-details')).toBeVisible();
+    await expect(page.getByTestId('communication-conversation-details')).toContainText('Ana Cliente');
+    await expect(page.getByTestId('communication-conversation-details')).toContainText('+55 11 99999-0000');
+    await expect(page.getByTestId('communication-conversation-details')).toContainText('Responsavel');
+    await expect(page.getByTestId('communication-conversation-details')).toContainText('Marina');
+  });
+
+  test('busca conversa usando parametro search da API nova', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page);
+
+    await page.goto('/communication/inbox');
+    await page.getByTestId('communication-filter-search').fill('Ana');
+
+    await expect.poll(() => calls.conversationQueries.some(query => query.includes('search=Ana'))).toBeTruthy();
+  });
+
+  test('paginacao de conversas chama proxima pagina', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page);
+
+    await page.goto('/communication/inbox');
+    await expect(page.getByTestId('communication-conversation-pagination-label')).toContainText('Pagina 1 de 2');
+    await page.getByTestId('communication-page-next').click();
+
+    await expect.poll(() => calls.conversationQueries.some(query => query.includes('page=2'))).toBeTruthy();
   });
 
   test('aba Timeline aparece, chama endpoint e renderiza eventos', async ({ page }) => {
@@ -395,7 +442,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await expect(page.getByTestId('communication-timeline-list')).toContainText('Conversa criada');
     await expect(page.getByTestId('communication-timeline-list')).toContainText('Atendimento humano solicitado');
     await expect(page.getByTestId('communication-timeline-list')).toContainText('Retornado para IA');
-    await expect(page.getByText('Admin Master')).toBeVisible();
+    await expect(page.getByTestId('communication-timeline-list')).toContainText('Admin Master');
     expect(calls.timelinePaths).toEqual([
       '/api/tenant/communication/inbox/conversations/c-1/timeline',
     ]);
@@ -447,7 +494,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await expect.poll(() => calls.assign).toBe(1);
     await expect.poll(() => calls.summary).toBeGreaterThan(1);
     await expect.poll(() => calls.conversations).toBeGreaterThan(1);
-    await expect(page.getByText('Admin Master')).toBeVisible();
+    await expect(page.getByTestId('communication-conversation-details')).toContainText('Admin Master');
   });
 
   test('request handoff chama API e atualiza UI', async ({ page }) => {
@@ -459,7 +506,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
 
     await expect.poll(() => calls.handoff).toBe(1);
     await expect.poll(() => calls.summary).toBeGreaterThan(1);
-    await expect(page.getByText('Aguardando humano')).toBeVisible();
+    await expect(page.getByTestId('communication-conversation-details')).toContainText('Aguardando humano');
   });
 
   test('mostra botao Voltar para IA em conversa humana', async ({ page }) => {
@@ -468,7 +515,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
 
     await page.goto('/communication/inbox');
 
-    await expect(page.getByText('Humano')).toBeVisible();
+    await expect(page.getByTestId('communication-conversation-details')).toContainText('Humano');
     await expect(page.getByTestId('communication-action-return-ai')).toBeVisible();
   });
 
@@ -484,7 +531,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await expect.poll(() => calls.messages).toBeGreaterThan(1);
     await expect.poll(() => calls.summary).toBeGreaterThan(1);
     await expect.poll(() => calls.conversations).toBeGreaterThan(1);
-    await expect(page.getByText('IA')).toBeVisible();
+    await expect(page.getByTestId('communication-conversation-details')).toContainText('IA');
     await expect(page.getByTestId('communication-composer-ai')).toBeVisible();
     await expect(page.getByTestId('communication-message-input')).toBeDisabled();
   });
@@ -597,7 +644,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await mockInbox(page);
 
     await page.goto('/communication/inbox');
-    await page.getByText('Ana Cliente').click();
+    await page.getByTestId('communication-conversation-list').getByText('Ana Cliente').click();
 
     await expect(page.getByTestId('communication-message-list')).toContainText('Preciso remarcar meu horario');
     await expect(page.getByTestId('communication-message-list')).toContainText('Claro, vou verificar as opcoes.');

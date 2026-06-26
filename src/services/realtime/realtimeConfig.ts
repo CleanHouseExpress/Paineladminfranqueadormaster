@@ -29,7 +29,8 @@ export function createEchoRealtimeConfig(env: RealtimeEnv): EchoRealtimeConfig {
     host: env.VITE_REVERB_HOST?.trim() || (typeof window !== 'undefined' ? window.location.hostname : ''),
     port: Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : 8080,
     scheme,
-    authEndpoint: env.VITE_REVERB_AUTH_ENDPOINT?.trim() || '/broadcasting/auth',
+    authEndpoint: env.VITE_REVERB_AUTH_ENDPOINT?.trim()
+      || '/api/tenant/communication/broadcasting/auth',
   };
 }
 

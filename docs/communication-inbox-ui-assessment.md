@@ -324,3 +324,51 @@ Para reproduzir todos os comportamentos desejados do chat antigo, faltam confirm
    - Unit tests para adapters e services.
    - E2E smoke para rota da inbox, leitura, assign/close/reopen.
    - Build e `git diff --check`.
+
+## Nova auditoria de paridade legado x Communication Inbox
+
+Auditoria atualizada usando este documento como baseline e comparando os comportamentos do modulo legado `clin-pulse-dashboard/src/modules/messaging` com o modulo novo `src/modules/communication-inbox` do frontend Orchestra.
+
+| Area do legado | Estado na Communication Inbox | Observacao |
+| --- | --- | --- |
+| Rota principal de atendimento | Implementado | Nova rota `/communication/inbox`, sem reutilizar `/atendimento`. |
+| Lista de conversas | Implementado | Usa `GET /api/tenant/communication/inbox/conversations`. |
+| Busca por conversa | Implementado | Campo de busca adicionado e enviado como filtro `search` no endpoint novo de conversas. |
+| Filtros por status | Implementado | Filtro basico de status usando contrato novo. |
+| Filtro por handoff | Implementado | Usa `handoff`/`handoff_status` do contrato novo. |
+| Filtro por atribuicao | Implementado | Usa `assignment_status` do contrato novo. |
+| Paginacao/scroll de conversas | Parcial | Adicionada navegacao por pagina usando `meta`; ainda nao e scroll infinito. |
+| Cards de resumo | Implementado | Usa `GET /api/tenant/communication/inbox/summary`. |
+| Selecao de conversa | Implementado | Carrega detalhe e mensagens pelo contrato novo. |
+| Janela de mensagens | Implementado | Renderiza mensagens com direcao, autor e data. |
+| Composer humano | Implementado | Usa `POST /api/tenant/communication/inbox/conversations/{id}/messages`. |
+| Enter para enviar e Shift+Enter | Implementado | Mantido comportamento esperado do chat. |
+| Anexos de imagem/video | Ausente | Nao ha contrato novo de upload/anexo no escopo atual. |
+| Audio gravado no navegador | Ausente | Nao ha contrato novo de midia/audio no escopo atual. |
+| Assumir atendimento | Implementado | Usa `POST /assign`. |
+| Solicitar handoff | Implementado | Usa `POST /request-handoff`. |
+| Encerrar conversa | Implementado | Usa `POST /close`. |
+| Reabrir conversa | Implementado | Usa `POST /reopen`. |
+| Voltar para IA | Implementado | Usa `POST /return-to-ai`. |
+| Transferencia para atendente | Ausente | Nao ha endpoint dedicado nem lista de usuarios elegiveis no contrato atual. |
+| Presenca/atendentes online | Ausente | Nao ha contrato novo de presenca no Inbox. |
+| Painel lateral de cliente | Parcial | Adicionado painel de detalhes com dados da conversa; historico, notas e servicos dependem de novos contratos. |
+| Timeline operacional | Implementado | Usa `GET /timeline` e renderiza eventos, vazio e erro seguro. |
+| Realtime Pusher/Echo na tela | Parcial | Camada `src/services/realtime` existe com Null/Echo por feature flag, mas a Inbox ainda nao assina canais. |
+| Dashboard operacional legado | Parcial | Summary basico implementado; metricas detalhadas antigas nao foram portadas. |
+| Lista de atendentes | Ausente | Depende de contrato RBAC/usuarios da Orchestra. |
+| Configuracoes/logs do modulo antigo | Ausente | Fora do escopo do Inbox operacional atual. |
+| Testes E2E do fluxo | Implementado | Cobrem render, acoes, composer, timeline, busca, paginacao e detalhes. |
+
+### Incrementos implementados nesta auditoria
+
+- Busca na lista de conversas com filtro `search`, mantendo o client em `/api/tenant/communication/inbox/conversations`.
+- Paginacao basica da lista de conversas usando `meta.currentPage`, `meta.lastPage`, `meta.perPage` e `meta.total`.
+- Painel lateral de detalhes da conversa selecionada com dados ja expostos pelo contrato atual.
+- Testes E2E para busca, paginacao e painel de detalhes.
+
+### Limites mantidos
+
+- Nenhum endpoint legado `/api/messaging/*` foi introduzido.
+- Nenhum codigo funcional do modulo antigo foi copiado.
+- Transferencia, presenca, anexos, audio, painel completo de cliente e assinatura realtime da Inbox permanecem ausentes ate existirem contratos novos equivalentes ou decisao de produto.

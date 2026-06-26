@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
   EchoRealtimeProvider,
   NullRealtimeProvider,
+  createEchoRealtimeConfig,
   createRealtimeProvider,
   nullRealtimeProvider,
 } from '../../src/services/realtime';
@@ -34,6 +35,12 @@ test.describe('@smoke realtime provider', () => {
 
   test('env ausente nao habilita websocket', () => {
     expect(createRealtimeProvider({})).toBe(nullRealtimeProvider);
+  });
+
+  test('configuracao usa auth endpoint tenant-aware por padrao', () => {
+    expect(createEchoRealtimeConfig({}).authEndpoint).toBe(
+      '/api/tenant/communication/broadcasting/auth',
+    );
   });
 
   test('feature flag ligada cria EchoRealtimeProvider sem conectar', () => {
