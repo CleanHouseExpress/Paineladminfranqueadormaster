@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { ArrowLeft, Edit, Plus, RefreshCw, Save, Search, Settings, Trash2 } from 'lucide-react';
 import { DynamicFormRenderer } from '../../shared/components/DynamicFormRenderer';
 import { DynamicTableRenderer } from '../../shared/components/DynamicTableRenderer';
 import { unitManagementService } from '../../services/unitManagementService';
 import type { Unit, UnitMetadata, UnitsMeta } from '../../types/unitManagement';
 import { DEFAULT_UNIT_METADATA } from '../../types/unitManagement';
+import { UnitImplementationTab } from '../../app/components/units/UnitImplementationTab';
 import { Button } from '../../app/components/ui/button';
 import { Input } from '../../app/components/ui/input';
 import { Label } from '../../app/components/ui/label';
@@ -200,7 +201,9 @@ export function UnitsListPage() {
 export function UnitFormPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const editing = Boolean(id);
+  const activeTab = editing && searchParams.get('tab') === 'implantacao' ? 'implantacao' : 'dados';
   const [metadata, setMetadata] = useState<UnitMetadata>(DEFAULT_UNIT_METADATA);
   const [form, setForm] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(true);
@@ -252,6 +255,30 @@ export function UnitFormPage() {
     }
   };
 
+  const unitForImplementation = useMemo<Unit>(() => ({
+    id: Number(form.id ?? id ?? 0),
+    name: String(form.name ?? ''),
+    code: form.code as string | null | undefined,
+    document: form.document as string | null | undefined,
+    phone: form.phone as string | null | undefined,
+    email: form.email as string | null | undefined,
+    status: String(form.status ?? 'opening'),
+    responsible_name: form.responsible_name as string | null | undefined,
+    responsible_email: form.responsible_email as string | null | undefined,
+    responsible_phone: form.responsible_phone as string | null | undefined,
+    opening_date: form.opening_date as string | null | undefined,
+    address_zipcode: form.address_zipcode as string | null | undefined,
+    address_street: form.address_street as string | null | undefined,
+    address_number: form.address_number as string | null | undefined,
+    address_complement: form.address_complement as string | null | undefined,
+    address_district: form.address_district as string | null | undefined,
+    address_city: form.address_city as string | null | undefined,
+    address_state: form.address_state as string | null | undefined,
+    notes: form.notes as string | null | undefined,
+    created_at: form.created_at as string | null | undefined,
+    updated_at: form.updated_at as string | null | undefined,
+  }), [form, id]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -269,28 +296,51 @@ export function UnitFormPage() {
 
       {error ? <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">{error}</div> : null}
 
-      <form className="space-y-5 rounded-md border p-4" onSubmit={save}>
-        {loading ? (
-          <div className="h-32 content-center text-center text-sm text-muted-foreground">Carregando formulario</div>
-        ) : (
-          <DynamicFormRenderer
-            schema={metadata.fields.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))}
-            value={form}
-            disabled={saving}
-            onChange={patch => setForm(current => ({ ...current, ...patch }))}
-          />
-        )}
-
-        <div className="flex justify-end gap-2">
-          <Button asChild type="button" variant="outline">
-            <Link to="/units">Cancelar</Link>
+      {editing ? (
+        <div className="flex gap-2 rounded-md border p-1">
+          <Button
+            type="button"
+            variant={activeTab === 'dados' ? 'default' : 'ghost'}
+            onClick={() => setSearchParams({})}
+          >
+            Dados
           </Button>
-          <Button type="submit" disabled={saving || loading}>
-            {saving ? <RefreshCw className="size-4 animate-spin" /> : <Save className="size-4" />}
-            Salvar
+          <Button
+            type="button"
+            variant={activeTab === 'implantacao' ? 'default' : 'ghost'}
+            onClick={() => setSearchParams({ tab: 'implantacao' })}
+          >
+            Implantacao
           </Button>
         </div>
-      </form>
+      ) : null}
+
+      {activeTab === 'implantacao' && editing ? (
+        <UnitImplementationTab unit={unitForImplementation} />
+      ) : (
+        <form className="space-y-5 rounded-md border p-4" onSubmit={save}>
+          {loading ? (
+            <div className="h-32 content-center text-center text-sm text-muted-foreground">Carregando formulario</div>
+          ) : (
+            <DynamicFormRenderer
+              schema={[...metadata.fields].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))}
+              value={form}
+              disabled={saving}
+              onChange={patch => setForm(current => ({ ...current, ...patch }))}
+            />
+          )}
+
+          <div className="flex justify-end gap-2">
+            <Button asChild type="button" variant="outline">
+              <Link to="/units">Cancelar</Link>
+            </Button>
+            <Button type="submit" disabled={saving || loading}>
+              {saving ? <RefreshCw className="size-4 animate-spin" /> : <Save className="size-4" />}
+              Salvar
+            </Button>
+          </div>
+        </form>
+      )}
     </div>
   );
 }

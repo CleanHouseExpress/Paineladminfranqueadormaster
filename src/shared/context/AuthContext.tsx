@@ -120,8 +120,15 @@ function normalizeMePayload(payload: unknown) {
   };
 }
 
+const MODULE_ID_ALIASES: Record<string, string> = {
+  communication: 'communication-inbox',
+  support: 'communication-inbox',
+  noc: 'network_operations_center',
+};
+
 function normalizeModuleId(module: AuthModule) {
-  return String(module.moduleId ?? module.module_id ?? module.slug ?? module.id ?? '');
+  const rawId = String(module.moduleId ?? module.module_id ?? module.slug ?? module.id ?? '');
+  return MODULE_ID_ALIASES[rawId] ?? rawId;
 }
 
 function normalizeTenantPlan(plan: unknown): TenantConfig['plan'] {

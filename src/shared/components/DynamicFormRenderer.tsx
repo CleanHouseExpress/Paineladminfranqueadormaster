@@ -296,7 +296,7 @@ export function DynamicFormRenderer({
       );
     }
 
-    const icon = field.type === 'email' ? Mail : field.type === 'phone' ? Phone : field.type === 'url' ? Link2 : null;
+    const InlineIcon = field.type === 'email' ? Mail : field.type === 'phone' ? Phone : field.type === 'url' ? Link2 : null;
     const inputType = field.type === 'textarea' ? 'textarea' : String(field.type === 'currency' ? 'number' : field.type);
 
     if (field.type === 'textarea') {
@@ -314,14 +314,18 @@ export function DynamicFormRenderer({
 
     return (
       <div style={{ position: 'relative' }}>
-        {icon ? <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}>{icon({ size: 15 })}</span> : null}
+        {InlineIcon ? (
+          <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}>
+            <InlineIcon size={15} />
+          </span>
+        ) : null}
         <input
           type={inputType}
           value={stringValue}
           placeholder={field.placeholder ?? ''}
           required={field.required}
           disabled={blocked}
-          style={icon ? { ...style, paddingLeft: '32px' } : style}
+          style={InlineIcon ? { ...style, paddingLeft: '32px' } : style}
           onChange={event => {
             const next = field.type === 'number' || field.type === 'currency'
               ? event.target.value === '' ? '' : Number(event.target.value)

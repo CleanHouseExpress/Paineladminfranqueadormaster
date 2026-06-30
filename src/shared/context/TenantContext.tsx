@@ -43,16 +43,28 @@ interface TenantContextValue {
 
 const TenantContext = createContext<TenantContextValue | null>(null);
 
+const MODULE_ID_ALIASES: Record<string, string[]> = {
+  'communication-inbox': ['communication', 'support'],
+  communication: ['communication-inbox', 'support'],
+  support: ['communication-inbox', 'communication'],
+  noc: ['network_operations_center'],
+  network_operations_center: ['noc'],
+};
+
+function moduleIdCandidates(moduleId: string): string[] {
+  return [moduleId, ...(MODULE_ID_ALIASES[moduleId] ?? [])];
+}
+
 export function TenantProvider({ children }: { children: React.ReactNode }) {
   const [tenant, setTenant] = useState<TenantConfig>(DEFAULT_TENANT);
 
   const isModuleEnabled = useCallback(
-    (moduleId: string) => tenant.enabledModuleIds.includes(moduleId),
+    (moduleId: string) => moduleIdCandidates(moduleId).some(id => tenant.enabledModuleIds.includes(id)),
     [tenant.enabledModuleIds],
   );
 
   const isModuleBlocked = useCallback(
-    (moduleId: string) => tenant.blockedModuleIds.includes(moduleId),
+    (moduleId: string) => moduleIdCandidates(moduleId).some(id => tenant.blockedModuleIds.includes(id)),
     [tenant.blockedModuleIds],
   );
 

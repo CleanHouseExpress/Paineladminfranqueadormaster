@@ -97,6 +97,19 @@ const AutomationRulesPage = lazyPage(() => import('../modules/automation'), 'Aut
 const TasksPage = lazyPage(() => import('../modules/automation'), 'TasksPage');
 const TaskDetailPage = lazyPage(() => import('../modules/automation'), 'TaskDetailPage');
 const CommunicationInboxPage = lazyPage(() => import('../modules/communication-inbox'), 'CommunicationInboxPage');
+const CommunicationDashboardPage = lazyPage(() => import('../modules/communication-inbox'), 'CommunicationDashboardPage');
+const CommunicationAnalyticsPage = lazyPage(() => import('../modules/communication-inbox'), 'CommunicationAnalyticsPage');
+const CommunicationSettingsPage = lazyPage(() => import('../modules/communication-inbox'), 'CommunicationSettingsPage');
+const CommunicationSettingsChannelsPage = lazyPage(() => import('../modules/communication-inbox'), 'ChannelsPage');
+const CommunicationSettingsDepartmentsPage = lazyPage(() => import('../modules/communication-inbox'), 'DepartmentsPage');
+const CommunicationSettingsSchedulesPage = lazyPage(() => import('../modules/communication-inbox'), 'SchedulesPage');
+const CommunicationSettingsDistributionPage = lazyPage(() => import('../modules/communication-inbox'), 'DistributionPage');
+const CommunicationSettingsSlaPage = lazyPage(() => import('../modules/communication-inbox'), 'SlaPage');
+const CommunicationSettingsTagsPage = lazyPage(() => import('../modules/communication-inbox'), 'TagsPage');
+const CommunicationSettingsAiPage = lazyPage(() => import('../modules/communication-inbox'), 'AIPage');
+const CommunicationSettingsWebhooksPage = lazyPage(() => import('../modules/communication-inbox'), 'WebhooksPage');
+const ImplementationsDashboardPage = lazyPage(() => import('./components/implementations/ImplementationsDashboard'), 'ImplementationsDashboard');
+const ImplementationTemplatesPage = lazyPage(() => import('./components/implementations/ImplementationTemplates'), 'ImplementationTemplates');
 
 const MarketplacePage = lazyPage(() => import('./components/ModulesMarketplace'), 'ModulesMarketplace');
 const ModuleDetailPage = lazyPage(() => import('./components/ModuleDetail'), 'ModuleDetail');
@@ -115,6 +128,8 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   'unit-new': UnitFormPage,
   'unit-detail': UnitFormPage,
   'unit-settings': UnitSettingsPage,
+  'implementations-dashboard': ImplementationsDashboardPage,
+  'implementation-templates': ImplementationTemplatesPage,
   customers: CustomersListPage,
   'customer-new': CustomerFormPage,
   'customer-detail': CustomerFormPage,
@@ -185,6 +200,17 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   'tasks-list': TasksPage,
   'task-detail': TaskDetailPage,
   'communication-inbox': CommunicationInboxPage,
+  'communication-dashboard': CommunicationDashboardPage,
+  'communication-analytics': CommunicationAnalyticsPage,
+  'communication-settings': CommunicationSettingsPage,
+  'communication-settings-channels': CommunicationSettingsChannelsPage,
+  'communication-settings-departments': CommunicationSettingsDepartmentsPage,
+  'communication-settings-schedules': CommunicationSettingsSchedulesPage,
+  'communication-settings-distribution': CommunicationSettingsDistributionPage,
+  'communication-settings-sla': CommunicationSettingsSlaPage,
+  'communication-settings-tags': CommunicationSettingsTagsPage,
+  'communication-settings-ai': CommunicationSettingsAiPage,
+  'communication-settings-webhooks': CommunicationSettingsWebhooksPage,
   support: CommunicationInboxPage,
   automations: () => <PlaceholderPage title="Automacoes" description="Fluxos automatizados para notificacoes, cobrancas e processos repetitivos." />,
   reports: () => <PlaceholderPage title="Relatorios" description="Relatorios customizados com exportacao e agendamento automatico." />,

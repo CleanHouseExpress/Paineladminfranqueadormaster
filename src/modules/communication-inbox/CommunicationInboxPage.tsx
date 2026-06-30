@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import type { CommunicationAssignee, CommunicationConversation, ConversationFilters } from './types';
+import { CommunicationAreaShell } from './CommunicationAreaShell';
 import { ConversationTimelinePanel } from './ConversationTimelinePanel';
 import { useAuth } from '../../shared/context/AuthContext';
 import { useTenant } from '../../shared/context/TenantContext';
@@ -575,6 +576,7 @@ export function CommunicationInboxPage() {
   };
 
   return (
+    <CommunicationAreaShell title="Caixa de Entrada" subtitle="Leitura de conversas e mensagens vindas da orchestra-api.">
     <main className="flex h-full min-h-0 flex-col bg-slate-50" data-testid="communication-inbox-page">
       <header className="border-b border-slate-200 bg-white px-6 py-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -1223,5 +1225,6 @@ export function CommunicationInboxPage() {
         </div>
       )}
     </main>
+    </CommunicationAreaShell>
   );
 }

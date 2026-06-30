@@ -10,6 +10,26 @@ export type { Customer, CustomerFormSettings, CustomerPayload, CustomerTableColu
 export { DEFAULT_CUSTOMER_SETTINGS } from './customerManagement';
 export type { Unit, UnitMetadata, UnitPayload, UnitsMeta } from './unitManagement';
 export { DEFAULT_UNIT_METADATA } from './unitManagement';
+export type {
+  ImplementationChecklistItem,
+  ImplementationHistoryItem,
+  ImplementationKpis,
+  ImplementationPhase,
+  ImplementationPriority,
+  ImplementationStatus,
+  ImplementationTask,
+  ImplementationTaskComment,
+  ImplementationTaskStatus,
+  ImplementationTemplate,
+  ImplementationTemplatePhase,
+  ImplementationTemplateTask,
+  UnitImplementation,
+} from './implementation';
+export {
+  IMPLEMENTATION_PRIORITY_LABELS,
+  IMPLEMENTATION_STATUS_LABELS,
+  IMPLEMENTATION_TASK_STATUS_LABELS,
+} from './implementation';
 export type { ChecklistTemplate, ChecklistExecution, ChecklistMeta, ChecklistMetrics, ChecklistTemplatePayload, ChecklistExecutionPayload } from './checklistManagement';
 export { CHECKLIST_TEMPLATE_COLUMNS, CHECKLIST_EXECUTION_COLUMNS } from './checklistManagement';
 export type { CMVByItem, CMVByOrigin, CMVByUnit, CMVFilters, CMVMetrics, CMVPeriod } from './cmv';
