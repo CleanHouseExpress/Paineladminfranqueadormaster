@@ -31,12 +31,19 @@ interface ApiClientEnv {
 
 const viteEnv = ((import.meta as ImportMeta & { env?: ApiClientEnv }).env ?? {});
 
+function isLocalTenantHost(hostname: string) {
+  return hostname === 'localhost'
+    || hostname === '127.0.0.1'
+    || hostname.endsWith('.localhost');
+}
+
 function defaultTenantApiBaseUrl() {
   if (typeof window === 'undefined') return '';
 
-  const apiPort = viteEnv.VITE_API_PORT ?? '8000';
+  const apiPort = viteEnv.VITE_API_PORT ?? (isLocalTenantHost(window.location.hostname) ? '8000' : '');
+  const port = apiPort ? `:${apiPort}` : '';
 
-  return `${window.location.protocol}//${window.location.hostname}:${apiPort}`;
+  return `${window.location.protocol}//${window.location.hostname}${port}`;
 }
 
 function normalizeApiBaseUrl(baseUrl: string) {
