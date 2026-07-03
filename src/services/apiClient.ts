@@ -30,15 +30,9 @@ interface ApiClientEnv {
 }
 
 const viteEnv = ((import.meta as ImportMeta & { env?: ApiClientEnv }).env ?? {});
-const PRODUCTION_APP_HOST = 'orchestra.elonex.com.br';
-const PRODUCTION_API_BASE_URL = 'https://api.orchestra.elonex.com.br';
 
 function defaultTenantApiBaseUrl() {
   if (typeof window === 'undefined') return '';
-
-  if (window.location.hostname === PRODUCTION_APP_HOST) {
-    return PRODUCTION_API_BASE_URL;
-  }
 
   const apiPort = viteEnv.VITE_API_PORT ?? '8000';
 
