@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import { MessageCircleMore, Plus, RefreshCcw, Unplug, Logs } from 'lucide-react';
+import { Logs, MessageCircleMore, QrCode, RefreshCcw, Unplug } from 'lucide-react';
 import { CommunicationChannelFormModal } from '../components/CommunicationChannelFormModal';
 import { CommunicationEmptyState } from '../components/CommunicationEmptyState';
 import { CommunicationErrorState } from '../components/CommunicationErrorState';
 import { communicationChannelsService } from '../communicationChannelsService';
-import type { CommunicationChannel, CommunicationChannelDraft } from '../channelTypes';
+import type { CommunicationChannel, ProvisionWhatsappChannelPayload } from '../channelTypes';
+import { usePermission } from '../../../shared/hooks/usePermission';
 import { CommunicationSettingsLayout } from './CommunicationSettingsLayout';
 import { ChannelLogsDrawer } from './components/ChannelLogsDrawer';
 import { SettingsCard } from './components/SettingsCard';
 import { ZApiConnectionModal } from './components/ZApiConnectionModal';
 
 function formatDateTime(value?: string | null) {
-  if (!value) return 'Ainda não conectado';
+  if (!value) return 'Ainda nao conectado';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat('pt-BR', {
@@ -25,7 +26,8 @@ function formatDateTime(value?: string | null) {
 function getStatusLabel(status: CommunicationChannel['status']) {
   const map: Record<CommunicationChannel['status'], string> = {
     draft: 'Rascunho',
-    pending_connection: 'Aguardando conexão',
+    provisioning: 'Preparando conexao',
+    pending_connection: 'Aguardando leitura',
     qr_pending: 'QR pendente',
     connected: 'Conectado',
     disconnected: 'Desconectado',
@@ -40,6 +42,7 @@ function getStatusClass(status: CommunicationChannel['status']) {
   switch (status) {
     case 'connected':
       return 'bg-emerald-50 text-emerald-700';
+    case 'provisioning':
     case 'pending_connection':
     case 'qr_pending':
       return 'bg-amber-50 text-amber-700';
@@ -52,7 +55,16 @@ function getStatusClass(status: CommunicationChannel['status']) {
   }
 }
 
+function displayPhone(channel: CommunicationChannel) {
+  return channel.connectedPhoneNumber || channel.phoneNumber || channel.expectedPhoneNumber || 'Nao informado';
+}
+
 export function ChannelsPage() {
+  const { hasAnyPermission } = usePermission();
+  const canViewTechnicalLogs = hasAnyPermission([
+    'tenant.communication.channels.technical.view',
+    'tenant.communication.logs.view',
+  ]);
   const [channels, setChannels] = useState<CommunicationChannel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +74,6 @@ export function ChannelsPage() {
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [connectionModalOpen, setConnectionModalOpen] = useState(false);
   const [logsDrawerOpen, setLogsDrawerOpen] = useState(false);
-  const [editingChannel, setEditingChannel] = useState<CommunicationChannel | null>(null);
   const [connectionChannel, setConnectionChannel] = useState<CommunicationChannel | null>(null);
   const [logsChannel, setLogsChannel] = useState<CommunicationChannel | null>(null);
 
@@ -73,7 +84,7 @@ export function ChannelsPage() {
       const nextChannels = await communicationChannelsService.listChannels();
       setChannels(Array.isArray(nextChannels) ? nextChannels : []);
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : 'Não foi possível carregar os canais.');
+      setError(nextError instanceof Error ? nextError.message : 'Nao foi possivel carregar os canais.');
     } finally {
       setLoading(false);
     }
@@ -83,41 +94,33 @@ export function ChannelsPage() {
     void loadChannels();
   }, []);
 
-  const handleCreateOrEdit = async (payload: CommunicationChannelDraft) => {
-    setSaving(true);
-    setError(null);
-    try {
-      const normalizedPayload = {
-        ...payload,
-        instanceToken: payload.instanceToken?.trim() || (editingChannel?.instanceToken ?? ''),
-        clientToken: payload.clientToken?.trim() || (editingChannel?.clientToken ?? ''),
-      };
-
-      if (editingChannel) {
-        const updatedChannel = await communicationChannelsService.updateChannel(editingChannel.id, normalizedPayload);
-        setChannels(current => current.map(channel => (channel.id === updatedChannel.id ? updatedChannel : channel)));
-      } else {
-        const createdChannel = await communicationChannelsService.createChannel(normalizedPayload);
-        setChannels(current => [createdChannel, ...current]);
-      }
-
-      setFormModalOpen(false);
-      setEditingChannel(null);
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : 'Não foi possível salvar o canal.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const channelSummary = useMemo(() => ({
     total: Array.isArray(channels) ? channels.length : 0,
     connected: Array.isArray(channels) ? channels.filter(channel => channel.status === 'connected').length : 0,
-    pending: Array.isArray(channels) ? channels.filter(channel => channel.status === 'pending_connection' || channel.status === 'qr_pending').length : 0,
+    pending: Array.isArray(channels) ? channels.filter(channel => ['provisioning', 'pending_connection', 'qr_pending'].includes(channel.status)).length : 0,
   }), [channels]);
 
   const handleChannelUpdated = (nextChannel: CommunicationChannel) => {
-    setChannels(current => (Array.isArray(current) ? current.map(channel => (channel.id === nextChannel.id ? nextChannel : channel)) : []));
+    setChannels(current => (Array.isArray(current)
+      ? current.map(channel => (channel.id === nextChannel.id ? nextChannel : channel))
+      : []));
+    setConnectionChannel(current => (current?.id === nextChannel.id ? nextChannel : current));
+  };
+
+  const handleProvisionWhatsapp = async (payload: ProvisionWhatsappChannelPayload) => {
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await communicationChannelsService.provisionWhatsappChannel(payload);
+      setChannels(current => [response.channel, ...current.filter(channel => channel.id !== response.channel.id)]);
+      setConnectionChannel(response.channel);
+      setConnectionModalOpen(true);
+      setFormModalOpen(false);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : 'Nao foi possivel preparar a conexao do WhatsApp.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleOpenConnection = (channel: CommunicationChannel) => {
@@ -137,7 +140,7 @@ export function ChannelsPage() {
       const updatedChannel = await communicationChannelsService.syncChannelStatus(channel.id);
       handleChannelUpdated(updatedChannel.channel);
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : 'Não foi possível sincronizar o status do canal.');
+      setError(nextError instanceof Error ? nextError.message : 'Nao foi possivel sincronizar o status do canal.');
     } finally {
       setSyncingIds(current => current.filter(id => id !== channel.id));
     }
@@ -151,31 +154,32 @@ export function ChannelsPage() {
       const updatedChannel = await communicationChannelsService.disconnectChannel(channel.id);
       handleChannelUpdated(updatedChannel.channel);
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : 'Não foi possível desconectar o canal.');
+      setError(nextError instanceof Error ? nextError.message : 'Nao foi possivel desconectar o canal.');
     } finally {
       setDisconnectingIds(current => current.filter(id => id !== channel.id));
     }
   };
 
   return (
-    <CommunicationSettingsLayout title="Canais" subtitle="Gerencie os canais de atendimento e seus estados operacionais." activePath="/communication/settings/channels">
+    <CommunicationSettingsLayout
+      title="WhatsApp"
+      subtitle="Conecte o WhatsApp da sua operacao lendo o QR Code. A configuracao tecnica e feita automaticamente pela plataforma."
+      activePath="/communication/settings/channels"
+    >
       <div className="space-y-6" data-testid="communication-settings-channels-page">
         <SettingsCard
-          title="Canais WhatsApp/Z-API"
-          description="Gerencie canais da API real quando disponível e mantenha fallback mock em ambiente de desenvolvimento."
+          title="WhatsApp"
+          description="Conecte o atendimento da sua operacao sem preencher credenciais tecnicas."
           actions={
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 data-testid="communication-channel-create"
-                onClick={() => {
-                  setEditingChannel(null);
-                  setFormModalOpen(true);
-                }}
+                onClick={() => setFormModalOpen(true)}
                 className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
               >
-                <Plus className="h-4 w-4" />
-                Novo canal
+                <MessageCircleMore className="h-4 w-4" />
+                Conectar WhatsApp
               </button>
               <button
                 type="button"
@@ -199,7 +203,7 @@ export function ChannelsPage() {
               <p className="mt-2 text-2xl font-semibold text-emerald-700">{channelSummary.connected}</p>
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Pendentes</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Aguardando leitura</p>
               <p className="mt-2 text-2xl font-semibold text-amber-700">{channelSummary.pending}</p>
             </div>
           </div>
@@ -218,18 +222,15 @@ export function ChannelsPage() {
             <div className="mt-4">
               <CommunicationEmptyState
                 icon={MessageCircleMore}
-                title="Nenhum canal cadastrado"
-                description="Adicione o primeiro canal WhatsApp/Z-API para começar a estruturar a configuração da área de comunicação."
+                title="Nenhum WhatsApp conectado ainda."
+                description="Ao conectar, voce so precisa ler o QR Code no aplicativo do WhatsApp."
                 action={
                   <button
                     type="button"
-                    onClick={() => {
-                      setEditingChannel(null);
-                      setFormModalOpen(true);
-                    }}
+                    onClick={() => setFormModalOpen(true)}
                     className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
                   >
-                    Criar canal
+                    Conectar WhatsApp
                   </button>
                 }
               />
@@ -240,16 +241,13 @@ export function ChannelsPage() {
                 <table className="min-w-full divide-y divide-slate-200 text-sm">
                   <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <tr>
-                      <th className="px-4 py-3">Nome</th>
-                      <th className="px-4 py-3">Número</th>
-                      <th className="px-4 py-3">Provedor</th>
+                      <th className="px-4 py-3">Canal</th>
+                      <th className="px-4 py-3">Numero</th>
                       <th className="px-4 py-3">Status</th>
                       <th className="px-4 py-3">Departamento</th>
-                      <th className="px-4 py-3">Atendente</th>
-                      <th className="px-4 py-3">Última conexão</th>
-                      <th className="px-4 py-3">Última desconexão</th>
-                      <th className="px-4 py-3">Última checagem</th>
-                      <th className="px-4 py-3">Ações</th>
+                      <th className="px-4 py-3">Atendente padrao</th>
+                      <th className="px-4 py-3">Ultima conexao</th>
+                      <th className="px-4 py-3">Acoes</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 bg-white">
@@ -257,10 +255,8 @@ export function ChannelsPage() {
                       <tr key={channel.id} className="align-top">
                         <td className="px-4 py-3 text-slate-950">
                           <div className="font-semibold">{channel.name}</div>
-                          <div className="mt-1 text-xs text-slate-500">{channel.instanceId || 'Sem instance ID'}</div>
                         </td>
-                        <td className="px-4 py-3 text-slate-700">{channel.phoneNumber}</td>
-                        <td className="px-4 py-3 text-slate-700">{channel.provider}</td>
+                        <td className="px-4 py-3 text-slate-700">{displayPhone(channel)}</td>
                         <td className="px-4 py-3">
                           <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${getStatusClass(channel.status)}`}>
                             {getStatusLabel(channel.status)}
@@ -269,28 +265,16 @@ export function ChannelsPage() {
                         <td className="px-4 py-3 text-slate-700">{channel.department}</td>
                         <td className="px-4 py-3 text-slate-700">{channel.defaultAssignee}</td>
                         <td className="px-4 py-3 text-slate-700">{formatDateTime(channel.lastConnectedAt ?? channel.lastConnectionAt)}</td>
-                        <td className="px-4 py-3 text-slate-700">{formatDateTime(channel.lastDisconnectedAt)}</td>
-                        <td className="px-4 py-3 text-slate-700">{formatDateTime(channel.lastStatusCheckAt)}</td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-2">
                             <button
                               type="button"
-                              data-testid={`communication-channel-edit-${channel.id}`}
-                              onClick={() => {
-                                setEditingChannel(channel);
-                                setFormModalOpen(true);
-                              }}
-                              className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                            >
-                              Editar
-                            </button>
-                            <button
-                              type="button"
                               data-testid={`communication-channel-connect-${channel.id}`}
                               onClick={() => handleOpenConnection(channel)}
-                              className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                              className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                             >
-                              Conectar
+                              <QrCode className="h-3.5 w-3.5" />
+                              Ver QR Code
                             </button>
                             <button
                               type="button"
@@ -299,7 +283,7 @@ export function ChannelsPage() {
                               disabled={syncingIds.includes(channel.id)}
                               className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                              {syncingIds.includes(channel.id) ? 'Sincronizando...' : 'Sincronizar'}
+                              {syncingIds.includes(channel.id) ? 'Sincronizando...' : 'Sincronizar status'}
                             </button>
                             <button
                               type="button"
@@ -311,15 +295,17 @@ export function ChannelsPage() {
                               <Unplug className="h-3.5 w-3.5" />
                               {disconnectingIds.includes(channel.id) ? 'Desconectando...' : 'Desconectar'}
                             </button>
-                            <button
-                              type="button"
-                              data-testid={`communication-channel-logs-${channel.id}`}
-                              onClick={() => handleOpenLogs(channel)}
-                              className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                            >
-                              <Logs className="h-3.5 w-3.5" />
-                              Logs
-                            </button>
+                            {canViewTechnicalLogs ? (
+                              <button
+                                type="button"
+                                data-testid={`communication-channel-logs-${channel.id}`}
+                                onClick={() => handleOpenLogs(channel)}
+                                className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                              >
+                                <Logs className="h-3.5 w-3.5" />
+                                Ver historico tecnico
+                              </button>
+                            ) : null}
                           </div>
                         </td>
                       </tr>
@@ -329,23 +315,15 @@ export function ChannelsPage() {
               </div>
             </div>
           )}
-
-          <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-800">
-            Tokens são armazenados localmente no navegador e sempre renderizados mascarados após o salvamento.
-          </div>
         </SettingsCard>
       </div>
 
       <CommunicationChannelFormModal
         open={formModalOpen}
-        mode={editingChannel ? 'edit' : 'create'}
-        channel={editingChannel}
+        mode="create"
         isSaving={saving}
-        onClose={() => {
-          setFormModalOpen(false);
-          setEditingChannel(null);
-        }}
-        onSubmit={handleCreateOrEdit}
+        onClose={() => setFormModalOpen(false)}
+        onSubmit={handleProvisionWhatsapp}
       />
 
       <ZApiConnectionModal
@@ -358,14 +336,16 @@ export function ChannelsPage() {
         onChannelUpdate={handleChannelUpdated}
       />
 
-      <ChannelLogsDrawer
-        open={logsDrawerOpen}
-        channel={logsChannel}
-        onClose={() => {
-          setLogsDrawerOpen(false);
-          setLogsChannel(null);
-        }}
-      />
+      {canViewTechnicalLogs ? (
+        <ChannelLogsDrawer
+          open={logsDrawerOpen}
+          channel={logsChannel}
+          onClose={() => {
+            setLogsDrawerOpen(false);
+            setLogsChannel(null);
+          }}
+        />
+      ) : null}
     </CommunicationSettingsLayout>
   );
 }

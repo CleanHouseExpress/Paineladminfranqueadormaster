@@ -28,6 +28,29 @@ const channelsPayload = {
   ],
 };
 
+const provisionedChannelPayload = {
+  data: {
+    channel_id: 'channel-provisioned-1',
+    status: 'qr_pending',
+    qr_code: 'QR seguro de teste',
+    connection_status: 'qr_pending',
+    channel: {
+      id: 'channel-provisioned-1',
+      name: 'WhatsApp Atendimento',
+      provider: 'z_api',
+      expected_phone_number: '5531999999999',
+      phone_number: '5531999999999',
+      status: 'qr_pending',
+      department: 'Atendimento',
+      default_assignee: 'Marina',
+      provisioned_by_system: true,
+      provisioned_at: '2026-06-30T12:00:00.000Z',
+      created_at: '2026-06-30T12:00:00.000Z',
+      updated_at: '2026-06-30T12:00:00.000Z',
+    },
+  },
+};
+
 const summaryPayload = {
   data: {
     total: 1,
@@ -194,6 +217,24 @@ async function mockCommunicationChannels(page: Page) {
     body: JSON.stringify(channelsPayload),
   }));
 
+  await page.route('**/api/tenant/communication/channels/provision-whatsapp', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(provisionedChannelPayload),
+  }));
+
+  await page.route('**/api/tenant/communication/channels/channel-provisioned-1/refresh-qr', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(provisionedChannelPayload),
+  }));
+
+  await page.route('**/api/tenant/communication/channels/channel-provisioned-1/connection-status', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(provisionedChannelPayload),
+  }));
+
   await page.route('**/api/tenant/communication/channels/*/logs', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -236,12 +277,56 @@ test.describe('@smoke @communication Communication gate and aliases', () => {
     await expect(page.getByTestId('communication-settings-channels-page')).toBeVisible();
     await expect(page.getByText('WhatsApp Principal')).toBeVisible();
     await expect(page.getByTestId('communication-channel-create')).toBeVisible();
+    await expect(page.getByTestId('communication-channel-create')).toContainText('Conectar WhatsApp');
     await expect(page.getByTestId('communication-channel-refresh')).toBeVisible();
-    await expect(page.getByTestId('communication-channel-edit-channel-zapi-1')).toBeVisible();
     await expect(page.getByTestId('communication-channel-connect-channel-zapi-1')).toBeVisible();
     await expect(page.getByTestId('communication-channel-sync-channel-zapi-1')).toBeVisible();
     await expect(page.getByTestId('communication-channel-disconnect-channel-zapi-1')).toBeVisible();
-    await expect(page.getByTestId('communication-channel-logs-channel-zapi-1')).toBeVisible();
+    await expect(page.getByText('Provedor')).toHaveCount(0);
+    await expect(page.getByText('Instance ID')).toHaveCount(0);
+    await expect(page.getByText('Instance Token')).toHaveCount(0);
+    await expect(page.getByText('Client Token')).toHaveCount(0);
+    await expect(page.getByText('Z-API')).toHaveCount(0);
+    await expect(page.getByTestId('communication-channel-logs-channel-zapi-1')).toHaveCount(0);
     await expectModuleGateNotVisible(page);
+  });
+
+  test('/communication/settings/channels provisiona WhatsApp sem campos tecnicos', async ({ page }) => {
+    let provisionPayload: Record<string, unknown> | null = null;
+    await page.route('**/api/tenant/communication/channels/provision-whatsapp', route => {
+      provisionPayload = route.request().postDataJSON() as Record<string, unknown>;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(provisionedChannelPayload),
+      });
+    });
+
+    await page.goto('/communication/settings/channels');
+    await page.getByTestId('communication-channel-create').click();
+
+    await expect(page.getByRole('heading', { name: 'Conectar WhatsApp' })).toBeVisible();
+    await expect(page.getByText('Instance ID')).toHaveCount(0);
+    await expect(page.getByText('Instance Token')).toHaveCount(0);
+    await expect(page.getByText('Client Token')).toHaveCount(0);
+    await expect(page.getByText('Provider')).toHaveCount(0);
+    await expect(page.getByText('Z-API')).toHaveCount(0);
+
+    await page.getByPlaceholder('Ex.: WhatsApp Atendimento').fill('WhatsApp Atendimento');
+    await page.getByPlaceholder('5531999999999').fill('5531999999999');
+    await page.getByRole('textbox', { name: 'Departamento padrao (opcional)' }).fill('Atendimento');
+    await page.getByRole('textbox', { name: 'Atendente padrao (opcional)' }).fill('Marina');
+    await page.getByRole('button', { name: 'Conectar WhatsApp' }).last().click();
+
+    await expect(page.getByText('QR seguro de teste')).toBeVisible();
+    expect(provisionPayload).toEqual({
+      name: 'WhatsApp Atendimento',
+      expected_phone_number: '5531999999999',
+      default_department_id: null,
+      default_assignee_id: null,
+    });
+    expect(provisionPayload).not.toHaveProperty('provider_instance_id');
+    expect(provisionPayload).not.toHaveProperty('provider_instance_token');
+    expect(provisionPayload).not.toHaveProperty('provider_client_token');
   });
 });

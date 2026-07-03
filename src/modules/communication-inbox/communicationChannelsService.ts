@@ -5,6 +5,7 @@ import type {
   CommunicationChannelDraft,
   CommunicationChannelLog,
   CommunicationChannelProvider,
+  ProvisionWhatsappChannelPayload,
 } from './channelTypes';
 
 const STORAGE_KEY = 'communication-inbox-channels-v1';
@@ -86,6 +87,12 @@ function normalizeChannel(payload: unknown): CommunicationChannel {
     defaultAssignee: String(record.defaultAssignee ?? 'Sem responsável'),
     isActive: Boolean(record.isActive),
     lastConnectionAt: typeof record.lastConnectionAt === 'string' ? record.lastConnectionAt : null,
+    expectedPhoneNumber: typeof record.expectedPhoneNumber === 'string' ? record.expectedPhoneNumber : null,
+    connectedPhoneNumber: typeof record.connectedPhoneNumber === 'string' ? record.connectedPhoneNumber : null,
+    provisionedBySystem: Boolean(record.provisionedBySystem),
+    provisionedAt: typeof record.provisionedAt === 'string' ? record.provisionedAt : null,
+    provisioningStatus: typeof record.provisioningStatus === 'string' ? record.provisioningStatus : null,
+    provisioningError: typeof record.provisioningError === 'string' ? record.provisioningError : null,
     createdAt: String(record.createdAt ?? new Date().toISOString()),
     updatedAt: String(record.updatedAt ?? new Date().toISOString()),
   };
@@ -107,7 +114,7 @@ function normalizeApiChannel(payload: unknown): CommunicationChannel {
   return {
     id: toStringValue(record.id, crypto.randomUUID()),
     name: toStringValue(record.name, 'Novo canal'),
-    phoneNumber: toStringValue(pick(record, ['phone_number', 'phoneNumber'])),
+    phoneNumber: toStringValue(pick(record, ['phone_number', 'phoneNumber', 'connected_phone_number', 'expected_phone_number'])),
     provider: fromApiProvider(record.provider),
     status,
     instanceId,
@@ -128,8 +135,23 @@ function normalizeApiChannel(payload: unknown): CommunicationChannel {
       providerInstanceToken: Boolean(pick(credentials, ['provider_instance_token', 'providerInstanceToken'])),
       providerClientToken: Boolean(pick(credentials, ['provider_client_token', 'providerClientToken'])),
     },
+    provisionedBySystem: Boolean(pick(record, ['provisioned_by_system', 'provisionedBySystem'])),
+    provisionedAt: toNullableString(pick(record, ['provisioned_at', 'provisionedAt'])),
+    provisioningStatus: toNullableString(pick(record, ['provisioning_status', 'provisioningStatus'])),
+    provisioningError: toNullableString(pick(record, ['provisioning_error', 'provisioningError'])),
+    expectedPhoneNumber: toNullableString(pick(record, ['expected_phone_number', 'expectedPhoneNumber'])),
+    connectedPhoneNumber: toNullableString(pick(record, ['connected_phone_number', 'connectedPhoneNumber'])),
     createdAt: toStringValue(pick(record, ['created_at', 'createdAt']), new Date().toISOString()),
     updatedAt: toStringValue(pick(record, ['updated_at', 'updatedAt']), new Date().toISOString()),
+  };
+}
+
+function provisionWhatsappToApiPayload(payload: ProvisionWhatsappChannelPayload) {
+  return {
+    name: payload.name?.trim() || 'WhatsApp Atendimento',
+    expected_phone_number: payload.expectedPhoneNumber?.trim() || null,
+    default_department_id: payload.defaultDepartmentId ? Number(payload.defaultDepartmentId) : null,
+    default_assignee_id: payload.defaultAssigneeId ? Number(payload.defaultAssigneeId) : null,
   };
 }
 
@@ -208,12 +230,43 @@ function normalizeConnectionPayload(payload: unknown): CommunicationChannelConne
   };
 }
 
+function normalizeProvisionConnectionPayload(payload: unknown, draft: ProvisionWhatsappChannelPayload): CommunicationChannelConnectionPayload {
+  const root = asRecord(unwrapData(payload));
+  const channelCandidate = root.channel ?? root;
+  const channelRecord = asRecord(channelCandidate);
+
+  const fallbackChannel = {
+    id: pick(root, ['channel_id', 'channelId', 'id']) ?? crypto.randomUUID(),
+    name: draft.name || pick(channelRecord, ['name']) || 'WhatsApp Atendimento',
+    phone_number: draft.expectedPhoneNumber || pick(channelRecord, ['phone_number', 'expected_phone_number', 'connected_phone_number']),
+    provider: 'z_api',
+    status: pick(root, ['status']) ?? pick(channelRecord, ['status']) ?? 'qr_pending',
+    department: draft.department || 'Atendimento',
+    default_assignee: draft.defaultAssignee || 'Sem responsavel',
+    default_department_id: draft.defaultDepartmentId ?? null,
+    default_assignee_id: draft.defaultAssigneeId ?? null,
+    expected_phone_number: draft.expectedPhoneNumber ?? null,
+    provisioned_by_system: true,
+    provisioned_at: new Date().toISOString(),
+  };
+
+  return {
+    channel: normalizeApiChannel(Object.keys(channelRecord).length ? { ...fallbackChannel, ...channelRecord } : fallbackChannel),
+    provider: {},
+    qrCode: extractQrCode(payload),
+  };
+}
+
 function shouldUseMockFallback(error: unknown) {
   if (!isDev) return false;
   if (error instanceof ApiError) {
     return error.status === 404 || error.status === 501;
   }
   return true;
+}
+
+function mockQrCode() {
+  return 'QR Code de demonstracao para ambiente de desenvolvimento.';
 }
 
 function rethrowApiError(error: unknown, fallbackMessage: string): never {
@@ -275,6 +328,33 @@ function mockConnectionPayload(id: string, status: CommunicationChannel['status'
   };
 }
 
+function mockProvisionWhatsapp(payload: ProvisionWhatsappChannelPayload): CommunicationChannelConnectionPayload {
+  const now = new Date().toISOString();
+  const channel = normalizeChannel({
+    id: crypto.randomUUID(),
+    name: payload.name?.trim() || 'WhatsApp Atendimento',
+    phoneNumber: payload.expectedPhoneNumber?.trim() || '',
+    provider: 'z-api',
+    status: 'qr_pending',
+    department: payload.department?.trim() || 'Atendimento',
+    defaultDepartmentId: payload.defaultDepartmentId ?? null,
+    defaultAssignee: payload.defaultAssignee?.trim() || 'Sem responsavel',
+    defaultAssigneeId: payload.defaultAssigneeId ?? null,
+    isActive: true,
+    provisionedBySystem: true,
+    provisionedAt: now,
+    expectedPhoneNumber: payload.expectedPhoneNumber?.trim() || null,
+    createdAt: now,
+    updatedAt: now,
+  });
+  upsertStoredChannel(channel);
+  return {
+    channel,
+    provider: {},
+    qrCode: mockQrCode(),
+  };
+}
+
 export const communicationChannelsService = {
   async list(): Promise<CommunicationChannel[]> {
     try {
@@ -323,6 +403,20 @@ export const communicationChannelsService = {
     channels.unshift(nextChannel);
     writeToStorage(channels);
     return nextChannel;
+  },
+
+  async provisionWhatsappChannel(payload: ProvisionWhatsappChannelPayload): Promise<CommunicationChannelConnectionPayload> {
+    try {
+      const response = await apiClient.post<unknown>(`${CHANNELS_BASE}/provision-whatsapp`, provisionWhatsappToApiPayload(payload));
+      const normalized = normalizeProvisionConnectionPayload(response, payload);
+      if (shouldUseMockFallback(null)) upsertStoredChannel(normalized.channel);
+      return normalized;
+    } catch (error) {
+      if (shouldUseMockFallback(error)) {
+        return mockProvisionWhatsapp(payload);
+      }
+      rethrowApiError(error, 'Nao foi possivel preparar a conexao do WhatsApp.');
+    }
   },
 
   async update(id: string, payload: CommunicationChannelDraft): Promise<CommunicationChannel> {
@@ -415,10 +509,10 @@ export const communicationChannelsService = {
 
   async connect(id: string): Promise<CommunicationChannelConnectionPayload> {
     try {
-      return normalizeConnectionPayload(await apiClient.post<unknown>(`${CHANNELS_BASE}/${id}/connect`, {}));
+      return normalizeConnectionPayload(await apiClient.post<unknown>(`${CHANNELS_BASE}/${id}/refresh-qr`, {}));
     } catch (error) {
       if (shouldUseMockFallback(error)) {
-        return mockConnectionPayload(id, 'qr_pending', 'QR mockado indisponivel porque a API real nao respondeu em dev.');
+        return mockConnectionPayload(id, 'qr_pending', mockQrCode());
       }
       rethrowApiError(error, 'Nao foi possivel iniciar a conexao.');
     }
@@ -429,7 +523,7 @@ export const communicationChannelsService = {
       return normalizeConnectionPayload(await apiClient.post<unknown>(`${CHANNELS_BASE}/${id}/refresh-qr`, {}));
     } catch (error) {
       if (shouldUseMockFallback(error)) {
-        return mockConnectionPayload(id, 'qr_pending', 'QR mockado indisponivel porque a API real nao respondeu em dev.');
+        return mockConnectionPayload(id, 'qr_pending', mockQrCode());
       }
       rethrowApiError(error, 'Nao foi possivel gerar novo QR Code.');
     }

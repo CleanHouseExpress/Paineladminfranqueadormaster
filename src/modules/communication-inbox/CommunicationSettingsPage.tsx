@@ -5,7 +5,7 @@ import { CommunicationPageHeader } from './components/CommunicationPageHeader';
 import { CommunicationSectionCard } from './components/CommunicationSectionCard';
 
 const settingsEntries = [
-  { title: 'Canais', description: 'Gerencie conectores, tokens e status.', path: '/communication/settings/channels', icon: MessageCircleMore },
+  { title: 'Canais', description: 'Conecte WhatsApp por QR Code.', path: '/communication/settings/channels', icon: MessageCircleMore },
   { title: 'Departamentos', description: 'Estruture a operação por área.', path: '/communication/settings/departments', icon: BriefcaseBusiness },
   { title: 'Horários', description: 'Defina a janela operacional.', path: '/communication/settings/schedules', icon: CalendarDays },
   { title: 'Distribuição', description: 'Organize regras de roteamento.', path: '/communication/settings/distribution', icon: Workflow },
@@ -65,7 +65,7 @@ export function CommunicationSettingsPage() {
                 <MessageCircleMore className="h-4 w-4 text-slate-500" />
                 Canais preservados
               </div>
-              <p className="mt-2 text-sm text-slate-600">O CRUD mock de canais permanece disponível na seção específica.</p>
+              <p className="mt-2 text-sm text-slate-600">A conexão do WhatsApp é feita por QR Code, sem credenciais manuais.</p>
             </div>
           </div>
         </CommunicationSectionCard>

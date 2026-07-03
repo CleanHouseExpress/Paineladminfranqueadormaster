@@ -15,6 +15,7 @@ type ConnectionState = 'idle' | 'loading' | 'waiting' | 'connected' | 'disconnec
 function statusLabel(status?: CommunicationChannel['status']) {
   const labels: Record<CommunicationChannel['status'], string> = {
     draft: 'Rascunho',
+    provisioning: 'Preparando conexao',
     pending_connection: 'Aguardando leitura',
     qr_pending: 'QR pendente',
     connected: 'Conectado',
@@ -172,7 +173,7 @@ export function ZApiConnectionModal({
       <div className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
           <div>
-            <h3 className="text-lg font-semibold text-slate-950">Conectar WhatsApp/Z-API</h3>
+            <h3 className="text-lg font-semibold text-slate-950">Conectar WhatsApp</h3>
             <p className="mt-1 text-sm text-slate-600">{channel.name} {channel.phoneNumber ? `- ${channel.phoneNumber}` : ''}</p>
           </div>
           <button type="button" onClick={onClose} className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-900">
@@ -190,18 +191,21 @@ export function ZApiConnectionModal({
             {state === 'expired' && <span className="rounded-full bg-orange-50 px-2.5 py-1 text-xs font-medium text-orange-700">QR expirado</span>}
           </div>
 
-          <p className="mt-4 text-sm text-slate-700">
-            Abra o WhatsApp no celular, acesse Aparelhos conectados e leia este QR Code.
-          </p>
+          <ol className="mt-4 list-decimal space-y-1 pl-5 text-sm text-slate-700">
+            <li>Abra o WhatsApp no celular.</li>
+            <li>Toque em Aparelhos conectados.</li>
+            <li>Toque em Conectar aparelho.</li>
+            <li>Leia o QR Code exibido na tela.</li>
+          </ol>
 
           <div className="mt-4 flex min-h-72 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 p-4">
             {state === 'loading' ? (
-              <div className="text-sm text-slate-600">Carregando QR Code...</div>
+              <div className="text-sm text-slate-600">Gerando QR Code...</div>
             ) : normalizedQr.kind === 'image' ? (
               <img src={normalizedQr.value ?? ''} alt="QR Code de conexao WhatsApp" className="max-h-64 max-w-full rounded-md bg-white p-3 shadow-sm" />
             ) : normalizedQr.kind === 'text' ? (
               <div className="w-full">
-                <p className="mb-2 text-sm text-slate-700">A API retornou texto QR. Copie o conteudo abaixo se necessario.</p>
+                <p className="mb-2 text-sm text-slate-700">Copie o conteudo abaixo se necessario.</p>
                 <pre className="max-h-52 overflow-auto rounded-md bg-white p-3 text-xs text-slate-700">{normalizedQr.value}</pre>
                 <button type="button" onClick={copyQrText} className="mt-3 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
                   Copiar texto QR

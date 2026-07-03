@@ -2,6 +2,7 @@ export type CommunicationChannelProvider = 'z-api' | 'whatsapp-business' | 'twil
 
 export type CommunicationChannelStatus =
   | 'draft'
+  | 'provisioning'
   | 'pending_connection'
   | 'qr_pending'
   | 'connected'
@@ -31,10 +32,25 @@ export interface CommunicationChannel {
   lastStatusCheckAt?: string | null;
   credentialsConfigured?: {
     providerInstanceToken: boolean;
-    providerClientToken: boolean;
+  providerClientToken: boolean;
   };
+  provisionedBySystem?: boolean;
+  provisionedAt?: string | null;
+  provisioningStatus?: string | null;
+  provisioningError?: string | null;
+  expectedPhoneNumber?: string | null;
+  connectedPhoneNumber?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ProvisionWhatsappChannelPayload {
+  name?: string;
+  expectedPhoneNumber?: string;
+  defaultDepartmentId?: string | null;
+  defaultAssigneeId?: string | null;
+  department?: string;
+  defaultAssignee?: string;
 }
 
 export interface CommunicationChannelDraft {
