@@ -30,16 +30,29 @@ interface ApiClientEnv {
 }
 
 const viteEnv = ((import.meta as ImportMeta & { env?: ApiClientEnv }).env ?? {});
+const PRODUCTION_APP_HOST = 'orchestra.elonex.com.br';
+const PRODUCTION_API_BASE_URL = 'https://api.orchestra.elonex.com.br';
 
 function defaultTenantApiBaseUrl() {
   if (typeof window === 'undefined') return '';
+
+  if (window.location.hostname === PRODUCTION_APP_HOST) {
+    return PRODUCTION_API_BASE_URL;
+  }
 
   const apiPort = viteEnv.VITE_API_PORT ?? '8000';
 
   return `${window.location.protocol}//${window.location.hostname}:${apiPort}`;
 }
 
-const API_BASE_URL = viteEnv.VITE_API_BASE_URL || defaultTenantApiBaseUrl();
+function normalizeApiBaseUrl(baseUrl: string) {
+  return baseUrl
+    .trim()
+    .replace(/\/+$/, '')
+    .replace(/\/api$/i, '');
+}
+
+const API_BASE_URL = normalizeApiBaseUrl(viteEnv.VITE_API_BASE_URL || defaultTenantApiBaseUrl());
 export const AUTH_TOKEN_STORAGE_KEY = 'orchestra_auth_token';
 export const AUTH_SESSION_EXPIRED_EVENT = 'orchestra:auth-session-expired';
 
