@@ -74,11 +74,13 @@ export function CatalogList() {
   const [search,       setSearch]       = useState('');
   const [typeFilter,   setTypeFilter]   = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [scopeFilter, setScopeFilter] = useState('');
+  const [approvalFilter, setApprovalFilter] = useState('');
   const [priceMin,     setPriceMin]     = useState('');
   const [priceMax,     setPriceMax]     = useState('');
   const [skuFilter,    setSkuFilter]    = useState('');
 
-  const filtersActive = !!(search || typeFilter || statusFilter || priceMin || priceMax || skuFilter);
+  const filtersActive = !!(search || typeFilter || statusFilter || scopeFilter || approvalFilter || priceMin || priceMax || skuFilter);
 
   const filtered = useMemo(() => {
     return items.filter(item => {
@@ -90,12 +92,14 @@ export function CatalogList() {
         (item.description ?? '').toLowerCase().includes(q);
       const matchType   = !typeFilter   || item.type === typeFilter;
       const matchStatus = !statusFilter || item.status === statusFilter;
+      const matchScope = !scopeFilter || item.scope === scopeFilter;
+      const matchApproval = !approvalFilter || item.approvalStatus === approvalFilter;
       const matchSku    = !skuFilter    || (item.sku ?? '').toLowerCase().includes(skuFilter.toLowerCase());
       const matchMin    = !priceMin     || item.price >= parseFloat(priceMin);
       const matchMax    = !priceMax     || item.price <= parseFloat(priceMax);
-      return matchSearch && matchType && matchStatus && matchSku && matchMin && matchMax;
+      return matchSearch && matchType && matchStatus && matchScope && matchApproval && matchSku && matchMin && matchMax;
     });
-  }, [items, search, typeFilter, statusFilter, skuFilter, priceMin, priceMax]);
+  }, [items, search, typeFilter, statusFilter, scopeFilter, approvalFilter, skuFilter, priceMin, priceMax]);
 
   // ── Columns ────────────────────────────────────────────────────────────────
   const columns: ColumnDef[] = [
@@ -169,6 +173,28 @@ export function CatalogList() {
       badgeConfig: Object.fromEntries(
         Object.entries(CATALOG_STATUS_CONFIG).map(([k, v]) => [k, { label: v.label, color: v.color, bg: v.bg }])
       ),
+    },
+    {
+      key: 'scope',
+      label: 'Origem',
+      type: 'badge',
+      width: '120px',
+      badgeConfig: {
+        corporate: { label: 'Corporativo', color: '#4338CA', bg: '#EEF2FF' },
+        local: { label: 'Local', color: '#047857', bg: '#ECFDF5' },
+      },
+    },
+    {
+      key: 'approvalStatus',
+      label: 'Aprovacao',
+      type: 'badge',
+      width: '120px',
+      badgeConfig: {
+        draft: { label: 'Rascunho', color: '#64748B', bg: '#F1F5F9' },
+        pending: { label: 'Pendente', color: '#B45309', bg: '#FFFBEB' },
+        approved: { label: 'Aprovado', color: '#047857', bg: '#ECFDF5' },
+        rejected: { label: 'Rejeitado', color: '#B91C1C', bg: '#FEF2F2' },
+      },
     },
     {
       key: 'price',
@@ -281,6 +307,8 @@ export function CatalogList() {
         description: item.description,
         type: item.type,
         status: item.status,
+        scope: item.scope ?? 'corporate',
+        approvalStatus: item.approvalStatus ?? 'approved',
         price: item.price,
         unit: item.unit,
         sku: item.sku,
@@ -546,6 +574,28 @@ export function CatalogList() {
           <option value="archived">Arquivado</option>
         </select>
 
+        <select
+          value={scopeFilter}
+          onChange={e => setScopeFilter(e.target.value)}
+          style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.1)', fontSize: 13, color: '#0F172A', background: '#fff', cursor: 'pointer' }}
+        >
+          <option value="">Todas as Origens</option>
+          <option value="corporate">Corporativo</option>
+          <option value="local">Local</option>
+        </select>
+
+        <select
+          value={approvalFilter}
+          onChange={e => setApprovalFilter(e.target.value)}
+          style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.1)', fontSize: 13, color: '#0F172A', background: '#fff', cursor: 'pointer' }}
+        >
+          <option value="">Todas as Aprovações</option>
+          <option value="pending">Pendente</option>
+          <option value="approved">Aprovado</option>
+          <option value="rejected">Rejeitado</option>
+          <option value="draft">Rascunho</option>
+        </select>
+
         {/* Price range */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <span style={{ fontSize: 12, color: '#64748B', whiteSpace: 'nowrap' }}>De R$</span>
@@ -576,7 +626,7 @@ export function CatalogList() {
 
         {filtersActive && (
           <button
-            onClick={() => { setSearch(''); setTypeFilter(''); setStatusFilter(''); setPriceMin(''); setPriceMax(''); setSkuFilter(''); }}
+            onClick={() => { setSearch(''); setTypeFilter(''); setStatusFilter(''); setScopeFilter(''); setApprovalFilter(''); setPriceMin(''); setPriceMax(''); setSkuFilter(''); }}
             style={{
               display: 'inline-flex',
               alignItems: 'center',

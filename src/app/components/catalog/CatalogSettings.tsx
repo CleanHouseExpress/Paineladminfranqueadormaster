@@ -6,8 +6,13 @@ import {
   Package, Briefcase, RefreshCw, GraduationCap, Stethoscope,
 } from 'lucide-react';
 import { CATALOG_TYPE_CONFIG, DEFAULT_CATALOG_LABELS } from '../../../types/catalog';
-import type { CatalogItemType, CatalogLabels, CatalogMetadataConfig } from '../../../types/catalog';
-import { getCatalogConfig, saveCatalogConfig } from '../../../services/catalogService';
+import type { CatalogGovernanceSettings, CatalogItemType, CatalogLabels, CatalogMetadataConfig } from '../../../types/catalog';
+import {
+  getCatalogConfig,
+  getCatalogGovernanceSettings,
+  saveCatalogConfig,
+  saveCatalogGovernanceSettings,
+} from '../../../services/catalogService';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -70,6 +75,36 @@ const ALL_TYPES: CatalogItemType[] = [
   'product', 'service', 'subscription', 'course', 'procedure', 'plan', 'custom',
 ];
 
+const DEFAULT_GOVERNANCE: CatalogGovernanceSettings = {
+  allow_unit_local_items: false,
+  allow_unit_edit_price: false,
+  allow_unit_create_products: false,
+  allow_unit_create_services: false,
+  allow_unit_create_subscriptions: false,
+  allow_unit_create_courses: false,
+  allow_unit_create_bundles: false,
+  local_items_require_approval: true,
+  allow_unit_use_corporate_categories: true,
+  allow_unit_create_categories: false,
+  allow_unit_create_measurement_units: false,
+  allow_promote_local_items: true,
+  settings_json: {},
+};
+
+const GOVERNANCE_FIELDS: Array<{ key: keyof CatalogGovernanceSettings; label: string; description: string }> = [
+  { key: 'allow_unit_local_items', label: 'Permitir itens locais por unidade', description: 'Unidades podem cadastrar itens próprios quando também houver permissão por tipo.' },
+  { key: 'local_items_require_approval', label: 'Exigir aprovação para itens locais', description: 'Itens locais entram como pendentes até aprovação da franqueadora.' },
+  { key: 'allow_unit_edit_price', label: 'Permitir preço local', description: 'Unidades podem definir preço próprio sem alterar o preço corporativo.' },
+  { key: 'allow_unit_create_products', label: 'Unidade cria produtos', description: 'Libera cadastro local de produtos.' },
+  { key: 'allow_unit_create_services', label: 'Unidade cria serviços', description: 'Libera cadastro local de serviços e procedimentos.' },
+  { key: 'allow_unit_create_subscriptions', label: 'Unidade cria assinaturas/planos', description: 'Libera cadastro local de recorrências e planos.' },
+  { key: 'allow_unit_create_courses', label: 'Unidade cria cursos', description: 'Libera cadastro local de cursos.' },
+  { key: 'allow_unit_create_bundles', label: 'Unidade cria combos', description: 'Libera cadastro local de combos/pacotes.' },
+  { key: 'allow_unit_create_measurement_units', label: 'Unidade cria unidades de medida', description: 'Permite unidades de medida além da lista corporativa.' },
+  { key: 'allow_unit_create_categories', label: 'Unidade cria categorias', description: 'Permite categorias locais quando houver suporte de categoria.' },
+  { key: 'allow_promote_local_items', label: 'Permitir promoção para corporativo', description: 'Itens locais aprovados podem virar item corporativo sem quebrar histórico.' },
+];
+
 const TYPE_ICON_NODES: Record<CatalogItemType, React.ReactNode> = {
   product:      <Package size={16} />,
   service:      <Briefcase size={16} />,
@@ -122,6 +157,7 @@ export function CatalogSettings() {
   // Module labels state
   const [labels, setLabels] = useState<CatalogLabels>({ ...DEFAULT_CATALOG_LABELS });
   const [config, setConfig] = useState<CatalogMetadataConfig | null>(null);
+  const [governance, setGovernance] = useState<CatalogGovernanceSettings>(DEFAULT_GOVERNANCE);
   const [saveMessage, setSaveMessage] = useState('');
 
   // Field label entries
@@ -159,8 +195,9 @@ export function CatalogSettings() {
   });
 
   useEffect(() => {
-    void getCatalogConfig().then(next => {
+    void Promise.all([getCatalogConfig(), getCatalogGovernanceSettings().catch(() => DEFAULT_GOVERNANCE)]).then(([next, nextGovernance]) => {
       setConfig(next);
+      setGovernance(nextGovernance);
       setLabels(next.labels);
       setEnabledTypes(Object.fromEntries(ALL_TYPES.map(type => [type, next.enabledTypes.includes(type)])) as Record<CatalogItemType, boolean>);
       setTableColumns(current => ({
@@ -184,6 +221,13 @@ export function CatalogSettings() {
     });
     setConfig(saved);
     setSaveMessage('Configuracoes salvas.');
+  }
+
+  async function persistGovernance() {
+    setSaveMessage('Salvando governanca...');
+    const saved = await saveCatalogGovernanceSettings(governance);
+    setGovernance(saved);
+    setSaveMessage('Governanca do catalogo salva.');
   }
 
   // Drag handlers
@@ -294,6 +338,35 @@ export function CatalogSettings() {
       </div>
 
       {/* Two-column layout */}
+      <div style={{ ...sectionCardStyle, marginBottom: 20 }}>
+        <h2 style={sectionTitleStyle}>Governanca por Unidade</h2>
+        <p style={sectionSubtitleStyle}>Defina a autonomia das unidades para criar itens locais, editar precos e solicitar aprovacao.</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 10 }}>
+          {GOVERNANCE_FIELDS.map(field => (
+            <div key={field.key} style={{ display: 'flex', justifyContent: 'space-between', gap: 14, padding: 14, borderRadius: 12, background: '#F8FAFC', border: '1px solid rgba(0,0,0,0.06)' }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>{field.label}</div>
+                <div style={{ marginTop: 3, fontSize: 12, color: '#64748B', lineHeight: 1.4 }}>{field.description}</div>
+              </div>
+              <Toggle
+                checked={Boolean(governance[field.key])}
+                onChange={() => setGovernance(current => ({ ...current, [field.key]: !current[field.key] }))}
+              />
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+          <button onClick={() => void persistGovernance()} style={{
+            padding: '9px 20px', borderRadius: '10px', border: 'none',
+            background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+            color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(99,102,241,0.25)',
+          }}>
+            Salvar governanca
+          </button>
+        </div>
+      </div>
+
       <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
 
         {/* Sidebar nav */}

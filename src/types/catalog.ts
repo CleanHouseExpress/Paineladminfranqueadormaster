@@ -21,6 +21,8 @@ export const CATALOG_TYPE_CONFIG: Record<CatalogItemType, {
 };
 
 export type CatalogItemStatus = 'active' | 'inactive' | 'archived';
+export type CatalogItemScope = 'corporate' | 'local';
+export type CatalogApprovalStatus = 'draft' | 'pending' | 'approved' | 'rejected';
 
 export const CATALOG_STATUS_CONFIG: Record<CatalogItemStatus, {
   label: string; color: string; bg: string;
@@ -96,6 +98,13 @@ export interface CatalogItem {
   description?: string;
   type: CatalogItemType;
   status: CatalogItemStatus;
+  scope?: CatalogItemScope;
+  ownerUnitId?: string | number | null;
+  ownerUnitName?: string | null;
+  approvalStatus?: CatalogApprovalStatus;
+  origin?: 'corporate' | 'local' | 'promoted';
+  rejectionReason?: string | null;
+  promotedFromItemId?: string | number | null;
   price: number;               // base price in BRL
   sku?: string;                // SKU or internal code
   unit?: string;               // "un", "h", "mês", "sessão", etc.
@@ -109,12 +118,33 @@ export interface CatalogItem {
   updatedAt: string;
 }
 
+export interface CatalogGovernanceSettings {
+  allow_unit_local_items: boolean;
+  allow_unit_edit_price: boolean;
+  allow_unit_create_products: boolean;
+  allow_unit_create_services: boolean;
+  allow_unit_create_subscriptions: boolean;
+  allow_unit_create_courses: boolean;
+  allow_unit_create_bundles: boolean;
+  local_items_require_approval: boolean;
+  allow_unit_use_corporate_categories: boolean;
+  allow_unit_create_categories: boolean;
+  allow_unit_create_measurement_units: boolean;
+  allow_promote_local_items: boolean;
+  settings_json?: Record<string, unknown>;
+}
+
 export interface CatalogStats {
   total: number;
   active: number;
   inactive: number;
   archived: number;
   avgPrice: number;
+  localItems?: number;
+  pendingApprovals?: number;
+  rejectedItems?: number;
+  promotedItems?: number;
+  unitPriceOverrides?: number;
   byType: Array<{ type: CatalogItemType; count: number; label: string; color: string }>;
   recentItems: CatalogItem[];
 }

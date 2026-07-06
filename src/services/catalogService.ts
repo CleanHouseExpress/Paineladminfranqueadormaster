@@ -6,8 +6,10 @@ import {
 } from '../types/catalog';
 import type {
   CatalogItem,
+  CatalogApprovalStatus,
   CatalogItemStatus,
   CatalogItemType,
+  CatalogGovernanceSettings,
   CatalogLabels,
   CatalogMetadataConfig,
   CatalogMetadataField,
@@ -23,6 +25,13 @@ interface ApiCatalogItem {
   description?: string | null;
   item_type: CatalogItemType;
   status: CatalogItemStatus;
+  scope?: 'corporate' | 'local' | null;
+  owner_unit_id?: number | string | null;
+  owner_unit_name?: string | null;
+  approval_status?: CatalogApprovalStatus | null;
+  origin?: 'corporate' | 'local' | 'promoted' | null;
+  rejection_reason?: string | null;
+  promoted_from_item_id?: number | string | null;
   base_price?: number | null;
   sku?: string | null;
   unit_of_measure?: string | null;
@@ -42,6 +51,11 @@ interface ApiMetrics {
   active: number;
   inactive: number;
   archived: number;
+  local_items?: number;
+  pending_approvals?: number;
+  rejected_items?: number;
+  promoted_items?: number;
+  unit_price_overrides?: number;
   average_price: number;
 }
 
@@ -79,6 +93,9 @@ export interface CatalogFilters {
   minPrice?: number;
   maxPrice?: number;
   sku?: string;
+  scope?: 'corporate' | 'local' | '';
+  approvalStatus?: CatalogApprovalStatus | '';
+  ownerUnitId?: string;
 }
 
 const BASIC_FIELDS = new Set([
@@ -155,6 +172,13 @@ function toItem(api: ApiCatalogItem): CatalogItem {
     description: api.description ?? undefined,
     type: api.item_type,
     status: api.status,
+    scope: api.scope ?? 'corporate',
+    ownerUnitId: api.owner_unit_id ?? null,
+    ownerUnitName: api.owner_unit_name ?? null,
+    approvalStatus: api.approval_status ?? 'approved',
+    origin: api.origin ?? 'corporate',
+    rejectionReason: api.rejection_reason ?? null,
+    promotedFromItemId: api.promoted_from_item_id ?? null,
     price: Number(api.base_price ?? 0),
     sku: api.sku ?? undefined,
     unit: api.unit_of_measure ?? undefined,
@@ -218,6 +242,9 @@ function queryString(filters?: CatalogFilters) {
   const params = new URLSearchParams();
   if (filters?.status) params.set('status', filters.status);
   if (filters?.type) params.set('item_type', filters.type);
+  if (filters?.scope) params.set('scope', filters.scope);
+  if (filters?.approvalStatus) params.set('approval_status', filters.approvalStatus);
+  if (filters?.ownerUnitId) params.set('owner_unit_id', filters.ownerUnitId);
   if (filters?.search) params.set('search', filters.search);
   if (filters?.minPrice !== undefined) params.set('min_price', String(filters.minPrice));
   if (filters?.maxPrice !== undefined) params.set('max_price', String(filters.maxPrice));
@@ -275,6 +302,11 @@ export async function getStats(): Promise<CatalogStats> {
     inactive: metrics.inactive,
     archived: metrics.archived,
     avgPrice: metrics.average_price,
+    localItems: metrics.local_items ?? 0,
+    pendingApprovals: metrics.pending_approvals ?? 0,
+    rejectedItems: metrics.rejected_items ?? 0,
+    promotedItems: metrics.promoted_items ?? 0,
+    unitPriceOverrides: metrics.unit_price_overrides ?? 0,
     byType: (Object.keys(CATALOG_TYPE_CONFIG) as CatalogItemType[]).map(type => ({
       type,
       count: items.filter(item => item.type === type).length,
@@ -339,4 +371,29 @@ export async function saveCatalogConfig(config: CatalogMetadataConfig) {
 
 export async function getLabels(): Promise<CatalogLabels> {
   return (await getCatalogConfig()).labels;
+}
+
+export async function getCatalogGovernanceSettings(): Promise<CatalogGovernanceSettings> {
+  const response = await apiClient.get<ApiItem<CatalogGovernanceSettings>>('/api/company/catalog/settings');
+  return response.data;
+}
+
+export async function saveCatalogGovernanceSettings(payload: Partial<CatalogGovernanceSettings>): Promise<CatalogGovernanceSettings> {
+  const response = await apiClient.put<ApiItem<CatalogGovernanceSettings>>('/api/company/catalog/settings', payload);
+  return response.data;
+}
+
+export async function approveCatalogItem(id: string) {
+  const response = await apiClient.patch<ApiItem<ApiCatalogItem>>(`/api/company/catalog/items/${id}/approve`, {});
+  return toItem(response.data);
+}
+
+export async function rejectCatalogItem(id: string, rejectionReason: string) {
+  const response = await apiClient.patch<ApiItem<ApiCatalogItem>>(`/api/company/catalog/items/${id}/reject`, { rejection_reason: rejectionReason });
+  return toItem(response.data);
+}
+
+export async function promoteCatalogItem(id: string) {
+  const response = await apiClient.patch<ApiItem<ApiCatalogItem>>(`/api/company/catalog/items/${id}/promote`, {});
+  return toItem(response.data);
 }

@@ -96,6 +96,8 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     nav: { show: true, order: 2.75, group: 'main' },
     routes: [
       { path: '/catalog', componentId: 'catalog-list', requiredPermissions: ['tenant.catalog.view'] },
+      { path: '/catalog/approvals', componentId: 'catalog-list', requiredPermissions: ['tenant.catalog.approve'] },
+      { path: '/catalog/local', componentId: 'catalog-list', requiredPermissions: ['tenant.catalog.view'] },
       { path: '/catalog/new', componentId: 'catalog-form', requiredPermissions: ['tenant.catalog.create'] },
       { path: '/catalog/settings', componentId: 'catalog-settings', requiredPermissions: ['tenant.catalog.configure'] },
       { path: '/catalog/:id/edit', componentId: 'catalog-form', requiredPermissions: ['tenant.catalog.update'] },
