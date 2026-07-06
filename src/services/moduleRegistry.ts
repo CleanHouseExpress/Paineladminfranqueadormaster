@@ -97,6 +97,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     routes: [
       { path: '/catalog', componentId: 'catalog-list', requiredPermissions: ['tenant.catalog.view'] },
       { path: '/catalog/new', componentId: 'catalog-form', requiredPermissions: ['tenant.catalog.create'] },
+      { path: '/catalog/settings', componentId: 'catalog-settings', requiredPermissions: ['tenant.catalog.configure'] },
       { path: '/catalog/:id/edit', componentId: 'catalog-form', requiredPermissions: ['tenant.catalog.update'] },
       { path: '/catalog/:id', componentId: 'catalog-detail', requiredPermissions: ['tenant.catalog.view'] },
     ],

@@ -38,7 +38,7 @@ const TYPE_DESCRIPTIONS: Record<CatalogItemType, string> = {
   custom:       'Campos livres',
 };
 
-const UNIT_OPTIONS = ['un', 'h', 'min', 'sessão', 'mês', 'ano', 'kit', 'vaga', 'curso', 'Outro'];
+const UNIT_OPTIONS = ['un', 'kg', 'h', 'min', 'sessão', 'mês', 'ano', 'kit', 'vaga', 'curso', 'Outro'];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 

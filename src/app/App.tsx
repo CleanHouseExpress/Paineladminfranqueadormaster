@@ -65,6 +65,7 @@ const AnalyticsCatalogPage = lazyPage(() => import('./components/analytics/Analy
 const CatalogListPage = lazyPage(() => import('../modules/catalog'), 'CatalogListPage');
 const CatalogFormPage = lazyPage(() => import('../modules/catalog'), 'CatalogFormPage');
 const CatalogDetailPage = lazyPage(() => import('../modules/catalog'), 'CatalogDetailPage');
+const CatalogSettingsPage = lazyPage(() => import('../modules/catalog'), 'CatalogSettingsPage');
 
 const ChecklistsDashboardPage = lazyPage(() => import('../modules/checklists'), 'ChecklistsDashboardPage');
 const ChecklistTemplatesPage = lazyPage(() => import('../modules/checklists'), 'ChecklistTemplatesPage');
@@ -180,6 +181,7 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   'catalog-list': CatalogListPage,
   'catalog-form': CatalogFormPage,
   'catalog-detail': CatalogDetailPage,
+  'catalog-settings': CatalogSettingsPage,
   analytics: AnalyticsDashboardPage,
   operations: () => <PlaceholderPage title="Operacao" description="Checklists, pendencias e diario de bordo para gestao operacional da rede." />,
   checklists: ChecklistsDashboardPage,
