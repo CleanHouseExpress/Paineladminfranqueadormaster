@@ -176,7 +176,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [error, setError] = useState<string | null>(null);
 
-  const hydrateSession = useCallback(async () => {
+  const hydrateSession = useCallback(async (options?: { fallbackUser?: AuthUser | null }) => {
     const currentToken = readStoredToken();
     setToken(currentToken);
 
@@ -198,11 +198,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const mePayload = await authService.me();
       const normalizedMe = normalizeMePayload(mePayload);
-      const nextUser = normalizedMe.user;
-
-      if (!nextUser) {
-        throw new Error('Invalid session payload');
-      }
+      const nextUser = normalizedMe.user ?? options?.fallbackUser ?? user ?? null;
 
       const [companyResult, modulesResult, rolesResult, permissionsResult] = await Promise.allSettled([
         authService.getMeCompany(),
@@ -256,22 +252,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       const isUnauthorized = err instanceof ApiError && (err.status === 401 || err.status === 419);
 
-      if (isUnauthorized) {
-        writeStoredToken(null);
-        setToken(null);
+      if (!isUnauthorized) {
+        setError('Não foi possível carregar sua sessão agora. Verifique a API e tente novamente.');
       }
 
-      setUser(null);
+      setUser(options?.fallbackUser ?? user ?? null);
       setCompany(null);
       setModules([]);
       setRoles([]);
       setPermissions([]);
       setContext(null);
-      setError(isUnauthorized ? null : 'Não foi possível carregar sua sessão agora. Verifique a API e tente novamente.');
     } finally {
       setIsLoading(false);
     }
-  }, [hydrateTenant]);
+  }, [hydrateTenant, user]);
 
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
@@ -291,7 +285,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const loginUser = extractUser(response);
       if (loginUser) setUser(loginUser);
 
-      await hydrateSession();
+      await hydrateSession({ fallbackUser: loginUser ?? null });
     } catch {
       writeStoredToken(null);
       setToken(null);
@@ -355,7 +349,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     modules,
     roles,
     permissions,
-    isAuthenticated: Boolean(token && user),
+    isAuthenticated: Boolean(token),
     isLoading,
     error,
     login,
