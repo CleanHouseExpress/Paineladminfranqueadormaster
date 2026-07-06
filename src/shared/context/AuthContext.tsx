@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ApiError, AUTH_SESSION_EXPIRED_EVENT, AUTH_TOKEN_STORAGE_KEY,
 } from '../../services/apiClient';
@@ -175,6 +175,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [context, setContext] = useState<AuthSessionContext | null>(null);
   const [isLoading, setIsLoading] = useState(Boolean(token));
   const [error, setError] = useState<string | null>(null);
+  const userRef = useRef<AuthUser | null>(user);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   const hydrateSession = useCallback(async (options?: { fallbackUser?: AuthUser | null }) => {
     const currentToken = readStoredToken();
@@ -196,9 +201,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null);
 
     try {
+      const fallbackUser = options?.fallbackUser ?? userRef.current ?? null;
       const mePayload = await authService.me();
       const normalizedMe = normalizeMePayload(mePayload);
-      const nextUser = normalizedMe.user ?? options?.fallbackUser ?? user ?? null;
+      const nextUser = normalizedMe.user ?? fallbackUser;
 
       const [companyResult, modulesResult, rolesResult, permissionsResult] = await Promise.allSettled([
         authService.getMeCompany(),
@@ -256,7 +262,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setError('Não foi possível carregar sua sessão agora. Verifique a API e tente novamente.');
       }
 
-      setUser(options?.fallbackUser ?? user ?? null);
+      setUser(options?.fallbackUser ?? userRef.current ?? null);
       setCompany(null);
       setModules([]);
       setRoles([]);
@@ -265,7 +271,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [hydrateTenant, user]);
+  }, [hydrateTenant]);
 
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
