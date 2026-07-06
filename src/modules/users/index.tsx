@@ -4,7 +4,9 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { ArrowLeft, CheckCircle2, Edit, Plus, Power, PowerOff, RefreshCw, Save, Search } from 'lucide-react';
 import { DynamicFormRenderer } from '../../shared/components/DynamicFormRenderer';
 import { DynamicTableRenderer } from '../../shared/components/DynamicTableRenderer';
+import { NotificationDialog } from '../../shared/components/NotificationDialog';
 import { userManagementService } from '../../services/userManagementService';
+import { getApiErrorMessage } from '../../services/apiClient';
 import type { DynamicFieldSchema, TenantRole, TenantUser, TenantUserPayload, TenantUsersMeta } from '../../types/userManagement';
 import { USER_FORM_SCHEMA, USER_TABLE_SCHEMA } from '../../types/userManagement';
 import { metadataService } from '../../services/metadataService';
@@ -165,7 +167,7 @@ export function UsersListPage() {
         </Button>
       </div>
 
-      {error ? <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">{error}</div> : null}
+      <NotificationDialog open={Boolean(error)} message={error} onOpenChange={open => !open && setError(null)} />
 
       <DynamicTableRenderer
         schema={tableSchema}
@@ -312,8 +314,8 @@ export function UserFormPage() {
       }
 
       navigate('/users');
-    } catch {
-      setError('Nao foi possivel salvar o usuario.');
+    } catch (saveError) {
+      setError(getApiErrorMessage(saveError, 'Nao foi possivel salvar o usuario.'));
     } finally {
       setSaving(false);
     }
@@ -334,7 +336,7 @@ export function UserFormPage() {
         </Button>
       </div>
 
-      {error ? <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">{error}</div> : null}
+      <NotificationDialog open={Boolean(error)} message={error} onOpenChange={open => !open && setError(null)} />
 
       <form className="space-y-5 rounded-md border p-4" onSubmit={save}>
         {loading ? (

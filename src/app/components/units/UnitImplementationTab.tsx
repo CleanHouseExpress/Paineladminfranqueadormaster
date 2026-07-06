@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, CheckCircle2, CircleAlert, ClipboardCheck, FileClock, MessageSquare, RefreshCw, Save, UserRound } from 'lucide-react';
+import { CalendarDays, CheckCircle2, CircleAlert, ClipboardCheck, Download, FileClock, FileText, MessageSquare, RefreshCw, Save, Upload, UserRound } from 'lucide-react';
 import type { Unit } from '../../../types/unitManagement';
 import type { ImplementationTask, ImplementationTemplate, UnitImplementation } from '../../../types/implementation';
 import {
@@ -43,6 +43,19 @@ function priorityClass(priority: string) {
 function formatDate(date: string | null | undefined) {
   if (!date) return '-';
   return new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`));
+}
+
+function formatBytes(bytes: number | null | undefined) {
+  if (!bytes) return '-';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function documentStatusLabel(status: string) {
+  if (status === 'approved') return 'Aprovado';
+  if (status === 'rejected') return 'Rejeitado';
+  return 'Pendente de aprovacao';
 }
 
 function getImplementationUnitName(unit: Unit) {
@@ -99,7 +112,7 @@ export function UnitImplementationTab({ unit }: UnitImplementationTabProps) {
   const allTasks = phases.flatMap(phase => phase.tasks ?? []);
   const completedTasks = allTasks.filter(task => task.status === 'completed').length;
   const criticalPending = allTasks.filter(task => task.priority === 'critical' && task.status !== 'completed').length;
-  const documentsPending = allTasks.filter(task => task.documentRequired && task.status !== 'completed').length;
+  const documentsPending = allTasks.reduce((total, task) => total + (task.documents ?? []).filter(document => document.status === 'pending_approval').length, 0);
   const trainings = allTasks.filter(task => task.trainingRequired);
   const trainingsComplete = trainings.length === 0
     ? 0
@@ -147,6 +160,52 @@ export function UnitImplementationTab({ unit }: UnitImplementationTabProps) {
       setSelectedTask(updated?.phases.flatMap(phase => phase.tasks ?? []).find(task => task.id === taskId) ?? null);
     } catch (completeError) {
       setError(implementationService.getErrorMessage(completeError, 'Nao foi possivel concluir a tarefa.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const refreshSelectedTask = (updated: UnitImplementation | null, taskId: string) => {
+    setImplementation(updated);
+    setSelectedTask(updated?.phases.flatMap(phase => phase.tasks ?? []).find(task => task.id === taskId) ?? null);
+  };
+
+  const uploadTaskDocument = async (taskId: string, file: File | null | undefined) => {
+    if (!implementation || !file) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await implementationService.uploadTaskDocument(implementation.id, taskId, file);
+      refreshSelectedTask(updated, taskId);
+    } catch (uploadError) {
+      setError(implementationService.getErrorMessage(uploadError, 'Nao foi possivel enviar o documento.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const approveTaskDocument = async (taskId: string, documentId: string) => {
+    if (!implementation) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await implementationService.approveTaskDocument(implementation.id, taskId, documentId);
+      refreshSelectedTask(updated, taskId);
+    } catch (approveError) {
+      setError(implementationService.getErrorMessage(approveError, 'Nao foi possivel aprovar o documento.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const downloadTaskDocument = async (taskId: string, documentId: string, filename: string) => {
+    if (!implementation) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await implementationService.downloadTaskDocument(implementation.id, taskId, documentId, filename);
+    } catch (downloadError) {
+      setError(implementationService.getErrorMessage(downloadError, 'Nao foi possivel baixar o documento.'));
     } finally {
       setSaving(false);
     }
@@ -403,12 +462,20 @@ export function UnitImplementationTab({ unit }: UnitImplementationTabProps) {
 
           {activeTab === 'documents' ? (
             <div className="mt-4 space-y-2">
-              {allTasks.filter(task => task.documentRequired).map(task => (
-                <div key={task.id} className="flex items-center justify-between rounded-md border p-3 text-sm">
-                  <span>{task.title}</span>
-                  <span className={`rounded-full border px-2 py-0.5 text-xs ${statusClass(task.status)}`}>{IMPLEMENTATION_TASK_STATUS_LABELS[task.status]}</span>
+              {allTasks.filter(task => task.documentRequired || (task.documents ?? []).length > 0).map(task => (
+                <div key={task.id} className="rounded-md border p-3 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <button type="button" className="text-left font-medium hover:underline" onClick={() => setSelectedTask(task)}>{task.title}</button>
+                    <span className={`rounded-full border px-2 py-0.5 text-xs ${statusClass(task.status)}`}>{IMPLEMENTATION_TASK_STATUS_LABELS[task.status]}</span>
+                  </div>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    {(task.documents ?? []).length} documento(s), {(task.documents ?? []).filter(document => document.status === 'pending_approval').length} pendente(s)
+                  </div>
                 </div>
               ))}
+              {allTasks.filter(task => task.documentRequired || (task.documents ?? []).length > 0).length === 0 ? (
+                <div className="rounded-md border p-4 text-sm text-muted-foreground">Nenhum documento vinculado as tarefas.</div>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -463,6 +530,57 @@ export function UnitImplementationTab({ unit }: UnitImplementationTabProps) {
                 <MessageSquare className="size-4" />
                 Comentar
               </Button>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <h4 className="font-medium">Documentos</h4>
+                <Button type="button" variant="outline" size="sm" disabled={saving} asChild>
+                  <label>
+                    <Upload className="size-4" />
+                    Anexar
+                    <input
+                      type="file"
+                      className="hidden"
+                      onChange={event => {
+                        const file = event.target.files?.[0];
+                        event.currentTarget.value = '';
+                        void uploadTaskDocument(selectedTask.id, file);
+                      }}
+                    />
+                  </label>
+                </Button>
+              </div>
+              {(selectedTask.documents ?? []).map(document => (
+                <div key={document.id} className="rounded-md border p-3 text-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 font-medium">
+                        <FileText className="size-4 shrink-0" />
+                        <span className="truncate">{document.originalName}</span>
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {formatBytes(document.sizeBytes)} - {documentStatusLabel(document.status)}
+                        {document.approvedAt ? ` - aprovado em ${new Date(document.approvedAt).toLocaleString('pt-BR')}` : ''}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      <Button type="button" variant="outline" size="sm" disabled={saving} onClick={() => void downloadTaskDocument(selectedTask.id, document.id, document.originalName)}>
+                        <Download className="size-4" />
+                      </Button>
+                      {document.status === 'pending_approval' ? (
+                        <Button type="button" size="sm" disabled={saving} onClick={() => void approveTaskDocument(selectedTask.id, document.id)}>
+                          <CheckCircle2 className="size-4" />
+                          Aprovar
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {(selectedTask.documents ?? []).length === 0 ? (
+                <div className="rounded-md border p-3 text-sm text-muted-foreground">Nenhum documento anexado.</div>
+              ) : null}
             </div>
 
             <div className="mt-5 space-y-2">

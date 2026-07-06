@@ -411,6 +411,20 @@ test('@smoke implantacoes dashboard alterna visualizacoes', async ({ page }) => 
   await expect(page.getByText('Equipamentos')).toBeVisible();
 });
 
+test('implantacoes 401 da API nao derruba sessao inteira', async ({ page }) => {
+  await mockAuth(page);
+  await page.route('**/api/tenant/implementations', route => route.fulfill({
+    status: 401,
+    contentType: 'application/json',
+    body: JSON.stringify({ message: 'Endpoint de implantacao nao autorizado' }),
+  }));
+
+  await page.goto('/implementations');
+  await expect(page).toHaveURL(/\/implementations$/);
+  await expect(page.getByText('Endpoint de implantacao nao autorizado')).toBeVisible();
+  await expect(page.evaluate(() => window.localStorage.getItem('orchestra_auth_token'))).resolves.toBe('e2e-token');
+});
+
 test('@smoke templates lista fases tarefas e salva alteracao', async ({ page }) => {
   await setup(page);
 

@@ -9,6 +9,7 @@ export interface TenantUser {
   id: number;
   name: string;
   email: string;
+  phone?: string | null;
   active: boolean;
   status: 'active' | 'inactive' | string;
   last_login_at?: string | null;
@@ -30,6 +31,7 @@ export interface TenantUsersMeta {
 export interface TenantUserPayload {
   name: string;
   email: string;
+  phone?: string | null;
   password?: string;
   roles: number[];
   unit_ids?: number[];

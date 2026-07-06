@@ -10,6 +10,7 @@ export interface ApiRequestOptions extends Omit<RequestInit, 'body' | 'method'> 
   method?: HttpMethod;
   body?: unknown;
   skipCsrf?: boolean;
+  expireSessionOnUnauthorized?: boolean;
 }
 
 export class ApiError extends Error {
@@ -22,6 +23,64 @@ export class ApiError extends Error {
     this.status = status;
     this.data = data;
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+const API_FIELD_LABELS: Record<string, string> = {
+  document: 'CNPJ',
+  email: 'e-mail',
+  name: 'nome',
+  password: 'senha',
+  phone: 'telefone/WhatsApp',
+  responsible_email: 'e-mail do responsavel',
+  responsible_name: 'responsavel',
+  responsible_phone: 'WhatsApp do responsavel',
+};
+
+function localizeApiMessage(message: string, field?: string): string {
+  const label = field ? API_FIELD_LABELS[field] ?? field : 'campo';
+
+  return message
+    .replace(/^The (.+) field is required\.$/i, `O campo ${label} e obrigatorio.`)
+    .replace(/^The (.+) field must be a valid email address\.$/i, `O campo ${label} deve ser um e-mail valido.`)
+    .replace(/^The (.+) field must be (\d+) digits\.$/i, `O campo ${label} deve ter $2 digitos.`)
+    .replace(/^The (.+) field must be between (\d+) and (\d+) digits\.$/i, `O campo ${label} deve ter entre $2 e $3 digitos.`)
+    .replace(/^The (.+) field must be at least (\d+) characters\.$/i, `O campo ${label} deve ter pelo menos $2 caracteres.`)
+    .replace(/^The selected (.+) is invalid\.$/i, `O valor selecionado para ${label} e invalido.`);
+}
+
+export function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (!(error instanceof ApiError)) return fallback;
+
+  const data = error.data;
+  if (!isRecord(data)) return `${fallback} (${error.status})`;
+
+  const errors = data.errors;
+  if (isRecord(errors)) {
+    const messages = Object.entries(errors)
+      .flatMap(([field, value]) => {
+        const items = Array.isArray(value) ? value : [value];
+        return items
+          .filter((item): item is string => typeof item === 'string' && item.trim() !== '')
+          .map(message => localizeApiMessage(message, field));
+      });
+
+    if (messages.length > 0) return [...new Set(messages)].join(' ');
+  }
+
+  return typeof data.message === 'string' && data.message.trim() !== ''
+    ? localizeApiMessage(data.message)
+    : `${fallback} (${error.status})`;
+}
+
+function withoutContentType(headers: HeadersInit): HeadersInit {
+  const entries = new Headers(headers);
+  entries.delete('Content-Type');
+  entries.delete('content-type');
+  return entries;
 }
 
 interface ApiClientEnv {
@@ -141,27 +200,32 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const method = options.method ?? 'GET';
   const hasBody = options.body !== undefined;
+  const isFormDataBody = typeof FormData !== 'undefined' && options.body instanceof FormData;
 
   if (!options.skipCsrf && method !== 'GET' && !getStoredToken()) {
     await ensureCsrfCookie();
   }
+
+  const defaultHeaders = isFormDataBody
+    ? withoutContentType(apiClientConfig.defaultHeaders)
+    : apiClientConfig.defaultHeaders;
 
   const response = await fetch(buildUrl(path), {
     ...options,
     method,
     credentials: options.credentials ?? 'omit',
     headers: {
-      ...apiClientConfig.defaultHeaders,
+      ...defaultHeaders,
       ...(getStoredToken() ? { Authorization: `Bearer ${getStoredToken()}` } : {}),
       ...options.headers,
     },
-    body: hasBody ? JSON.stringify(options.body) : undefined,
+    body: hasBody ? (isFormDataBody ? options.body : JSON.stringify(options.body)) as BodyInit : undefined,
   });
 
   const data = await parseResponse(response);
 
   if (!response.ok) {
-    if (response.status === 401 || response.status === 419) {
+    if ((response.status === 401 || response.status === 419) && options.expireSessionOnUnauthorized !== false) {
       expireClientSession(response.status);
     }
     throw new ApiError(response.status, data);

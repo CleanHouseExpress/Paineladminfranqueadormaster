@@ -1,7 +1,9 @@
 import { implementationsMock, implementationTemplatesMock } from '../app/data/implementationMockData';
-import { apiClient, ApiError } from './apiClient';
+import { apiClient, apiClientConfig, ApiError, AUTH_TOKEN_STORAGE_KEY } from './apiClient';
 import type {
   ImplementationChecklistItem,
+  ImplementationTaskDocument,
+  ImplementationTaskDocumentStatus,
   ImplementationHistoryItem,
   ImplementationPhase,
   ImplementationPriority,
@@ -108,7 +110,7 @@ function stringValue(value: unknown, fallback = '') {
   return typeof value === 'string' ? value : fallback;
 }
 
-function idValue(value: unknown, fallback = '') {
+function idValue(value: unknown, fallback: number | string | null = '') {
   if (typeof value === 'number' || typeof value === 'string') return value;
   return fallback;
 }
@@ -162,6 +164,22 @@ function apiErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
+function tenantApiGet<T>(path: string) {
+  return apiClient.get<T>(path, { expireSessionOnUnauthorized: false });
+}
+
+function tenantApiPost<T>(path: string, body?: unknown) {
+  return apiClient.post<T>(path, body, { expireSessionOnUnauthorized: false });
+}
+
+function tenantApiPut<T>(path: string, body?: unknown) {
+  return apiClient.put<T>(path, body, { expireSessionOnUnauthorized: false });
+}
+
+function tenantApiDelete<T>(path: string) {
+  return apiClient.delete<T>(path, { expireSessionOnUnauthorized: false });
+}
+
 function mapChecklistItem(item: unknown, index: number): ImplementationChecklistItem {
   const record = recordValue(item);
   return {
@@ -177,6 +195,33 @@ function mapComment(item: unknown): ImplementationTaskComment {
     id: String(idValue(record.id, `comment-${Date.now()}`)),
     author: stringValue(record.author ?? record.author_name ?? record.user_name, 'Usuario Orchestra'),
     body: stringValue(record.body ?? record.comment ?? record.message),
+    createdAt: stringValue(record.created_at ?? record.createdAt, now()),
+  };
+}
+
+function mapDocumentStatus(value: unknown): ImplementationTaskDocumentStatus {
+  if (value === 'pending_approval' || value === 'approved' || value === 'rejected') return value;
+  return 'pending_approval';
+}
+
+function mapTaskDocument(item: unknown): ImplementationTaskDocument {
+  const record = recordValue(item);
+  const originalName = stringValue(record.original_name ?? record.originalName ?? record.file_name ?? record.fileName, 'Documento');
+
+  return {
+    id: String(idValue(record.id, `doc-${Date.now()}`)),
+    taskId: String(idValue(record.task_id ?? record.taskId, '')),
+    fileName: stringValue(record.file_name ?? record.fileName, originalName),
+    originalName,
+    mimeType: stringValue(record.mime_type ?? record.mimeType, '') || null,
+    extension: stringValue(record.extension, '') || null,
+    sizeBytes: numberValue(record.size_bytes ?? record.sizeBytes, 0),
+    status: mapDocumentStatus(record.status),
+    uploadedBy: idValue(record.uploaded_by ?? record.uploadedBy, null),
+    uploadedByName: stringValue(record.uploaded_by_name ?? record.uploadedByName, '') || null,
+    approvedBy: idValue(record.approved_by ?? record.approvedBy, null),
+    approvedByName: stringValue(record.approved_by_name ?? record.approvedByName, '') || null,
+    approvedAt: stringValue(record.approved_at ?? record.approvedAt, '') || null,
     createdAt: stringValue(record.created_at ?? record.createdAt, now()),
   };
 }
@@ -233,6 +278,7 @@ function mapTask(item: unknown, fallbackPhaseId = ''): ImplementationTask {
     dependsOnTaskIds,
     checklist: arrayValue(record.checklist).map(mapChecklistItem),
     comments: arrayValue(record.comments).map(mapComment),
+    documents: arrayValue(record.documents).map(mapTaskDocument),
     history: arrayValue(record.history).map(mapHistoryItem),
     files: arrayValue<string>(record.files),
     dependencies: dependsOnTaskIds,
@@ -448,14 +494,14 @@ async function withSafeFallback<T>(request: () => Promise<T>, fallback: () => T 
 export const implementationService = {
   async listImplementations(): Promise<UnitImplementation[]> {
     return withSafeFallback(
-      async () => unwrapList(await apiClient.get<unknown>('/api/tenant/implementations')).map(mapImplementation),
+      async () => unwrapList(await tenantApiGet<unknown>('/api/tenant/implementations')).map(mapImplementation),
       () => getMockImplementations(),
     );
   },
 
   async getImplementationByUnit(unitId: number | string): Promise<UnitImplementation | null> {
     try {
-      const response = await apiClient.get<unknown>(`/api/tenant/units/${unitId}/implementation`);
+      const response = await tenantApiGet<unknown>(`/api/tenant/units/${unitId}/implementation`);
       return mapImplementation(response);
     } catch (error) {
       if (shouldTreatUnitImplementationAsEmpty(error)) return null;
@@ -467,7 +513,7 @@ export const implementationService = {
 
   async createImplementation(unitId: number | string, templateId: string): Promise<UnitImplementation> {
     return withSafeFallback(
-      async () => mapImplementation(await apiClient.post<unknown>(`/api/tenant/units/${unitId}/implementation/start`, { template_id: templateId })),
+      async () => mapImplementation(await tenantApiPost<unknown>(`/api/tenant/units/${unitId}/implementation/start`, { template_id: templateId })),
       () => {
         const templates = getMockTemplates();
         const template = templates.find(item => item.id === templateId) ?? templates[0] ?? implementationTemplatesMock[0];
@@ -543,7 +589,7 @@ export const implementationService = {
 
   async getImplementation(implementationId: string): Promise<UnitImplementation> {
     return withSafeFallback(
-      async () => mapImplementation(await apiClient.get<unknown>(`/api/tenant/implementations/${implementationId}`)),
+      async () => mapImplementation(await tenantApiGet<unknown>(`/api/tenant/implementations/${implementationId}`)),
       () => {
         const implementation = getMockImplementations().find(item => item.id === implementationId);
         if (!implementation) throw new Error('Implantacao nao encontrada.');
@@ -554,7 +600,7 @@ export const implementationService = {
 
   async updateImplementation(implementationId: string, payload: Partial<UnitImplementation>): Promise<UnitImplementation> {
     return withSafeFallback(
-      async () => mapImplementation(await apiClient.put<unknown>(`/api/tenant/implementations/${implementationId}`, {
+      async () => mapImplementation(await tenantApiPut<unknown>(`/api/tenant/implementations/${implementationId}`, {
         status: payload.status,
         responsible_user_id: payload.responsibleUserId,
         planned_opening_date: payload.plannedOpeningDate,
@@ -570,7 +616,10 @@ export const implementationService = {
 
   async completeTask(implementationId: string, taskId: string): Promise<UnitImplementation | null> {
     return withSafeFallback(
-      async () => mapImplementation(await apiClient.post<unknown>(`/api/tenant/implementations/${implementationId}/tasks/${taskId}/complete`, {})),
+      async () => {
+        await tenantApiPost<unknown>(`/api/tenant/implementations/${implementationId}/tasks/${taskId}/complete`, {});
+        return mapImplementation(await tenantApiGet<unknown>(`/api/tenant/implementations/${implementationId}`));
+      },
       () => updateMockImplementation(implementationId, implementation => ({
         ...implementation,
         phases: (implementation.phases ?? []).map(phase => ({
@@ -600,7 +649,7 @@ export const implementationService = {
 
   async updateTask(implementationId: string, taskId: string, payload: Partial<ImplementationTask>): Promise<ImplementationTask> {
     return withSafeFallback(
-      async () => mapTask(await apiClient.put<unknown>(`/api/tenant/implementations/${implementationId}/tasks/${taskId}`, {
+      async () => mapTask(await tenantApiPut<unknown>(`/api/tenant/implementations/${implementationId}/tasks/${taskId}`, {
         name: payload.name ?? payload.title,
         description: payload.description,
         status: payload.status,
@@ -628,7 +677,10 @@ export const implementationService = {
 
   async reopenTask(implementationId: string, taskId: string): Promise<UnitImplementation | null> {
     return withSafeFallback(
-      async () => mapImplementation(await apiClient.post<unknown>(`/api/tenant/implementations/${implementationId}/tasks/${taskId}/reopen`, {})),
+      async () => {
+        await tenantApiPost<unknown>(`/api/tenant/implementations/${implementationId}/tasks/${taskId}/reopen`, {});
+        return mapImplementation(await tenantApiGet<unknown>(`/api/tenant/implementations/${implementationId}`));
+      },
       () => updateMockImplementation(implementationId, implementation => ({
         ...implementation,
         phases: (implementation.phases ?? []).map(phase => ({
@@ -642,8 +694,8 @@ export const implementationService = {
   async addTaskComment(implementationId: string, taskId: string, comment: string): Promise<UnitImplementation | null> {
     return withSafeFallback(
       async () => {
-        await apiClient.post<unknown>(`/api/tenant/implementations/${implementationId}/tasks/${taskId}/comments`, { comment });
-        return mapImplementation(await apiClient.get<unknown>(`/api/tenant/implementations/${implementationId}`));
+        await tenantApiPost<unknown>(`/api/tenant/implementations/${implementationId}/tasks/${taskId}/comments`, { comment });
+        return mapImplementation(await tenantApiGet<unknown>(`/api/tenant/implementations/${implementationId}`));
       },
       () => updateMockImplementation(implementationId, implementation => ({
         ...implementation,
@@ -662,9 +714,98 @@ export const implementationService = {
     );
   },
 
+  async uploadTaskDocument(implementationId: string, taskId: string, file: File): Promise<UnitImplementation | null> {
+    return withSafeFallback(
+      async () => {
+        const formData = new FormData();
+        formData.append('file', file);
+        await tenantApiPost<unknown>(`/api/tenant/implementations/${implementationId}/tasks/${taskId}/documents`, formData);
+        return mapImplementation(await tenantApiGet<unknown>(`/api/tenant/implementations/${implementationId}`));
+      },
+      () => updateMockImplementation(implementationId, implementation => ({
+        ...implementation,
+        phases: (implementation.phases ?? []).map(phase => ({
+          ...phase,
+          tasks: (phase.tasks ?? []).map(task => {
+            if (task.id !== taskId) return task;
+            const document: ImplementationTaskDocument = {
+              id: `${task.id}-doc-${Date.now()}`,
+              taskId,
+              fileName: file.name,
+              originalName: file.name,
+              mimeType: file.type || null,
+              extension: file.name.split('.').pop() || null,
+              sizeBytes: file.size,
+              status: 'pending_approval',
+              uploadedBy: null,
+              uploadedByName: 'Usuario Orchestra',
+              approvedBy: null,
+              approvedByName: null,
+              approvedAt: null,
+              createdAt: now(),
+            };
+            return { ...task, documents: [document, ...(task.documents ?? [])], files: [file.name, ...(task.files ?? [])] };
+          }),
+        })),
+      })),
+    );
+  },
+
+  async approveTaskDocument(implementationId: string, taskId: string, documentId: string): Promise<UnitImplementation | null> {
+    return withSafeFallback(
+      async () => {
+        await tenantApiPost<unknown>(`/api/tenant/implementations/${implementationId}/tasks/${taskId}/documents/${documentId}/approve`, {});
+        return mapImplementation(await tenantApiGet<unknown>(`/api/tenant/implementations/${implementationId}`));
+      },
+      () => updateMockImplementation(implementationId, implementation => ({
+        ...implementation,
+        phases: (implementation.phases ?? []).map(phase => ({
+          ...phase,
+          tasks: (phase.tasks ?? []).map(task => task.id === taskId ? {
+            ...task,
+            documents: (task.documents ?? []).map(document => document.id === documentId
+              ? { ...document, status: 'approved', approvedByName: 'Usuario Orchestra', approvedAt: now() }
+              : document),
+          } : task),
+        })),
+      })),
+    );
+  },
+
+  async downloadTaskDocument(implementationId: string, taskId: string, documentId: string, filename: string): Promise<void> {
+    const token = (() => {
+      try {
+        return localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+      } catch {
+        return null;
+      }
+    })();
+    const baseUrl = apiClientConfig.baseUrl.replace(/\/$/, '');
+    const response = await fetch(`${baseUrl}/api/tenant/implementations/${implementationId}/tasks/${taskId}/documents/${documentId}/download`, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+
+    if (!response.ok) {
+      const data = response.headers.get('content-type')?.includes('application/json') ? await response.json() : await response.text();
+      throw new ApiError(response.status, data);
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  },
+
   async registerOpeningDate(implementationId: string, date: string): Promise<UnitImplementation | null> {
     return withSafeFallback(
-      async () => mapImplementation(await apiClient.post<unknown>(`/api/tenant/implementations/${implementationId}/register-opening`, {
+      async () => mapImplementation(await tenantApiPost<unknown>(`/api/tenant/implementations/${implementationId}/register-opening`, {
         actual_opening_date: date,
       })),
       () => updateMockImplementation(implementationId, implementation => ({
@@ -683,14 +824,14 @@ export const implementationService = {
 
   async getHistory(implementationId: string): Promise<ImplementationHistoryItem[]> {
     return withSafeFallback(
-      async () => unwrapList(await apiClient.get<unknown>(`/api/tenant/implementations/${implementationId}/history`)).map(mapHistoryItem),
+      async () => unwrapList(await tenantApiGet<unknown>(`/api/tenant/implementations/${implementationId}/history`)).map(mapHistoryItem),
       () => getMockImplementations().find(item => item.id === implementationId)?.history ?? [],
     );
   },
 
   async listTemplates(): Promise<ImplementationTemplate[]> {
     return withSafeFallback(
-      async () => unwrapList(await apiClient.get<unknown>('/api/tenant/implementations/templates')).map(mapTemplate),
+      async () => unwrapList(await tenantApiGet<unknown>('/api/tenant/implementations/templates')).map(mapTemplate),
       () => getMockTemplates(),
     );
   },
@@ -700,8 +841,8 @@ export const implementationService = {
       async () => {
         const payload = templateToPayload(template);
         const response = template.id
-          ? await apiClient.put<unknown>(`/api/tenant/implementations/templates/${template.id}`, payload)
-          : await apiClient.post<unknown>('/api/tenant/implementations/templates', payload);
+          ? await tenantApiPut<unknown>(`/api/tenant/implementations/templates/${template.id}`, payload)
+          : await tenantApiPost<unknown>('/api/tenant/implementations/templates', payload);
         return mapTemplate(response);
       },
       () => {
@@ -720,7 +861,7 @@ export const implementationService = {
   async deleteTemplate(templateId: string): Promise<void> {
     return withSafeFallback(
       async () => {
-        await apiClient.delete<unknown>(`/api/tenant/implementations/templates/${templateId}`);
+        await tenantApiDelete<unknown>(`/api/tenant/implementations/templates/${templateId}`);
       },
       () => {
         saveMockTemplates(getMockTemplates().filter(item => item.id !== templateId));
@@ -730,7 +871,7 @@ export const implementationService = {
 
   async getDashboard(): Promise<unknown> {
     return withSafeFallback(
-      async () => apiClient.get<unknown>('/api/tenant/implementations/dashboard'),
+      async () => tenantApiGet<unknown>('/api/tenant/implementations/dashboard'),
       () => ({ data: getMockImplementations() }),
     );
   },

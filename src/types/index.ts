@@ -19,6 +19,8 @@ export type {
   ImplementationStatus,
   ImplementationTask,
   ImplementationTaskComment,
+  ImplementationTaskDocument,
+  ImplementationTaskDocumentStatus,
   ImplementationTaskStatus,
   ImplementationTemplate,
   ImplementationTemplatePhase,

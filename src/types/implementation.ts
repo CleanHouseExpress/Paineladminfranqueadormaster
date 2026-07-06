@@ -17,6 +17,25 @@ export interface ImplementationTaskComment {
   createdAt: string;
 }
 
+export type ImplementationTaskDocumentStatus = 'pending_approval' | 'approved' | 'rejected';
+
+export interface ImplementationTaskDocument {
+  id: string;
+  taskId: string;
+  fileName: string;
+  originalName: string;
+  mimeType?: string | null;
+  extension?: string | null;
+  sizeBytes: number;
+  status: ImplementationTaskDocumentStatus;
+  uploadedBy?: number | string | null;
+  uploadedByName?: string | null;
+  approvedBy?: number | string | null;
+  approvedByName?: string | null;
+  approvedAt?: string | null;
+  createdAt: string;
+}
+
 export interface ImplementationHistoryItem {
   id: string;
   title: string;
@@ -42,6 +61,7 @@ export interface ImplementationTask {
   dependsOnTaskIds?: string[];
   checklist?: ImplementationChecklistItem[];
   comments?: ImplementationTaskComment[];
+  documents?: ImplementationTaskDocument[];
   history?: ImplementationHistoryItem[];
   files?: string[];
   dependencies?: string[];
