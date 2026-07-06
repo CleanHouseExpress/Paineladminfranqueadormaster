@@ -77,7 +77,7 @@ export function CrmDashboard() {
       .catch(cause => setError(apiErrorMessage(cause)))
       .finally(() => setLoading(false));
   };
-  useEffect(load, []);
+  useEffect(() => { void load(); }, []);
   if (loading) return <Page><Busy /></Page>;
   if (error || !metrics) return <Page><ErrorState message={error || 'A resposta da API não contém as métricas esperadas.'} retry={load} /></Page>;
   const kpis = [
@@ -109,7 +109,7 @@ export function CrmKanban() {
     const pipes = await crmService.pipelines(); const selected = pipelineId || pipes.find(p => p.isDefault)?.id || pipes[0]?.id || '';
     setPipelines(pipes); setPipelineId(selected); setLeads(selected ? await crmService.leads({ pipelineId: selected }) : []); setLoading(false);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { void load(); }, []);
   useEffect(() => { if (pipelineId) crmService.leads({ pipelineId }).then(setLeads); }, [pipelineId]);
   const pipeline = pipelines.find(p => p.id === pipelineId);
   const move = async (leadId: string, stageId: string) => {
@@ -173,7 +173,7 @@ export function CrmLeadDetail() {
   const { id = '' } = useParams(); const navigate = useNavigate();
   const [lead, setLead] = useState<CrmLead>(); const [activityOpen, setActivityOpen] = useState(false);
   const [activity, setActivity] = useState({ type: 'call' as ActivityType, title: '', description: '', dueDate: '' });
-  const load = () => crmService.lead(id).then(setLead); useEffect(load, [id]);
+  const load = () => crmService.lead(id).then(setLead); useEffect(() => { void load(); }, [id]);
   if (!lead) return <Page><Busy /></Page>;
   const act = async (action: 'won' | 'lost' | 'convert') => {
     if (action === 'won') setLead(await crmService.winLead(id));
@@ -194,7 +194,7 @@ export function CrmPipelines() {
   const [pipelines, setPipelines] = useState<CrmPipeline[]>([]); const [selectedId, setSelectedId] = useState('');
   const [pipelineName, setPipelineName] = useState(''); const [stageName, setStageName] = useState('');
   const load = () => crmService.pipelines().then(items => { setPipelines(items); setSelectedId(current => current || items[0]?.id || ''); });
-  useEffect(load, []); const selected = pipelines.find(p => p.id === selectedId);
+  useEffect(() => { void load(); }, []); const selected = pipelines.find(p => p.id === selectedId);
   const addPipeline = async () => { if (!pipelineName.trim()) return; await crmService.createPipeline({ name: pipelineName, active: true, isDefault: pipelines.length === 0, stages: [] }); setPipelineName(''); load(); };
   const addStage = async () => { if (!selected || !stageName.trim()) return; await crmService.createStage({ pipelineId: selected.id, name: stageName, position: selected.stages.length + 1, color: '#6366F1', isWon: false, isLost: false, active: true, id: '' }); setStageName(''); load(); };
   return <Page><Header title="Pipelines e estágios" description="Configure os funis comerciais e suas etapas." /><CrmNav /><div style={{ display: 'grid', gridTemplateColumns: '320px minmax(0,1fr)', gap: 16 }}><aside style={{ ...card, padding: 16 }}><h3 style={{ marginTop: 0 }}>Pipelines</h3>{pipelines.map(p => <button key={p.id} onClick={() => setSelectedId(p.id)} style={{ width: '100%', textAlign: 'left', padding: 12, marginBottom: 7, borderRadius: 10, border: `1px solid ${selectedId === p.id ? '#818CF8' : '#E2E8F0'}`, background: selectedId === p.id ? '#EEF2FF' : '#fff', cursor: 'pointer' }}><b>{p.name}</b><div style={{ fontSize: 11, color: '#64748B' }}>{p.stages.length} estágios {p.isDefault && '· padrão'}</div></button>)}<div style={{ display: 'flex', gap: 6, marginTop: 12 }}><input placeholder="Novo pipeline" value={pipelineName} onChange={e => setPipelineName(e.target.value)} style={input} /><button onClick={addPipeline} style={{ ...button, color: '#fff', background: '#4F46E5', padding: 9 }}><Plus size={15} /></button></div></aside>
