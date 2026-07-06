@@ -1,1 +1,0 @@
-const e={rulesCreate:"tenant.loyalty.rules.create",rulesUpdate:"tenant.loyalty.rules.update",rulesDelete:"tenant.loyalty.rules.delete",adjust:"tenant.loyalty.adjust",redeem:"tenant.loyalty.redeem"};export{e as L};
