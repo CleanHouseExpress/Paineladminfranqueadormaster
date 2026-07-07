@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   X, ChevronRight, ChevronLeft, Check, Layers, Building2,
   Palette, Users, Puzzle, DollarSign, FileUp, Sparkles,
@@ -8,6 +8,9 @@ import { useOnboarding } from '../../../shared/hooks/useOnboarding';
 import { useTenant } from '../../../shared/context/TenantContext';
 import { WIZARD_STEPS, type WizardStepId } from '../../../types/onboarding';
 import { MODULE_REGISTRY } from '../../../services/moduleRegistry';
+import { unitManagementService } from '../../../services/unitManagementService';
+import { userManagementService } from '../../../services/userManagementService';
+import type { TenantRole } from '../../../types/userManagement';
 
 // ─── Step indicator ────────────────────────────────────────────────────────────
 
@@ -183,14 +186,24 @@ function StepUnits() {
   const [form, setForm] = useState({ name: '', city: '', state: 'SP', manager: '' });
   const STATES = ['SP','RJ','MG','PR','RS','BA','SC','GO','PE','CE'];
 
-  const add = () => {
+  const add = async () => {
     if (!form.name) return;
-    const next = [...units, { ...form, id: Date.now().toString() }];
-    saveStepData('units', { units: next });
+    const created = await unitManagementService.createUnit({
+      name: form.name,
+      status: 'active',
+      address_city: form.city || null,
+      address_state: form.state || null,
+      responsible_name: form.manager || null,
+    });
+    const next = [...units, { id: String(created.id), name: created.name, city: created.address_city ?? '', state: created.address_state ?? '', manager: created.responsible_name ?? '' }];
+    await saveStepData('units', { units: next });
     setForm({ name: '', city: '', state: 'SP', manager: '' });
   };
 
-  const remove = (id: string) => saveStepData('units', { units: units.filter(u => u.id !== id) });
+  const remove = async (id: string) => {
+    await unitManagementService.deleteUnit(id);
+    await saveStepData('units', { units: units.filter(u => u.id !== id) });
+  };
 
   return (
     <div className="space-y-4">
@@ -247,16 +260,33 @@ function StepUsers() {
   const { state, saveStepData } = useOnboarding();
   const users = state.stepData.users;
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState('Gestor de Unidade');
-  const ROLES = ['Admin Financeiro', 'Admin Operacional', 'Gestor de Unidade', 'Operador de Unidade', 'Visualizador'];
+  const [roles, setRoles] = useState<TenantRole[]>([]);
+  const [role, setRole] = useState('');
 
-  const invite = () => {
-    if (!email) return;
-    const next = [...users, { id: Date.now().toString(), email, role }];
-    saveStepData('users', { users: next });
+  useEffect(() => {
+    void userManagementService.listRoles().then(items => {
+      setRoles(items);
+      setRole(current => current || String(items[0]?.id ?? ''));
+    }).catch(() => setRoles([]));
+  }, []);
+
+  const invite = async () => {
+    if (!email || !role) return;
+    const selectedRole = roles.find(item => String(item.id) === role);
+    const created = await userManagementService.createUser({
+      name: email.split('@')[0] || email,
+      email,
+      roles: [Number(role)],
+      active: true,
+    });
+    const next = [...users, { id: String(created.id), email: created.email, role: selectedRole?.name ?? selectedRole?.slug ?? 'Perfil operacional' }];
+    await saveStepData('users', { users: next });
     setEmail('');
   };
-  const remove = (id: string) => saveStepData('users', { users: users.filter(u => u.id !== id) });
+  const remove = async (id: string) => {
+    await userManagementService.deactivateUser(id);
+    await saveStepData('users', { users: users.filter(u => u.id !== id) });
+  };
 
   return (
     <div className="space-y-4">
@@ -268,10 +298,10 @@ function StepUsers() {
             style={{ background: 'white', border: '1px solid rgba(0,0,0,0.08)', fontSize: '13px' }} />
           <select value={role} onChange={e => setRole(e.target.value)} className="px-3 py-2 rounded-lg outline-none"
             style={{ background: 'white', border: '1px solid rgba(0,0,0,0.08)', fontSize: '13px' }}>
-            {ROLES.map(r => <option key={r}>{r}</option>)}
+            {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
         </div>
-        <button onClick={invite} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-white"
+        <button onClick={invite} disabled={!email || !role} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-white disabled:opacity-50"
           style={{ background: '#6366F1', fontSize: '12px', fontWeight: 500 }}>
           <Plus size={14} /> Enviar convite
         </button>
@@ -432,11 +462,11 @@ function StepClients() {
           </div>
           {selected === 'csv' && (
             <div className="p-4 rounded-xl text-center" style={{ background: '#EEF2FF', border: '2px dashed #6366F1' }}>
-              <div style={{ fontSize: '13px', color: '#6366F1', fontWeight: 500 }}>Arraste o arquivo CSV aqui</div>
-              <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px' }}>(simulado — nenhum arquivo é enviado)</div>
+              <div style={{ fontSize: '13px', color: '#6366F1', fontWeight: 500 }}>Importacao CSV sera feita pelo modulo de clientes</div>
+              <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px' }}>Esta etapa registra apenas a preferencia inicial no backend.</div>
               <button className="mt-3 px-4 py-2 rounded-lg text-white" style={{ background: '#6366F1', fontSize: '12px' }}
                 onClick={() => saveStepData('clients', { clientsImported: true })}>
-                Simular importação
+                Continuar depois
               </button>
             </div>
           )}

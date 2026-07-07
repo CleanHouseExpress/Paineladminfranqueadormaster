@@ -121,38 +121,40 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     data: Partial<WizardStepData>,
   ) => {
     dispatch({ type: 'SAVE_STEP_DATA', data });
-    await svc.updateOnboardingStep(stepId, state.currentWizardStep, data);
+    const next = await svc.updateOnboardingStep(stepId, state.currentWizardStep, data);
+    dispatch({ type: 'HYDRATE', state: next });
   }, [state.currentWizardStep]);
 
   const completeWizard = useCallback(async () => {
-    await svc.completeOnboarding();
+    const next = await svc.completeOnboarding();
+    dispatch({ type: 'HYDRATE', state: next });
     dispatch({ type: 'COMPLETE_WIZARD' });
   }, []);
 
   const startTour = useCallback(() => {
     dispatch({ type: 'START_TOUR' });
-    svc.updateTourProgress(0, false);
+    void svc.updateTourProgress(0, false).then(next => dispatch({ type: 'HYDRATE', state: next }));
   }, []);
 
   const advanceTour = useCallback(() => {
     const next = state.currentTourStop + 1;
     dispatch({ type: 'SET_TOUR_STOP', stop: next });
-    svc.updateTourProgress(next, false);
+    void svc.updateTourProgress(next, false).then(nextState => dispatch({ type: 'HYDRATE', state: nextState }));
   }, [state.currentTourStop]);
 
   const completeTour = useCallback(() => {
     dispatch({ type: 'COMPLETE_TOUR' });
-    svc.updateTourProgress(state.currentTourStop, true);
+    void svc.updateTourProgress(state.currentTourStop, true).then(next => dispatch({ type: 'HYDRATE', state: next }));
   }, [state.currentTourStop]);
 
   const completeChecklistItemFn = useCallback(async (itemId: string) => {
     dispatch({ type: 'COMPLETE_CHECKLIST_ITEM', itemId });
-    await svc.completeChecklistItem(itemId);
+    const next = await svc.completeChecklistItem(itemId);
+    dispatch({ type: 'HYDRATE', state: next });
   }, []);
 
   const resetOnboardingFn = useCallback(() => {
-    svc.resetOnboarding();
-    window.location.reload();
+    void svc.resetOnboarding().then(next => dispatch({ type: 'HYDRATE', state: next }));
   }, []);
 
   const checklistProgress = Math.round(
