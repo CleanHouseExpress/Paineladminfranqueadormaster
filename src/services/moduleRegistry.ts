@@ -1,13 +1,13 @@
-import type { ModuleDefinition } from '../types';
+﻿import type { ModuleDefinition } from '../types';
 
 /**
- * Central Module Registry — single source of truth for all modules in the platform.
+ * Central Module Registry â€” single source of truth for all modules in the platform.
  *
  * Drives:
  *  - Sidebar navigation (nav config)
  *  - Application routes (routes[].path + componentId)
  *  - Module marketplace cards (marketplace config)
- *  - Breadcrumbs (path→label resolution)
+ *  - Breadcrumbs (pathâ†’label resolution)
  *  - ModuleGate permission checks (status + requiredPermissions)
  *  - Per-tenant activation state (compared against TenantContext.enabledModuleIds)
  *
@@ -15,12 +15,12 @@ import type { ModuleDefinition } from '../types';
  * in src/app/App.tsx. No other files need to change.
  */
 export const MODULE_REGISTRY: ModuleDefinition[] = [
-  // ─── Core / System ───────────────────────────────────────────────────────────
+  // â”€â”€â”€ Core / System â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   {
     id: 'dashboard',
     name: 'Dashboard',
-    description: 'Painel executivo com visão geral da rede, alertas e indicadores consolidados.',
+    description: 'Painel executivo com visÃ£o geral da rede, alertas e indicadores consolidados.',
     icon: 'LayoutDashboard',
     status: 'active',
     nav: { show: true, order: 0, group: 'main' },
@@ -30,12 +30,12 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     ],
   },
 
-  // ─── Gestão da Rede ───────────────────────────────────────────────────────────
+  // â”€â”€â”€ GestÃ£o da Rede â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   {
     id: 'units',
     name: 'Unidades',
-    description: 'Cadastro, monitoramento e controle de todas as unidades da rede em um único painel.',
+    description: 'Cadastro, monitoramento e controle de todas as unidades da rede em um Ãºnico painel.',
     icon: 'Building2',
     status: 'active',
     nav: {
@@ -56,7 +56,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
       { path: '/implementations', componentId: 'implementations-dashboard', moduleId: 'units', requiredPermissions: ['tenant.units.view'] },
       { path: '/implementations/templates', componentId: 'implementation-templates', moduleId: 'units', requiredPermissions: ['tenant.units.configure'] },
     ],
-    marketplace: { show: true, category: 'Gestão da Rede', price: 'Incluso' },
+    marketplace: { show: true, category: 'GestÃ£o da Rede', price: 'Incluso' },
   },
 
   {
@@ -105,12 +105,12 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     ],
   },
 
-  // ─── Financeiro ───────────────────────────────────────────────────────────────
+  // â”€â”€â”€ Financeiro â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   {
     id: 'financial',
     name: 'Financeiro',
-    description: 'Visão gerencial de receitas, despesas e resultado da rede sem complexidade de ERP.',
+    description: 'VisÃ£o gerencial de receitas, despesas e resultado da rede sem complexidade de ERP.',
     icon: 'DollarSign',
     status: 'active',
     nav: {
@@ -118,14 +118,14 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
       order: 3,
       group: 'main',
       children: [
-        { label: 'Visão Geral', path: '/financial' },
-        { label: 'Transações', path: '/financial/transactions' },
+        { label: 'VisÃ£o Geral', path: '/financial' },
+        { label: 'TransaÃ§Ãµes', path: '/financial/transactions' },
         { label: 'Contas Financeiras', path: '/financial/accounts' },
         { label: 'Fluxo de Caixa', path: '/financial/cashflow' },
         { label: 'DRE Gerencial', path: '/financial/dre' },
         { label: 'Metas do DRE', path: '/dre/goals' },
-        { label: 'Histórico do DRE', path: '/dre/history' },
-        { label: 'Projeção do DRE', path: '/dre/projection' },
+        { label: 'HistÃ³rico do DRE', path: '/dre/history' },
+        { label: 'ProjeÃ§Ã£o do DRE', path: '/dre/projection' },
         { label: 'Royalties', path: '/financial/royalties' },
         { label: 'Fechamento de Royalties', path: '/royalties/periods' },
       ],
@@ -151,7 +151,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   {
     id: 'cashflow',
     name: 'Fluxo de Caixa',
-    description: 'Acompanhamento de entradas e saídas em tempo real por unidade ou consolidado.',
+    description: 'Acompanhamento de entradas e saÃ­das em tempo real por unidade ou consolidado.',
     icon: 'TrendingUp',
     status: 'active',
     marketplace: { show: true, category: 'Financeiro', price: 'Incluso' },
@@ -159,7 +159,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   {
     id: 'dre',
     name: 'DRE Gerencial',
-    description: 'Demonstração de resultado simplificada e visual para tomada de decisão rápida.',
+    description: 'DemonstraÃ§Ã£o de resultado simplificada e visual para tomada de decisÃ£o rÃ¡pida.',
     icon: 'BarChart3',
     status: 'active',
     marketplace: { show: true, category: 'Financeiro', price: 'Incluso' },
@@ -171,7 +171,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     icon: 'TrendingUp',
     status: 'active',
     nav: { show: true, order: 10, group: 'main', children: [
-      { label: 'Visão Geral', path: '/cmv' },
+      { label: 'VisÃ£o Geral', path: '/cmv' },
       { label: 'Por Item', path: '/cmv/by-item' },
       { label: 'Por Unidade', path: '/cmv/by-unit' },
       { label: 'Por Origem', path: '/cmv/by-origin' },
@@ -182,12 +182,12 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
       { path: '/cmv/by-unit', componentId: 'cmv-by-unit', moduleId: 'cmv', requiredPermissions: ['tenant.cmv.view'] },
       { path: '/cmv/by-origin', componentId: 'cmv-by-origin', moduleId: 'cmv', requiredPermissions: ['tenant.cmv.view'] },
     ],
-    marketplace: { show: true, category: 'Operação', price: 'Incluso' },
+    marketplace: { show: true, category: 'OperaÃ§Ã£o', price: 'Incluso' },
   },
   {
     id: 'royalties',
     name: 'Royalties',
-    description: 'Cálculo, cobrança e controle de royalties e taxas de franquia por unidade.',
+    description: 'CÃ¡lculo, cobranÃ§a e controle de royalties e taxas de franquia por unidade.',
     icon: 'Receipt',
     status: 'active',
     marketplace: { show: true, category: 'Financeiro', price: 'Incluso' },
@@ -195,7 +195,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   {
     id: 'sales',
     name: 'Vendas',
-    description: 'Pedidos, vendas e ordens comerciais integrados ao catálogo e financeiro.',
+    description: 'Pedidos, vendas e ordens comerciais integrados ao catÃ¡logo e financeiro.',
     icon: 'ShoppingCart',
     status: 'active',
     nav: { show: true, order: 6, group: 'main' },
@@ -209,7 +209,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     marketplace: { show: true, category: 'Comercial', price: 'Incluso' },
   },
 
-  // ─── Operação ─────────────────────────────────────────────────────────────────
+  // â”€â”€â”€ OperaÃ§Ã£o â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   {
     id: 'loyalty',
@@ -241,12 +241,12 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   {
     id: 'inventory',
     name: 'Estoque & Suprimentos',
-    description: 'Estoque configurável, movimentações, transferências e inventário físico.',
+    description: 'Estoque configurÃ¡vel, movimentaÃ§Ãµes, transferÃªncias e inventÃ¡rio fÃ­sico.',
     icon: 'Boxes',
     status: 'active',
     nav: { show: true, order: 5, group: 'main', children: [
-      { label: 'Visão Geral', path: '/inventory' }, { label: 'Itens', path: '/inventory/items' },
-      { label: 'Movimentações', path: '/inventory/movements' }, { label: 'Configurações', path: '/inventory/settings' },
+      { label: 'VisÃ£o Geral', path: '/inventory' }, { label: 'Itens', path: '/inventory/items' },
+      { label: 'MovimentaÃ§Ãµes', path: '/inventory/movements' }, { label: 'ConfiguraÃ§Ãµes', path: '/inventory/settings' },
     ] },
     routes: [
       { path: '/inventory', componentId: 'inventory-dashboard', requiredPermissions: ['tenant.inventory.view'] },
@@ -263,23 +263,42 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
       { path: '/inventory/counts', componentId: 'inventory-counts', requiredPermissions: ['tenant.inventory.count'] },
       { path: '/inventory/counts/:id', componentId: 'inventory-count-detail', requiredPermissions: ['tenant.inventory.count'] },
     ],
-    marketplace: { show: true, category: 'Operação', price: 'Incluso' },
+    marketplace: { show: true, category: 'OperaÃ§Ã£o', price: 'Incluso' },
   },
 
   {
+    id: 'documents',
+    name: 'Documentos',
+    description: 'Biblioteca operacional de documentos com upload, categorias, download e visibilidade por tenant.',
+    icon: 'FolderOpen',
+    status: 'active',
+    nav: { show: true, order: 4.25, group: 'main', children: [
+      { label: 'Biblioteca', path: '/documents' },
+      { label: 'Categorias', path: '/documents/categories' },
+    ] },
+    routes: [
+      { path: '/documents', componentId: 'documents-list', requiredPermissions: ['tenant.documents.view'] },
+      { path: '/documents/new', componentId: 'document-new', moduleId: 'documents', requiredPermissions: ['tenant.documents.upload'] },
+      { path: '/documents/categories', componentId: 'document-categories', moduleId: 'documents', requiredPermissions: ['tenant.documents.configure'] },
+      { path: '/documents/settings', componentId: 'document-settings', moduleId: 'documents', requiredPermissions: ['tenant.documents.configure'] },
+      { path: '/documents/:id', componentId: 'document-detail', moduleId: 'documents', requiredPermissions: ['tenant.documents.view'] },
+    ],
+    marketplace: { show: true, category: 'Operacao', price: 'Incluso' },
+  },
+  {
     id: 'operations',
-    name: 'Operação',
-    description: 'Checklists, pendências e diário de bordo para gestão operacional da rede.',
+    name: 'OperaÃ§Ã£o',
+    description: 'Checklists, pendÃªncias e diÃ¡rio de bordo para gestÃ£o operacional da rede.',
     icon: 'ClipboardCheck',
     status: 'active',
     nav: { show: true, order: 4, group: 'main' },
     routes: [{ path: '/operations', componentId: 'operations' }],
-    marketplace: { show: true, category: 'Operação', price: 'Incluso' },
+    marketplace: { show: true, category: 'OperaÃ§Ã£o', price: 'Incluso' },
   },
   {
     id: 'checklists',
     name: 'Checklists Operacionais',
-    description: 'Criação e acompanhamento de checklists para padronização de processos na rede.',
+    description: 'CriaÃ§Ã£o e acompanhamento de checklists para padronizaÃ§Ã£o de processos na rede.',
     icon: 'ClipboardList',
     status: 'active',
     nav: {
@@ -300,31 +319,31 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
       { path: '/checklists/executions', componentId: 'checklist-executions', requiredPermissions: ['tenant.checklists.view'] },
       { path: '/checklists/executions/:id', componentId: 'checklist-execution-detail', requiredPermissions: ['tenant.checklists.execute'] },
     ],
-    marketplace: { show: true, category: 'Operação', price: 'Incluso' },
+    marketplace: { show: true, category: 'OperaÃ§Ã£o', price: 'Incluso' },
   },
   {
     id: 'pendencias',
-    name: 'Pendências & Tarefas',
-    description: 'Gestão de pendências críticas com atribuição, prazo e acompanhamento.',
+    name: 'PendÃªncias & Tarefas',
+    description: 'GestÃ£o de pendÃªncias crÃ­ticas com atribuiÃ§Ã£o, prazo e acompanhamento.',
     icon: 'AlertCircle',
     status: 'active',
-    marketplace: { show: true, category: 'Operação', price: 'Incluso' },
+    marketplace: { show: true, category: 'OperaÃ§Ã£o', price: 'Incluso' },
   },
   {
     id: 'diario',
-    name: 'Diário de Bordo',
-    description: 'Registro diário das operações de cada unidade com histórico e auditoria.',
+    name: 'DiÃ¡rio de Bordo',
+    description: 'Registro diÃ¡rio das operaÃ§Ãµes de cada unidade com histÃ³rico e auditoria.',
     icon: 'BookOpen',
     status: 'active',
-    marketplace: { show: true, category: 'Operação', price: 'Incluso' },
+    marketplace: { show: true, category: 'OperaÃ§Ã£o', price: 'Incluso' },
   },
 
-  // ─── Atendimento ──────────────────────────────────────────────────────────────
+  // â”€â”€â”€ Atendimento â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   {
     id: 'support',
     name: 'Atendimento',
-    description: 'Central de atendimento multicanal. Ative o módulo WhatsApp ou Instagram para começar.',
+    description: 'Central de atendimento multicanal. Ative o mÃ³dulo WhatsApp ou Instagram para comeÃ§ar.',
     icon: 'MessageCircle',
     status: 'active',
     nav: { show: true, order: 5, group: 'main' },
@@ -333,7 +352,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   {
     id: 'communication-inbox',
     name: 'Communication Inbox',
-    description: 'Área central de comunicação com inbox, dashboard, analytics e configurações.',
+    description: 'Ãrea central de comunicaÃ§Ã£o com inbox, dashboard, analytics e configuraÃ§Ãµes.',
     icon: 'Inbox',
     status: 'active',
     nav: {
@@ -344,7 +363,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
         { label: 'Caixa de Entrada', path: '/communication/inbox' },
         { label: 'Dashboard', path: '/communication/dashboard' },
         { label: 'Analytics', path: '/communication/analytics' },
-        { label: 'Configurações', path: '/communication/settings' },
+        { label: 'ConfiguraÃ§Ãµes', path: '/communication/settings' },
       ],
     },
     routes: [
@@ -366,39 +385,39 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   {
     id: 'whatsapp',
     name: 'Atendimento WhatsApp',
-    description: 'Central de atendimento multicanal via WhatsApp com distribuição por unidade.',
+    description: 'Central de atendimento multicanal via WhatsApp com distribuiÃ§Ã£o por unidade.',
     icon: 'MessageCircle',
     status: 'available',
-    marketplace: { show: true, category: 'Atendimento', price: 'R$ 297/mês' },
-    price: 'R$ 297/mês',
+    marketplace: { show: true, category: 'Atendimento', price: 'R$ 297/mÃªs' },
+    price: 'R$ 297/mÃªs',
   },
   {
     id: 'instagram',
     name: 'Atendimento Instagram',
-    description: 'Gestão de mensagens e comentários do Instagram de todas as unidades.',
+    description: 'GestÃ£o de mensagens e comentÃ¡rios do Instagram de todas as unidades.',
     icon: 'Instagram',
     status: 'review',
-    marketplace: { show: true, category: 'Atendimento', price: 'R$ 197/mês' },
-    price: 'R$ 197/mês',
+    marketplace: { show: true, category: 'Atendimento', price: 'R$ 197/mÃªs' },
+    price: 'R$ 197/mÃªs',
   },
 
-  // ─── IA ───────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€ IA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   {
     id: 'agente-ia',
     name: 'Agente IA',
-    description: 'Assistente inteligente para resposta automática, análise e sugestões operacionais.',
+    description: 'Assistente inteligente para resposta automÃ¡tica, anÃ¡lise e sugestÃµes operacionais.',
     icon: 'Bot',
     status: 'development',
     marketplace: { show: true, category: 'IA', price: 'Em breve' },
   },
 
-  // ─── Automações ───────────────────────────────────────────────────────────────
+  // â”€â”€â”€ AutomaÃ§Ãµes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   {
     id: 'automation',
-    name: 'Automações',
-    description: 'Motor de regras orientado a eventos e ações operacionais.',
+    name: 'AutomaÃ§Ãµes',
+    description: 'Motor de regras orientado a eventos e aÃ§Ãµes operacionais.',
     icon: 'Zap',
     status: 'active',
     nav: { show: true, order: 6, group: 'main', children: [
@@ -411,60 +430,60 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     ],
   },
 
-  // ─── Relatórios ───────────────────────────────────────────────────────────────
+  // â”€â”€â”€ RelatÃ³rios â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   {
     id: 'reports',
-    name: 'Relatórios',
-    description: 'Relatórios customizados com exportação e agendamento automático.',
+    name: 'RelatÃ³rios',
+    description: 'RelatÃ³rios customizados com exportaÃ§Ã£o e agendamento automÃ¡tico.',
     icon: 'BarChart3',
     status: 'available',
     nav: { show: true, order: 7, group: 'main' },
     routes: [{ path: '/reports', componentId: 'reports' }],
-    marketplace: { show: true, category: 'Relatórios', price: 'R$ 97/mês' },
-    price: 'R$ 97/mês',
+    marketplace: { show: true, category: 'RelatÃ³rios', price: 'R$ 97/mÃªs' },
+    price: 'R$ 97/mÃªs',
   },
-  // ─── Integrações ──────────────────────────────────────────────────────────────
+  // â”€â”€â”€ IntegraÃ§Ãµes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   {
     id: 'integrations',
-    name: 'Integrações',
-    description: 'Conexão com ERPs, gateways de pagamento, plataformas de delivery e mais.',
+    name: 'IntegraÃ§Ãµes',
+    description: 'ConexÃ£o com ERPs, gateways de pagamento, plataformas de delivery e mais.',
     icon: 'Plug',
     status: 'available',
-    marketplace: { show: true, category: 'Integrações', price: 'Sob consulta' },
+    marketplace: { show: true, category: 'IntegraÃ§Ãµes', price: 'Sob consulta' },
     price: 'Sob consulta',
   },
 
-  // ─── CRM add-ons ─────────────────────────────────────────────────────────────
+  // â”€â”€â”€ CRM add-ons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   {
     id: 'nps',
-    name: 'NPS & Satisfação',
-    description: 'Pesquisas de satisfação automatizadas e acompanhamento de NPS por unidade.',
+    name: 'NPS & SatisfaÃ§Ã£o',
+    description: 'Pesquisas de satisfaÃ§Ã£o automatizadas e acompanhamento de NPS por unidade.',
     icon: 'Star',
     status: 'development',
     marketplace: { show: true, category: 'Clientes e CRM', price: 'Em breve' },
   },
 
-  // ─── Insumos ──────────────────────────────────────────────────────────────────
+  // â”€â”€â”€ Insumos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   {
     id: 'supply',
-    name: 'Gestão de Insumos',
-    description: 'Controle de estoque, pedidos de reposição e centralização de compras.',
+    name: 'GestÃ£o de Insumos',
+    description: 'Controle de estoque, pedidos de reposiÃ§Ã£o e centralizaÃ§Ã£o de compras.',
     icon: 'Boxes',
     status: 'blocked',
-    marketplace: { show: true, category: 'Operação', price: 'Sob consulta' },
+    marketplace: { show: true, category: 'OperaÃ§Ã£o', price: 'Sob consulta' },
     plan: 'enterprise',
   },
 
-  // ─── System modules (always visible, not in marketplace) ─────────────────────
+  // â”€â”€â”€ System modules (always visible, not in marketplace) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   {
     id: 'marketplace',
-    name: 'Módulos',
-    description: 'Central de módulos — ative, solicite e gerencie os módulos da plataforma.',
+    name: 'MÃ³dulos',
+    description: 'Central de mÃ³dulos â€” ative, solicite e gerencie os mÃ³dulos da plataforma.',
     icon: 'Puzzle',
     status: 'active',
     nav: { show: true, order: 8, group: 'main' },
@@ -479,7 +498,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   {
     id: 'access',
     name: 'Acessos',
-    description: 'Gestão de usuários, perfis de permissão e solicitações de acesso.',
+    description: 'GestÃ£o de usuÃ¡rios, perfis de permissÃ£o e solicitaÃ§Ãµes de acesso.',
     icon: 'Shield',
     status: 'active',
     nav: {
@@ -489,8 +508,8 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
       children: [
         { label: 'Usuarios', path: '/users' },
         { label: 'Perfis', path: '/access' },
-        { label: 'Permissões', path: '/access/permissions' },
-        { label: 'Solicitações', path: '/access/requests', badge: 3 },
+        { label: 'PermissÃµes', path: '/access/permissions' },
+        { label: 'SolicitaÃ§Ãµes', path: '/access/requests', badge: 3 },
       ],
     },
     routes: [
@@ -506,7 +525,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   {
     id: 'network_operations_center',
     name: 'NOC',
-    description: 'Central executiva de monitoramento e priorização da saúde da rede.',
+    description: 'Central executiva de monitoramento e priorizaÃ§Ã£o da saÃºde da rede.',
     icon: 'Activity',
     status: 'active',
     nav: {
@@ -514,7 +533,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
       order: 8.5,
       group: 'system',
       children: [
-        { label: 'Visão Geral', path: '/noc' },
+        { label: 'VisÃ£o Geral', path: '/noc' },
         { label: 'Alertas', path: '/noc/alerts' },
         { label: 'Ranking de Unidades', path: '/noc/units' },
       ],
@@ -529,8 +548,8 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
 
   {
     id: 'tasks',
-    name: 'Central de Ações',
-    description: 'Tarefas manuais e automáticas priorizadas.',
+    name: 'Central de AÃ§Ãµes',
+    description: 'Tarefas manuais e automÃ¡ticas priorizadas.',
     icon: 'ListTodo',
     status: 'active',
     nav: { show: true, order: 8.7, group: 'system' },
@@ -543,7 +562,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   {
     id: 'analytics',
     name: 'Analytics Executivo',
-    description: 'Dashboards dinâmicos, templates corporativos e indicadores da rede.',
+    description: 'Dashboards dinÃ¢micos, templates corporativos e indicadores da rede.',
     icon: 'LayoutDashboard',
     status: 'active',
     nav: {
@@ -553,7 +572,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
       children: [
         { label: 'Meu Dashboard', path: '/analytics' },
         { label: 'Templates', path: '/analytics/templates' },
-        { label: 'Catálogo', path: '/analytics/catalog' },
+        { label: 'CatÃ¡logo', path: '/analytics/catalog' },
       ],
     },
     routes: [
@@ -568,8 +587,8 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
 
   {
     id: 'settings',
-    name: 'Configurações',
-    description: 'Configurações gerais, white label, menu e segurança da plataforma.',
+    name: 'ConfiguraÃ§Ãµes',
+    description: 'ConfiguraÃ§Ãµes gerais, white label, menu e seguranÃ§a da plataforma.',
     icon: 'Settings',
     status: 'active',
     nav: {
@@ -594,12 +613,12 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     ],
   },
 
-  // ─── Form Builder (Metadata Engine) ──────────────────────────────────────────
+  // â”€â”€â”€ Form Builder (Metadata Engine) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   {
     id: 'form-builder',
     name: 'Form Builder',
-    description: 'Metadata Engine — configure campos, formulários e estrutura de dados de toda a plataforma sem escrever código.',
+    description: 'Metadata Engine â€” configure campos, formulÃ¡rios e estrutura de dados de toda a plataforma sem escrever cÃ³digo.',
     icon: 'LayoutTemplate',
     status: 'active',
     routes: [
@@ -612,7 +631,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   },
 ];
 
-// ─── Registry helpers ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Registry helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /** All modules visible in the sidebar, sorted by nav.order */
 export const NAV_MODULES = MODULE_REGISTRY
@@ -687,3 +706,5 @@ export function getModuleByPath(pathname: string): ModuleDefinition | undefined 
     m.routes?.some(r => r.path === pathname || pathname.startsWith(r.path.replace(':id', '')))
   );
 }
+
+

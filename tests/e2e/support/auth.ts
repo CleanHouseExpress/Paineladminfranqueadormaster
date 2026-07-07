@@ -1,4 +1,4 @@
-import { expect, Page } from '@playwright/test';
+﻿import { expect, Page } from '@playwright/test';
 import { ids } from './selectors';
 
 const completedOnboardingState = {
@@ -11,7 +11,7 @@ const completedOnboardingState = {
     whitelabel: { platformName: 'Orchestra', primaryColor: '#6366F1', secondaryColor: '#8B5CF6' },
     units: [{ id: 'centro', name: 'Centro', city: 'Sao Paulo', state: 'SP', manager: 'Admin Centro' }],
     users: [{ id: 'admin-centro', email: 'admin.centro@orchestra.com', role: 'franchise_admin' }],
-    modules: ['dashboard', 'units', 'clients', 'crm', 'sales', 'financial', 'cashflow', 'dre', 'cmv', 'royalties', 'inventory', 'checklists', 'operations', 'automation', 'tasks', 'noc', 'analytics', 'access', 'settings'],
+    modules: ['dashboard', 'units', 'clients', 'crm', 'sales', 'financial', 'cashflow', 'dre', 'cmv', 'royalties', 'inventory', 'documents', 'checklists', 'operations', 'automation', 'tasks', 'noc', 'analytics', 'access', 'settings'],
     financial: { royaltyRate: 5, adFundRate: 0, billingDay: 15, graceDays: 5 },
     clientsImported: true,
   },
@@ -58,3 +58,4 @@ export async function logout(page: Page) {
   await page.getByTestId(ids.logout).click({ force: true });
   await expect(page).toHaveURL(/\/login(?:\?.*)?$/);
 }
+

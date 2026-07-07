@@ -1,21 +1,4 @@
-/**
- * Mock document service — localStorage-backed async interface shaped after
- * the real API so the implementation can be swapped without changing callers.
- *
- * Real API contracts:
- *   GET    /api/company/documents                    → Document[]
- *   GET    /api/company/documents/:id                → Document
- *   POST   /api/company/documents                    → Document
- *   PUT    /api/company/documents/:id                → Document
- *   DELETE /api/company/documents/:id                → void
- *   POST   /api/company/documents/:id/archive        → Document
- *   GET    /api/company/documents/categories         → DocumentCategory[]
- *   POST   /api/company/documents/categories         → DocumentCategory
- *   PUT    /api/company/documents/categories/:id     → DocumentCategory
- *   DELETE /api/company/documents/categories/:id     → void
- *   GET    /api/company/documents/stats              → DocumentStats
- */
-
+﻿import { apiClient, apiClientConfig, ApiError, AUTH_TOKEN_STORAGE_KEY } from './apiClient';
 import type {
   Document,
   DocumentCategory,
@@ -24,283 +7,422 @@ import type {
   DocumentVisibility,
   DocumentFileType,
 } from '../types/document';
-import {
-  mockDocuments,
-  mockDocumentCategories,
-  mockDocumentStats,
-} from '../app/data/documentMockData';
 
-const STORAGE_KEY = 'orchestra_documents_v1';
-const delay = (ms = 80) => new Promise<void>(r => setTimeout(r, ms));
-
-// ─── Storage shape ─────────────────────────────────────────────────────────────
-
-interface StorageShape {
-  documents: Document[];
-  categories: DocumentCategory[];
-}
-
-function load(): StorageShape {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<StorageShape>;
-      return {
-        documents: parsed.documents ?? [...mockDocuments],
-        categories: parsed.categories ?? [...mockDocumentCategories],
-      };
-    }
-  } catch {
-    // fall through
-  }
-  return {
-    documents: [...mockDocuments],
-    categories: [...mockDocumentCategories],
+interface ApiList<T> {
+  data: T[];
+  meta?: {
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
   };
 }
 
-function save(state: StorageShape): StorageShape {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  return state;
+interface ApiItem<T> {
+  data: T;
 }
 
-function generateId(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+interface ApiOption {
+  value: number | string;
+  label: string;
 }
 
-// ─── Documents ─────────────────────────────────────────────────────────────────
+interface ApiDocument {
+  id: number | string;
+  title: string;
+  description?: string | null;
+  category_id?: number | string | null;
+  category_name?: string | null;
+  file_name?: string | null;
+  file_size?: number | string | null;
+  mime_type?: string | null;
+  extension?: string | null;
+  visibility?: string | null;
+  unit_id?: number | string | null;
+  unit_name?: string | null;
+  customer_id?: number | string | null;
+  customer_name?: string | null;
+  user_id?: number | string | null;
+  user_name?: string | null;
+  status?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+interface ApiCategory {
+  id: number | string;
+  name: string;
+  description?: string | null;
+  parent_id?: number | string | null;
+  parent_name?: string | null;
+  active?: boolean | number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
 
 export interface DocumentFilters {
-  status?: DocumentStatus;
+  status?: DocumentStatus | '';
+  categoryId?: string;
+  visibility?: DocumentVisibility | '';
+  fileType?: DocumentFileType | '';
+  search?: string;
+  unitId?: string;
+  customerId?: string;
+  userId?: string;
+  perPage?: number;
+}
+
+export interface DocumentPayload {
+  title: string;
+  description?: string;
   categoryId?: string;
   visibility?: DocumentVisibility;
-  fileType?: DocumentFileType;
-  search?: string;
+  unitId?: string;
+  customerId?: string;
+  userId?: string;
+  file?: File | null;
 }
 
-/** GET /api/company/documents */
-export async function getDocuments(filters?: DocumentFilters): Promise<Document[]> {
-  await delay();
-  let { documents } = load();
-
-  if (filters?.status) {
-    documents = documents.filter(d => d.status === filters.status);
-  }
-  if (filters?.categoryId) {
-    documents = documents.filter(d => d.categoryId === filters.categoryId);
-  }
-  if (filters?.visibility) {
-    documents = documents.filter(d => d.visibility === filters.visibility);
-  }
-  if (filters?.fileType) {
-    documents = documents.filter(d => d.fileType === filters.fileType);
-  }
-  if (filters?.search) {
-    const q = filters.search.toLowerCase();
-    documents = documents.filter(
-      d =>
-        d.title.toLowerCase().includes(q) ||
-        d.description?.toLowerCase().includes(q) ||
-        d.fileName.toLowerCase().includes(q) ||
-        d.tags?.some(tag => tag.toLowerCase().includes(q)),
-    );
-  }
-
-  return documents;
+export interface DocumentCategoryPayload {
+  name: string;
+  description?: string;
+  parentId?: string;
+  active?: boolean;
 }
 
-/** GET /api/company/documents/:id */
-export async function getDocument(id: string): Promise<Document | null> {
-  await delay();
-  const { documents } = load();
-  return documents.find(d => d.id === id) ?? null;
+const visibilityToApi: Record<DocumentVisibility, string> = {
+  interno: 'internal',
+  portal_cliente: 'customer_portal',
+  portal_franqueado: 'franchisee_portal',
+  publico: 'public',
+};
+
+const visibilityFromApi: Record<string, DocumentVisibility> = {
+  internal: 'interno',
+  customer_portal: 'portal_cliente',
+  franchisee_portal: 'portal_franqueado',
+  public: 'publico',
+};
+
+const statusToApi: Partial<Record<DocumentStatus, string>> = {
+  ativo: 'active',
+  arquivado: 'archived',
+};
+
+const statusFromApi: Record<string, DocumentStatus> = {
+  active: 'ativo',
+  archived: 'arquivado',
+  deleted: 'arquivado',
+};
+
+const categoryColors = ['#6366F1', '#10B981', '#F59E0B', '#EC4899', '#3B82F6', '#8B5CF6', '#EF4444', '#64748B'];
+
+function hashColor(id: string) {
+  const sum = id.split('').reduce((total, char) => total + char.charCodeAt(0), 0);
+  return categoryColors[sum % categoryColors.length];
 }
 
-/** POST /api/company/documents */
-export async function createDocument(
-  data: Omit<Document, 'id' | 'createdAt' | 'updatedAt' | 'downloadCount'>,
-): Promise<Document> {
-  await delay();
-  const state = load();
+function fileTypeFromExtension(extension?: string | null, mimeType?: string | null): DocumentFileType {
+  const ext = String(extension || '').toLowerCase();
+  if (ext === 'pdf') return 'pdf';
+  if (ext === 'doc' || ext === 'docx') return 'docx';
+  if (ext === 'xls' || ext === 'xlsx') return 'xlsx';
+  if (ext === 'png' || mimeType === 'image/png') return 'png';
+  if (ext === 'jpg' || ext === 'jpeg' || mimeType === 'image/jpeg') return 'jpg';
+  return 'other';
+}
+
+function formatFileSize(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return 'Arquivo';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function initials(name?: string | null) {
+  const words = String(name || 'Sistema').trim().split(/\s+/).filter(Boolean);
+  return `${words[0]?.[0] ?? 'S'}${words[1]?.[0] ?? words[0]?.[1] ?? 'I'}`.toUpperCase();
+}
+
+function valueOrUndefined(value?: number | string | null) {
+  if (value === undefined || value === null || value === '') return undefined;
+  return String(value);
+}
+
+function queryString(filters?: DocumentFilters) {
+  const params = new URLSearchParams();
+  if (filters?.search) params.set('search', filters.search);
+  if (filters?.categoryId) params.set('category_id', filters.categoryId);
+  if (filters?.visibility) params.set('visibility', visibilityToApi[filters.visibility]);
+  if (filters?.status && statusToApi[filters.status]) params.set('status', statusToApi[filters.status]!);
+  if (filters?.unitId) params.set('unit_id', filters.unitId);
+  if (filters?.customerId) params.set('customer_id', filters.customerId);
+  if (filters?.userId) params.set('user_id', filters.userId);
+  if (filters?.perPage) params.set('per_page', String(filters.perPage));
+  const query = params.toString();
+  return query ? `?${query}` : '';
+}
+
+function dataOf<T>(payload: T | ApiItem<T>) {
+  return payload && typeof payload === 'object' && 'data' in payload ? (payload as ApiItem<T>).data : payload as T;
+}
+
+function toCategory(api: ApiCategory, documentCount = 0): DocumentCategory {
+  const id = String(api.id);
   const now = new Date().toISOString();
-  const document: Document = {
-    ...data,
-    id: generateId('doc'),
-    downloadCount: 0,
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  // increment category documentCount
-  const categories = state.categories.map(cat =>
-    cat.id === data.categoryId
-      ? { ...cat, documentCount: cat.documentCount + 1, updatedAt: now }
-      : cat,
-  );
-
-  save({ ...state, documents: [...state.documents, document], categories });
-  return document;
-}
-
-/** PUT /api/company/documents/:id */
-export async function updateDocument(
-  id: string,
-  data: Partial<Omit<Document, 'id' | 'createdAt' | 'createdBy' | 'createdByAvatar'>>,
-): Promise<Document> {
-  await delay();
-  const state = load();
-  const index = state.documents.findIndex(d => d.id === id);
-  if (index === -1) throw new Error(`Document ${id} not found`);
-
-  const updated: Document = {
-    ...state.documents[index],
-    ...data,
+  return {
     id,
-    updatedAt: new Date().toISOString(),
+    name: api.name,
+    description: api.description ?? undefined,
+    parentId: valueOrUndefined(api.parent_id),
+    parentName: api.parent_name ?? undefined,
+    color: hashColor(id),
+    icon: 'FolderOpen',
+    active: Boolean(api.active ?? true),
+    documentCount,
+    createdAt: api.created_at ?? now,
+    updatedAt: api.updated_at ?? api.created_at ?? now,
   };
-
-  const documents = [...state.documents];
-  documents[index] = updated;
-  save({ ...state, documents });
-  return updated;
 }
 
-/** DELETE /api/company/documents/:id */
-export async function deleteDocument(id: string): Promise<void> {
-  await delay();
-  const state = load();
-  const doc = state.documents.find(d => d.id === id);
-  if (!doc) throw new Error(`Document ${id} not found`);
+function toDocument(api: ApiDocument, categories: DocumentCategory[] = []): Document {
+  const categoryId = valueOrUndefined(api.category_id) ?? '';
+  const category = categories.find(item => item.id === categoryId);
+  const createdAt = api.created_at ?? new Date().toISOString();
+  const updatedAt = api.updated_at ?? createdAt;
+  const fileSize = Number(api.file_size ?? 0);
+  const fileName = api.file_name ?? api.title;
+  const fileType = fileTypeFromExtension(api.extension, api.mime_type);
+  const userName = api.user_name ?? 'Sistema';
 
-  const now = new Date().toISOString();
-  const categories = state.categories.map(cat =>
-    cat.id === doc.categoryId && cat.documentCount > 0
-      ? { ...cat, documentCount: cat.documentCount - 1, updatedAt: now }
-      : cat,
-  );
-
-  save({
-    ...state,
-    documents: state.documents.filter(d => d.id !== id),
-    categories,
-  });
-}
-
-/** POST /api/company/documents/:id/archive */
-export async function archiveDocument(id: string): Promise<Document> {
-  await delay();
-  const state = load();
-  const index = state.documents.findIndex(d => d.id === id);
-  if (index === -1) throw new Error(`Document ${id} not found`);
-
-  const updated: Document = {
-    ...state.documents[index],
-    status: 'arquivado',
-    updatedAt: new Date().toISOString(),
+  return {
+    id: String(api.id),
+    title: api.title,
+    description: api.description ?? undefined,
+    categoryId,
+    categoryName: api.category_name ?? category?.name ?? 'Sem categoria',
+    categoryColor: category?.color ?? (categoryId ? hashColor(categoryId) : '#64748B'),
+    visibility: visibilityFromApi[String(api.visibility ?? 'internal')] ?? 'interno',
+    status: statusFromApi[String(api.status ?? 'active')] ?? 'ativo',
+    fileType,
+    fileName,
+    fileSize,
+    fileSizeFormatted: formatFileSize(fileSize),
+    unitId: valueOrUndefined(api.unit_id),
+    unitName: api.unit_name ?? undefined,
+    clientId: valueOrUndefined(api.customer_id),
+    clientName: api.customer_name ?? undefined,
+    userId: valueOrUndefined(api.user_id),
+    userName: api.user_name ?? undefined,
+    createdBy: userName,
+    createdByAvatar: initials(userName),
+    createdAt,
+    updatedAt,
+    downloadCount: 0,
+    tags: [],
   };
-
-  const documents = [...state.documents];
-  documents[index] = updated;
-  save({ ...state, documents });
-  return updated;
 }
 
-// ─── Categories ────────────────────────────────────────────────────────────────
+function toCategoryPayload(data: DocumentCategoryPayload) {
+  return {
+    name: data.name,
+    description: data.description || null,
+    parent_id: data.parentId ? Number(data.parentId) : null,
+    active: data.active ?? true,
+  };
+}
 
-/** GET /api/company/documents/categories */
-export async function getCategories(): Promise<DocumentCategory[]> {
-  await delay();
-  const { categories } = load();
+function appendOptional(form: FormData, key: string, value?: string | null) {
+  if (value !== undefined && value !== null && value !== '' && value !== 'all') form.append(key, value);
+}
+
+function toDocumentPayload(data: DocumentPayload, requireFile: boolean) {
+  const form = new FormData();
+  form.append('title', data.title);
+  appendOptional(form, 'description', data.description ?? '');
+  appendOptional(form, 'category_id', data.categoryId);
+  appendOptional(form, 'visibility', data.visibility ? visibilityToApi[data.visibility] : undefined);
+  appendOptional(form, 'unit_id', data.unitId);
+  appendOptional(form, 'customer_id', data.customerId);
+  appendOptional(form, 'user_id', data.userId);
+  if (data.file) form.append('file', data.file);
+  if (requireFile && !data.file) throw new Error('Selecione um arquivo para enviar.');
+  return form;
+}
+
+function absoluteApiUrl(path: string) {
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${apiClientConfig.baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
+function getStoredToken() {
+  try {
+    return localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+async function loadCategoryMap() {
+  const categories = await getCategories().catch(() => []);
   return categories;
 }
 
-/** POST /api/company/documents/categories */
-export async function createCategory(
-  data: Omit<DocumentCategory, 'id' | 'documentCount' | 'createdAt' | 'updatedAt'>,
-): Promise<DocumentCategory> {
-  await delay();
-  const state = load();
-  const now = new Date().toISOString();
-  const category: DocumentCategory = {
-    ...data,
-    id: generateId('cat'),
-    documentCount: 0,
-    createdAt: now,
-    updatedAt: now,
-  };
-  save({ ...state, categories: [...state.categories, category] });
-  return category;
+export async function getDocuments(filters?: DocumentFilters): Promise<Document[]> {
+  const [categories, response] = await Promise.all([
+    loadCategoryMap(),
+    apiClient.get<ApiList<ApiDocument>>(`/api/company/documents${queryString({ ...filters, perPage: filters?.perPage ?? 100 })}`),
+  ]);
+  const documents = response.data.map(item => toDocument(item, categories));
+  return filters?.fileType ? documents.filter(item => item.fileType === filters.fileType) : documents;
 }
 
-/** PUT /api/company/documents/categories/:id */
-export async function updateCategory(
-  id: string,
-  data: Partial<Omit<DocumentCategory, 'id' | 'createdAt' | 'documentCount'>>,
-): Promise<DocumentCategory> {
-  await delay();
-  const state = load();
-  const index = state.categories.findIndex(c => c.id === id);
-  if (index === -1) throw new Error(`Category ${id} not found`);
-
-  const updated: DocumentCategory = {
-    ...state.categories[index],
-    ...data,
-    id,
-    updatedAt: new Date().toISOString(),
-  };
-
-  const categories = [...state.categories];
-  categories[index] = updated;
-  save({ ...state, categories });
-  return updated;
-}
-
-/** DELETE /api/company/documents/categories/:id */
-export async function deleteCategory(id: string): Promise<void> {
-  await delay();
-  const state = load();
-  const hasDocuments = state.documents.some(d => d.categoryId === id);
-  if (hasDocuments) {
-    throw new Error(`Category ${id} has documents and cannot be deleted`);
+export async function getDocument(id: string): Promise<Document | null> {
+  try {
+    const [categories, response] = await Promise.all([
+      loadCategoryMap(),
+      apiClient.get<ApiItem<ApiDocument>>(`/api/company/documents/${id}`),
+    ]);
+    return toDocument(response.data, categories);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
   }
-  save({ ...state, categories: state.categories.filter(c => c.id !== id) });
 }
 
-// ─── Stats ─────────────────────────────────────────────────────────────────────
+export async function createDocument(data: DocumentPayload): Promise<Document> {
+  const [categories, response] = await Promise.all([
+    loadCategoryMap(),
+    apiClient.post<ApiItem<ApiDocument>>('/api/company/documents', toDocumentPayload(data, true)),
+  ]);
+  return toDocument(response.data, categories);
+}
 
-/** GET /api/company/documents/stats */
+export async function updateDocument(id: string, data: DocumentPayload): Promise<Document> {
+  const payload = {
+    title: data.title,
+    description: data.description || null,
+    category_id: data.categoryId ? Number(data.categoryId) : null,
+    visibility: data.visibility ? visibilityToApi[data.visibility] : undefined,
+    unit_id: data.unitId ? Number(data.unitId) : null,
+    customer_id: data.customerId ? Number(data.customerId) : null,
+    user_id: data.userId ? Number(data.userId) : null,
+  };
+  const [categories, response] = await Promise.all([
+    loadCategoryMap(),
+    apiClient.put<ApiItem<ApiDocument>>(`/api/company/documents/${id}`, payload),
+  ]);
+  return toDocument(response.data, categories);
+}
+
+export async function deleteDocument(id: string): Promise<void> {
+  await apiClient.delete<void>(`/api/company/documents/${id}`);
+}
+
+export async function archiveDocument(id: string): Promise<Document> {
+  const [categories, response] = await Promise.all([
+    loadCategoryMap(),
+    apiClient.patch<ApiItem<ApiDocument>>(`/api/company/documents/${id}/archive`, {}),
+  ]);
+  return toDocument(response.data, categories);
+}
+
+export async function getCategories(): Promise<DocumentCategory[]> {
+  const [categoryResponse, documentResponse] = await Promise.all([
+    apiClient.get<ApiList<ApiCategory>>('/api/company/documents/categories?per_page=100'),
+    apiClient.get<ApiList<ApiDocument>>('/api/company/documents?per_page=100').catch(() => ({ data: [] } as ApiList<ApiDocument>)),
+  ]);
+  const counts = new Map<string, number>();
+  documentResponse.data.forEach(document => {
+    const id = valueOrUndefined(document.category_id);
+    if (id) counts.set(id, (counts.get(id) ?? 0) + 1);
+  });
+  return categoryResponse.data.map(category => toCategory(category, counts.get(String(category.id)) ?? 0));
+}
+
+export async function getCategoryOptions(): Promise<ApiOption[]> {
+  return apiClient.get<ApiOption[]>('/api/company/documents/categories/options');
+}
+
+export async function createCategory(data: DocumentCategoryPayload): Promise<DocumentCategory> {
+  const response = await apiClient.post<ApiItem<ApiCategory>>('/api/company/documents/categories', toCategoryPayload(data));
+  return toCategory(response.data);
+}
+
+export async function updateCategory(id: string, data: DocumentCategoryPayload): Promise<DocumentCategory> {
+  const response = await apiClient.put<ApiItem<ApiCategory>>(`/api/company/documents/categories/${id}`, toCategoryPayload(data));
+  return toCategory(response.data);
+}
+
+export async function deleteCategory(id: string): Promise<void> {
+  await apiClient.delete<void>(`/api/company/documents/categories/${id}`);
+}
+
 export async function getStats(): Promise<DocumentStats> {
-  await delay();
-  const { documents, categories } = load();
-
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-  const active = documents.filter(d => d.status === 'ativo').length;
-
-  // Sum downloadCounts for documents updated in the last 30 days as a proxy
-  // for recent activity (in production this would come from a download log).
-  const downloadsLast30Days = documents
-    .filter(d => new Date(d.updatedAt) >= thirtyDaysAgo)
-    .reduce((sum, d) => sum + d.downloadCount, 0) || mockDocumentStats.downloadsLast30Days;
-
+  const [documents, categories] = await Promise.all([getDocuments({ perPage: 100 }), getCategories()]);
   const recentDocuments = [...documents]
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 5);
 
-  const topCategories = categories.map(cat => ({
-    id: cat.id,
-    name: cat.name,
-    count: documents.filter(d => d.categoryId === cat.id).length,
-    color: cat.color,
-  }));
-
   return {
     total: documents.length,
-    active,
+    active: documents.filter(document => document.status === 'ativo').length,
     categories: categories.length,
-    downloadsLast30Days,
+    downloadsLast30Days: 0,
     recentDocuments,
-    topCategories,
+    topCategories: categories.map(category => ({
+      id: category.id,
+      name: category.name,
+      count: documents.filter(document => document.categoryId === category.id).length,
+      color: category.color,
+    })),
   };
 }
+
+export function documentDownloadUrl(id: string) {
+  return absoluteApiUrl(`/api/company/documents/${id}/download`);
+}
+
+export async function downloadDocument(id: string, filename?: string): Promise<void> {
+  const response = await fetch(documentDownloadUrl(id), {
+    method: 'GET',
+    credentials: 'omit',
+    headers: {
+      Accept: '*/*',
+      ...(getStoredToken() ? { Authorization: `Bearer ${getStoredToken()}` } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    let data: unknown = null;
+    try { data = await response.json(); } catch { data = await response.text().catch(() => null); }
+    throw new ApiError(response.status, data, 'Falha ao baixar documento.');
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename || `documento-${id}`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+export const documentService = {
+  getDocuments,
+  getDocument,
+  createDocument,
+  updateDocument,
+  deleteDocument,
+  archiveDocument,
+  getCategories,
+  getCategoryOptions,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  getStats,
+  downloadDocument,
+  documentDownloadUrl,
+};

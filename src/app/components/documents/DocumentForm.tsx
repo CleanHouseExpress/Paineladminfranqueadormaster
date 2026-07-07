@@ -1,711 +1,176 @@
-import React, { useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, Link, useSearchParams } from 'react-router';
-import {
-  FilePlus, ChevronRight, Upload, X, FileText, FileSpreadsheet,
-  Image, ChevronDown, ChevronUp, Tag, Lock, User, Building2, Globe,
-} from 'lucide-react';
-import { mockDocumentCategories } from '../../data/documentMockData';
+import { FilePlus, ChevronRight, Upload, X, FileText, FileSpreadsheet, Image, ChevronDown, ChevronUp, Lock, User, Building2, Globe } from 'lucide-react';
 import { VISIBILITY_CONFIG, FILE_TYPE_CONFIG } from '../../../types/document';
-import type { DocumentVisibility, DocumentFileType } from '../../../types/document';
+import type { Document, DocumentCategory, DocumentFileType, DocumentVisibility } from '../../../types/document';
+import { createDocument, getCategories, getDocument, updateDocument } from '../../../services/documentService';
+import { getApiErrorMessage } from '../../../services/apiClient';
+import { unitManagementService } from '../../../services/unitManagementService';
+import type { UnitOption } from '../../../types/unitManagement';
 
-// ─── Mock file objects ────────────────────────────────────────────────────────
-
-interface MockFile {
-  name: string;
-  size: number;
-  type: DocumentFileType;
+function fileTypeFromFile(file: File): DocumentFileType {
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  if (ext === 'pdf') return 'pdf';
+  if (ext === 'doc' || ext === 'docx') return 'docx';
+  if (ext === 'xls' || ext === 'xlsx') return 'xlsx';
+  if (ext === 'png') return 'png';
+  if (ext === 'jpg' || ext === 'jpeg') return 'jpg';
+  return 'other';
 }
 
-const MOCK_FILES: MockFile[] = [
-  { name: 'manual-operacoes-v3.pdf',    size: 4200000, type: 'pdf'  },
-  { name: 'relatorio-financeiro.xlsx',  size: 890000,  type: 'xlsx' },
-  { name: 'logo-bella-vita.png',        size: 340000,  type: 'png'  },
-];
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function formatFileSize(bytes: number): string {
-  if (bytes < 1024)       return `${bytes} B`;
-  if (bytes < 1048576)    return `${(bytes / 1024).toFixed(0)} KB`;
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / 1048576).toFixed(1)} MB`;
 }
 
-// ─── Visibility options ───────────────────────────────────────────────────────
-
-const VISIBILITY_OPTIONS: Array<{
-  value: DocumentVisibility;
-  icon: React.ReactNode;
-  description: string;
-}> = [
-  { value: 'interno',           icon: <Lock size={15} />,     description: 'Visível apenas para usuários internos' },
-  { value: 'portal_cliente',    icon: <User size={15} />,     description: 'Visível para clientes no portal' },
-  { value: 'portal_franqueado', icon: <Building2 size={15} />, description: 'Visível para franqueados no portal' },
-  { value: 'publico',           icon: <Globe size={15} />,    description: 'Visível para qualquer pessoa' },
+const VISIBILITY_OPTIONS: Array<{ value: DocumentVisibility; icon: React.ReactNode; description: string }> = [
+  { value: 'interno', icon: <Lock size={15} />, description: 'Visivel apenas para usuarios internos' },
+  { value: 'portal_cliente', icon: <User size={15} />, description: 'Visivel para clientes no portal' },
+  { value: 'portal_franqueado', icon: <Building2 size={15} />, description: 'Visivel para franqueados no portal' },
+  { value: 'publico', icon: <Globe size={15} />, description: 'Visivel para qualquer pessoa' },
 ];
 
-// ─── Mock unit list ───────────────────────────────────────────────────────────
-
-const MOCK_UNITS = [
-  { id: 'all',    name: 'Todas as unidades' },
-  { id: 'bv-001', name: 'BV-001 — Unidade Centro'        },
-  { id: 'bv-002', name: 'BV-002 — Unidade Norte'         },
-  { id: 'bv-003', name: 'BV-003 — Unidade Sul'           },
-  { id: 'bv-004', name: 'BV-004 — Unidade Leste'         },
-  { id: 'bv-005', name: 'BV-005 — Unidade Oeste'         },
-  { id: 'bv-006', name: 'BV-006 — Unidade Shopping'      },
-  { id: 'bv-007', name: 'BV-007 — Unidade Aeroporto'     },
-  { id: 'bv-008', name: 'BV-008 — Unidade Universitária' },
-];
-
-// ─── FilePreviewCard ──────────────────────────────────────────────────────────
-
-function FilePreviewCard({ file, onRemove }: { file: MockFile; onRemove: () => void }) {
-  const config = FILE_TYPE_CONFIG[file.type];
-
-  const preview = () => {
-    if (file.type === 'pdf') {
-      return (
-        <div style={{
-          background: '#F8FAFC',
-          border: '1px solid rgba(0,0,0,0.08)',
-          borderRadius: '12px',
-          padding: '20px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '8px',
-          height: '140px',
-          position: 'relative',
-        }}>
-          <div style={{
-            background: '#EF4444',
-            color: 'white',
-            borderRadius: '6px',
-            padding: '4px 10px',
-            fontSize: '11px',
-            fontWeight: 700,
-            letterSpacing: '1px',
-            position: 'absolute',
-            top: '12px',
-            right: '12px',
-          }}>PDF</div>
-          <div style={{
-            width: '56px',
-            height: '72px',
-            background: 'white',
-            borderRadius: '4px',
-            border: '1px solid rgba(239,68,68,0.3)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-          }}>
-            <FileText size={24} color="#EF4444" />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'center' }}>
-            {[65, 50, 60, 45].map((w, i) => (
-              <div key={i} style={{ height: '2px', background: '#E2E8F0', width: `${w}px`, borderRadius: '1px' }} />
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    if (file.type === 'png' || file.type === 'jpg') {
-      return (
-        <div style={{
-          background: 'linear-gradient(135deg, #EEF2FF, #F5F3FF)',
-          borderRadius: '12px',
-          height: '140px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '8px',
-          border: '1px solid rgba(99,102,241,0.12)',
-        }}>
-          <div style={{
-            width: '48px',
-            height: '48px',
-            background: 'white',
-            borderRadius: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 2px 8px rgba(99,102,241,0.15)',
-          }}>
-            <Image size={22} color="#8B5CF6" />
-          </div>
-          <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 500 }}>Arquivo de imagem</span>
-        </div>
-      );
-    }
-
-    // DOCX / XLSX
-    const isXlsx = file.type === 'xlsx';
-    return (
-      <div style={{
-        background: isXlsx ? '#ECFDF5' : '#EFF6FF',
-        borderRadius: '12px',
-        height: '140px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '8px',
-        border: `1px solid ${isXlsx ? 'rgba(16,185,129,0.2)' : 'rgba(59,130,246,0.2)'}`,
-      }}>
-        <div style={{
-          width: '48px',
-          height: '48px',
-          background: 'white',
-          borderRadius: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        }}>
-          {isXlsx ? <FileSpreadsheet size={22} color="#10B981" /> : <FileText size={22} color="#3B82F6" />}
-        </div>
-        <span style={{
-          fontSize: '11px',
-          fontWeight: 700,
-          color: isXlsx ? '#10B981' : '#3B82F6',
-          letterSpacing: '0.5px',
-        }}>{file.type.toUpperCase()}</span>
-      </div>
-    );
-  };
+function FilePreviewCard({ file, onRemove }: { file: File; onRemove: () => void }) {
+  const type = fileTypeFromFile(file);
+  const config = FILE_TYPE_CONFIG[type];
+  const Icon = type === 'xlsx' ? FileSpreadsheet : type === 'png' || type === 'jpg' ? Image : FileText;
 
   return (
-    <div style={{
-      background: 'white',
-      border: '1px solid rgba(0,0,0,0.08)',
-      borderRadius: '16px',
-      padding: '16px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '12px',
-    }}>
-      {preview()}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
+    <div style={{ background: 'white', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 16, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ background: config.bg, border: `1px solid ${config.color}33`, borderRadius: 12, padding: 24, minHeight: 116, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+        <Icon size={30} color={config.color} />
+        <span style={{ fontSize: 11, fontWeight: 800, color: config.color }}>{config.label}</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{
-            fontFamily: 'monospace',
-            fontSize: '12px',
-            fontWeight: 700,
-            color: '#0F172A',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}>{file.name}</p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-            <span style={{ fontSize: '11px', color: '#94A3B8' }}>{formatFileSize(file.size)}</span>
-            <span style={{
-              fontSize: '10px',
-              fontWeight: 700,
-              color: config.color,
-              background: config.bg,
-              padding: '1px 6px',
-              borderRadius: '999px',
-              letterSpacing: '0.5px',
-            }}>{config.label}</span>
-          </div>
+          <p style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#0F172A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{file.name}</p>
+          <span style={{ fontSize: 11, color: '#94A3B8' }}>{formatFileSize(file.size)}</span>
         </div>
-        <button
-          onClick={onRemove}
-          style={{
-            background: '#FEF2F2',
-            border: 'none',
-            borderRadius: '8px',
-            width: '28px',
-            height: '28px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            flexShrink: 0,
-          }}
-        >
-          <X size={13} color="#EF4444" />
-        </button>
+        <button onClick={onRemove} type="button" style={{ background: '#FEF2F2', border: 'none', borderRadius: 8, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><X size={13} color="#EF4444" /></button>
       </div>
     </div>
   );
 }
-
-// ─── DocumentForm ─────────────────────────────────────────────────────────────
 
 export function DocumentForm() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const isEdit = !!id || searchParams.get('edit') === 'true';
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [visibility, setVisibility] = useState<DocumentVisibility>('interno');
   const [visibilityOpen, setVisibilityOpen] = useState(false);
-  const [unit, setUnit] = useState('all');
-  const [client, setClient] = useState('');
-  const [user, setUser] = useState('');
-  const [tagInput, setTagInput] = useState('');
-  const [tags, setTags] = useState<string[]>([]);
+  const [unitId, setUnitId] = useState('');
+  const [customerId, setCustomerId] = useState('');
+  const [userId, setUserId] = useState('');
   const [vinculosOpen, setVinculosOpen] = useState(true);
+  const [file, setFile] = useState<File | null>(null);
+  const [currentDocument, setCurrentDocument] = useState<Document | null>(null);
+  const [categories, setCategories] = useState<DocumentCategory[]>([]);
+  const [units, setUnits] = useState<UnitOption[]>([]);
+  const [loading, setLoading] = useState(isEdit);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
-  // Mock file cycling state
-  const [mockFile, setMockFile] = useState<MockFile | null>(null);
-  const [mockFileIdx, setMockFileIdx] = useState(0);
-
-  const handleUploadClick = () => {
-    setMockFile(MOCK_FILES[mockFileIdx]);
-    setMockFileIdx((mockFileIdx + 1) % MOCK_FILES.length);
-  };
-
-  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && tagInput.trim()) {
-      e.preventDefault();
-      const newTag = tagInput.trim();
-      if (!tags.includes(newTag)) setTags([...tags, newTag]);
-      setTagInput('');
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      setLoading(true);
+      setError('');
+      try {
+        const [categoryItems, unitItems, document] = await Promise.all([
+          getCategories(),
+          unitManagementService.getUnitOptions().catch(() => [] as UnitOption[]),
+          id ? getDocument(id) : Promise.resolve(null),
+        ]);
+        if (!mounted) return;
+        setCategories(categoryItems);
+        setUnits(unitItems);
+        if (document) {
+          setCurrentDocument(document);
+          setTitle(document.title);
+          setDescription(document.description ?? '');
+          setCategoryId(document.categoryId ?? '');
+          setVisibility(document.visibility);
+          setUnitId(document.unitId ?? '');
+          setCustomerId(document.clientId ?? '');
+          setUserId(document.userId ?? '');
+        }
+      } catch (err) {
+        if (mounted) setError(getApiErrorMessage(err, 'Nao foi possivel carregar o documento.'));
+      } finally {
+        if (mounted) setLoading(false);
+      }
     }
-  };
-
-  const removeTag = (tag: string) => setTags(tags.filter(t => t !== tag));
+    void load();
+    return () => { mounted = false; };
+  }, [id]);
 
   const selectedVisibility = VISIBILITY_OPTIONS.find(o => o.value === visibility)!;
+  const selectedCategory = useMemo(() => categories.find(cat => cat.id === categoryId), [categories, categoryId]);
 
-  // Input style shared
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    border: '1.5px solid rgba(0,0,0,0.1)',
-    borderRadius: '10px',
-    padding: '10px 14px',
-    fontSize: '14px',
-    color: '#0F172A',
-    outline: 'none',
-    background: 'white',
-    boxSizing: 'border-box',
-    transition: 'border-color 0.15s',
-  };
+  const inputStyle: React.CSSProperties = { width: '100%', border: '1.5px solid rgba(0,0,0,0.1)', borderRadius: 10, padding: '10px 14px', fontSize: 14, color: '#0F172A', outline: 'none', background: 'white', boxSizing: 'border-box' };
+  const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: '#64748B', letterSpacing: 0.4, textTransform: 'uppercase', marginBottom: 6, display: 'block' };
+  const cardStyle: React.CSSProperties = { background: 'white', borderRadius: 16, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)', marginBottom: 16 };
 
-  const labelStyle: React.CSSProperties = {
-    fontSize: '12px',
-    fontWeight: 600,
-    color: '#64748B',
-    letterSpacing: '0.4px',
-    textTransform: 'uppercase',
-    marginBottom: '6px',
-    display: 'block',
-  };
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!title.trim()) { setError('Informe o titulo do documento.'); return; }
+    if (!isEdit && !file) { setError('Selecione um arquivo para enviar.'); return; }
 
-  const cardStyle: React.CSSProperties = {
-    background: 'white',
-    borderRadius: '16px',
-    padding: '24px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
-    marginBottom: '16px',
-  };
+    setSaving(true);
+    setError('');
+    try {
+      const payload = { title: title.trim(), description: description.trim(), categoryId, visibility, unitId, customerId, userId, file };
+      const document = isEdit && id ? await updateDocument(id, payload) : await createDocument(payload);
+      navigate(`/documents/${document.id}`);
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Nao foi possivel salvar o documento.'));
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
-    <div style={{ padding: '28px 32px', minHeight: '100vh', background: '#F8FAFC' }}>
-      {/* Breadcrumb */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '20px' }}>
-        <Link to="/documents" style={{ fontSize: '13px', color: '#64748B', textDecoration: 'none' }}>
-          Documentos
-        </Link>
-        <ChevronRight size={13} color="#94A3B8" />
-        <span style={{ fontSize: '13px', color: '#0F172A', fontWeight: 500 }}>
-          {isEdit ? 'Editar Documento' : 'Novo Documento'}
-        </span>
+    <form onSubmit={handleSubmit} style={{ padding: '28px 32px', minHeight: '100vh', background: '#F8FAFC' }} data-testid="document-form">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 20 }}><Link to="/documents" style={{ fontSize: 13, color: '#64748B', textDecoration: 'none' }}>Documentos</Link><ChevronRight size={13} color="#94A3B8" /><span style={{ fontSize: 13, color: '#0F172A', fontWeight: 500 }}>{isEdit ? 'Editar Documento' : 'Novo Documento'}</span></div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><div style={{ width: 40, height: 40, borderRadius: 12, background: 'linear-gradient(135deg, #6366F1, #8B5CF6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FilePlus size={20} color="white" /></div><h1 style={{ fontSize: 22, fontWeight: 700, color: '#0F172A', margin: 0 }}>{isEdit ? 'Editar Documento' : 'Novo Documento'}</h1></div>
+        <div style={{ display: 'flex', gap: 10 }}><button type="button" onClick={() => navigate(-1)} style={{ padding: '9px 18px', borderRadius: 10, border: '1.5px solid rgba(0,0,0,0.1)', background: 'white', color: '#64748B', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>Cancelar</button><button disabled={saving || loading} type="submit" data-testid="document-submit" style={{ padding: '9px 20px', borderRadius: 10, border: 'none', background: saving ? '#CBD5E1' : 'linear-gradient(135deg, #6366F1, #8B5CF6)', color: 'white', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', boxShadow: '0 2px 8px rgba(99,102,241,0.3)' }}>{saving ? 'Salvando...' : isEdit ? 'Salvar' : 'Publicar'}</button></div>
       </div>
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{
-            width: '40px', height: '40px', borderRadius: '12px',
-            background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <FilePlus size={20} color="white" />
-          </div>
-          <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#0F172A', margin: 0 }}>
-            {isEdit ? 'Editar Documento' : 'Novo Documento'}
-          </h1>
-        </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button
-            onClick={() => navigate(-1)}
-            style={{
-              padding: '9px 18px',
-              borderRadius: '10px',
-              border: '1.5px solid rgba(0,0,0,0.1)',
-              background: 'white',
-              color: '#64748B',
-              fontSize: '13px',
-              fontWeight: 500,
-              cursor: 'pointer',
-            }}
-          >
-            Cancelar
-          </button>
-          <button style={{
-            padding: '9px 18px',
-            borderRadius: '10px',
-            border: '1.5px solid rgba(0,0,0,0.1)',
-            background: 'white',
-            color: '#64748B',
-            fontSize: '13px',
-            fontWeight: 500,
-            cursor: 'pointer',
-          }}>
-            Salvar como Rascunho
-          </button>
-          <button style={{
-            padding: '9px 20px',
-            borderRadius: '10px',
-            border: 'none',
-            background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
-            color: 'white',
-            fontSize: '13px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            boxShadow: '0 2px 8px rgba(99,102,241,0.3)',
-          }}>
-            Publicar
-          </button>
-        </div>
-      </div>
-
-      {/* Two-column layout */}
-      <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
-        {/* LEFT 60% */}
+      {error && <div role="alert" style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C', borderRadius: 12, padding: '12px 14px', marginBottom: 16, fontSize: 13 }}>{error}</div>}
+      {loading ? <div style={cardStyle}>Carregando documento...</div> : <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
         <div style={{ flex: '0 0 60%', maxWidth: '60%' }}>
-          {/* Informações Básicas */}
           <div style={cardStyle}>
-            <h2 style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A', margin: '0 0 20px 0' }}>
-              Informações Básicas
-            </h2>
-
-            {/* Título */}
-            <div style={{ marginBottom: '18px' }}>
-              <label style={labelStyle}>Título <span style={{ color: '#EF4444' }}>*</span></label>
-              <input
-                type="text"
-                value={title}
-                onChange={e => setTitle(e.target.value)}
-                placeholder="Nome do documento..."
-                style={{ ...inputStyle, fontSize: '16px', fontWeight: 500 }}
-              />
-            </div>
-
-            {/* Descrição */}
-            <div style={{ marginBottom: '18px' }}>
-              <label style={labelStyle}>Descrição</label>
-              <textarea
-                value={description}
-                onChange={e => setDescription(e.target.value)}
-                placeholder="Descreva o conteúdo do documento..."
-                rows={3}
-                style={{ ...inputStyle, resize: 'vertical', lineHeight: '1.5' }}
-              />
-            </div>
-
-            {/* Categoria */}
-            <div style={{ marginBottom: '18px' }}>
-              <label style={labelStyle}>Categoria</label>
-              <select
-                value={categoryId}
-                onChange={e => setCategoryId(e.target.value)}
-                style={{ ...inputStyle, cursor: 'pointer', appearance: 'none' }}
-              >
-                <option value="">Selecionar categoria...</option>
-                {mockDocumentCategories.map(cat => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
-              </select>
-              {/* Color dot overlay is best-effort in pure inline — show selected indicator */}
-              {categoryId && (() => {
-                const cat = mockDocumentCategories.find(c => c.id === categoryId);
-                return cat ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: cat.color }} />
-                    <span style={{ fontSize: '12px', color: '#64748B' }}>{cat.name}</span>
-                  </div>
-                ) : null;
-              })()}
-            </div>
-
-            {/* Visibilidade */}
-            <div style={{ marginBottom: '4px' }}>
-              <label style={labelStyle}>Visibilidade</label>
-              <div style={{ position: 'relative' }}>
-                <button
-                  type="button"
-                  onClick={() => setVisibilityOpen(o => !o)}
-                  style={{
-                    width: '100%',
-                    border: '1.5px solid rgba(0,0,0,0.1)',
-                    borderRadius: '10px',
-                    padding: '10px 14px',
-                    background: 'white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ color: VISIBILITY_CONFIG[visibility].color }}>
-                      {selectedVisibility.icon}
-                    </span>
-                    <div>
-                      <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: '#0F172A' }}>
-                        {VISIBILITY_CONFIG[visibility].label}
-                      </p>
-                      <p style={{ margin: 0, fontSize: '11px', color: '#94A3B8' }}>
-                        {selectedVisibility.description}
-                      </p>
-                    </div>
-                  </div>
-                  <ChevronDown size={15} color="#94A3B8" />
-                </button>
-                {visibilityOpen && (
-                  <div style={{
-                    position: 'absolute',
-                    top: 'calc(100% + 4px)',
-                    left: 0,
-                    right: 0,
-                    background: 'white',
-                    border: '1.5px solid rgba(0,0,0,0.08)',
-                    borderRadius: '12px',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-                    zIndex: 100,
-                    overflow: 'hidden',
-                  }}>
-                    {VISIBILITY_OPTIONS.map(opt => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => { setVisibility(opt.value); setVisibilityOpen(false); }}
-                        style={{
-                          width: '100%',
-                          padding: '10px 14px',
-                          background: visibility === opt.value ? VISIBILITY_CONFIG[opt.value].bg : 'transparent',
-                          border: 'none',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '10px',
-                          textAlign: 'left',
-                          borderBottom: '1px solid rgba(0,0,0,0.04)',
-                        }}
-                      >
-                        <span style={{ color: VISIBILITY_CONFIG[opt.value].color }}>{opt.icon}</span>
-                        <div>
-                          <p style={{ margin: 0, fontSize: '13px', fontWeight: 500, color: '#0F172A' }}>
-                            {VISIBILITY_CONFIG[opt.value].label}
-                          </p>
-                          <p style={{ margin: 0, fontSize: '11px', color: '#94A3B8' }}>{opt.description}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
+            <h2 style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', margin: '0 0 20px 0' }}>Informacoes Basicas</h2>
+            <div style={{ marginBottom: 18 }}><label style={labelStyle}>Titulo <span style={{ color: '#EF4444' }}>*</span></label><input data-testid="document-title" type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Nome do documento..." style={{ ...inputStyle, fontSize: 16, fontWeight: 500 }} /></div>
+            <div style={{ marginBottom: 18 }}><label style={labelStyle}>Descricao</label><textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Descreva o conteudo do documento..." rows={3} style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }} /></div>
+            <div style={{ marginBottom: 18 }}><label style={labelStyle}>Categoria</label><select value={categoryId} onChange={e => setCategoryId(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}><option value="">Selecionar categoria...</option>{categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}</select>{selectedCategory && <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}><div style={{ width: 8, height: 8, borderRadius: '50%', background: selectedCategory.color }} /><span style={{ fontSize: 12, color: '#64748B' }}>{selectedCategory.name}</span></div>}</div>
+            <div><label style={labelStyle}>Visibilidade</label><div style={{ position: 'relative' }}><button type="button" onClick={() => setVisibilityOpen(o => !o)} style={{ width: '100%', border: '1.5px solid rgba(0,0,0,0.1)', borderRadius: 10, padding: '10px 14px', background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', textAlign: 'left' }}><div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><span style={{ color: VISIBILITY_CONFIG[visibility].color }}>{selectedVisibility.icon}</span><div><p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#0F172A' }}>{VISIBILITY_CONFIG[visibility].label}</p><p style={{ margin: 0, fontSize: 11, color: '#94A3B8' }}>{selectedVisibility.description}</p></div></div><ChevronDown size={15} color="#94A3B8" /></button>{visibilityOpen && <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'white', border: '1.5px solid rgba(0,0,0,0.08)', borderRadius: 12, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 100, overflow: 'hidden' }}>{VISIBILITY_OPTIONS.map(opt => <button key={opt.value} type="button" onClick={() => { setVisibility(opt.value); setVisibilityOpen(false); }} style={{ width: '100%', padding: '10px 14px', background: visibility === opt.value ? VISIBILITY_CONFIG[opt.value].bg : 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left', borderBottom: '1px solid rgba(0,0,0,0.04)' }}><span style={{ color: VISIBILITY_CONFIG[opt.value].color }}>{opt.icon}</span><div><p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#0F172A' }}>{VISIBILITY_CONFIG[opt.value].label}</p><p style={{ margin: 0, fontSize: 11, color: '#94A3B8' }}>{opt.description}</p></div></button>)}</div>}</div></div>
           </div>
 
-          {/* Vínculos (collapsible) */}
           <div style={cardStyle}>
-            <button
-              type="button"
-              onClick={() => setVinculosOpen(o => !o)}
-              style={{
-                width: '100%',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: 0,
-                marginBottom: vinculosOpen ? '20px' : 0,
-              }}
-            >
-              <h2 style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A', margin: 0 }}>Vínculos</h2>
-              {vinculosOpen ? <ChevronUp size={16} color="#94A3B8" /> : <ChevronDown size={16} color="#94A3B8" />}
-            </button>
-
-            {vinculosOpen && (
-              <div>
-                {/* Unidade */}
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={labelStyle}>Unidade</label>
-                  <select
-                    value={unit}
-                    onChange={e => setUnit(e.target.value)}
-                    style={{ ...inputStyle, cursor: 'pointer', appearance: 'none' }}
-                  >
-                    {MOCK_UNITS.map(u => (
-                      <option key={u.id} value={u.id}>{u.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Cliente */}
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={labelStyle}>Cliente</label>
-                  <input
-                    type="text"
-                    value={client}
-                    onChange={e => setClient(e.target.value)}
-                    placeholder="Nome ou ID do cliente..."
-                    style={inputStyle}
-                  />
-                </div>
-
-                {/* Usuário */}
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={labelStyle}>Usuário</label>
-                  <input
-                    type="text"
-                    value={user}
-                    onChange={e => setUser(e.target.value)}
-                    placeholder="Nome ou e-mail do usuário..."
-                    style={inputStyle}
-                  />
-                </div>
-
-                {/* Tags */}
-                <div>
-                  <label style={labelStyle}>Tags</label>
-                  <div style={{
-                    border: '1.5px solid rgba(0,0,0,0.1)',
-                    borderRadius: '10px',
-                    padding: '8px 10px',
-                    background: 'white',
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: '6px',
-                    alignItems: 'center',
-                    minHeight: '42px',
-                  }}>
-                    {tags.map(tag => (
-                      <span key={tag} style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        background: '#EEF2FF',
-                        color: '#6366F1',
-                        borderRadius: '999px',
-                        padding: '3px 10px',
-                        fontSize: '12px',
-                        fontWeight: 500,
-                      }}>
-                        <Tag size={10} />
-                        {tag}
-                        <button
-                          onClick={() => removeTag(tag)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, color: '#A5B4FC' }}
-                        >
-                          <X size={10} />
-                        </button>
-                      </span>
-                    ))}
-                    <input
-                      type="text"
-                      value={tagInput}
-                      onChange={e => setTagInput(e.target.value)}
-                      onKeyDown={handleTagKeyDown}
-                      placeholder={tags.length === 0 ? 'Adicionar tag e pressionar Enter...' : ''}
-                      style={{
-                        border: 'none',
-                        outline: 'none',
-                        fontSize: '13px',
-                        color: '#0F172A',
-                        flex: 1,
-                        minWidth: '120px',
-                        background: 'transparent',
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
+            <button type="button" onClick={() => setVinculosOpen(o => !o)} style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 0, marginBottom: vinculosOpen ? 20 : 0 }}><h2 style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', margin: 0 }}>Vinculos</h2>{vinculosOpen ? <ChevronUp size={16} color="#94A3B8" /> : <ChevronDown size={16} color="#94A3B8" />}</button>
+            {vinculosOpen && <div><div style={{ marginBottom: 16 }}><label style={labelStyle}>Unidade</label><select value={unitId} onChange={e => setUnitId(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}><option value="">Todas as unidades</option>{units.map(unit => <option key={String(unit.id ?? unit.value)} value={String(unit.id ?? unit.value)}>{unit.code ? `${unit.code} - ` : ''}{unit.name ?? unit.label}</option>)}</select></div><div style={{ marginBottom: 16 }}><label style={labelStyle}>Cliente ID</label><input type="number" value={customerId} onChange={e => setCustomerId(e.target.value)} placeholder="ID do cliente quando aplicavel" style={inputStyle} /></div><div><label style={labelStyle}>Usuario ID</label><input type="number" value={userId} onChange={e => setUserId(e.target.value)} placeholder="ID do usuario quando aplicavel" style={inputStyle} /></div></div>}
           </div>
         </div>
 
-        {/* RIGHT 40% */}
         <div style={{ flex: '0 0 40%', maxWidth: '40%' }}>
           <div style={cardStyle}>
-            <h2 style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A', margin: '0 0 16px 0' }}>
-              Arquivo
-            </h2>
-
-            {mockFile ? (
-              <FilePreviewCard file={mockFile} onRemove={() => setMockFile(null)} />
-            ) : (
-              <div
-                onClick={handleUploadClick}
-                style={{
-                  border: '2px dashed rgba(99,102,241,0.3)',
-                  borderRadius: '16px',
-                  padding: '40px 24px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '10px',
-                  cursor: 'pointer',
-                  transition: 'background 0.15s',
-                  background: 'rgba(99,102,241,0.02)',
-                  textAlign: 'center',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(99,102,241,0.05)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(99,102,241,0.02)')}
-              >
-                <div style={{
-                  width: '56px',
-                  height: '56px',
-                  borderRadius: '16px',
-                  background: 'linear-gradient(135deg, #EEF2FF, #F5F3FF)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: '4px',
-                }}>
-                  <Upload size={24} color="#6366F1" />
-                </div>
-                <p style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: '#0F172A' }}>
-                  Arraste o arquivo aqui
-                </p>
-                <p style={{ margin: 0, fontSize: '13px', color: '#6366F1', textDecoration: 'underline', cursor: 'pointer' }}>
-                  ou clique para selecionar
-                </p>
-                <p style={{ margin: 0, fontSize: '11px', color: '#94A3B8' }}>
-                  PDF, DOCX, XLSX, PNG, JPG
-                </p>
-              </div>
-            )}
-
-            <p style={{
-              margin: '14px 0 0 0',
-              fontSize: '11px',
-              color: '#94A3B8',
-              textAlign: 'center',
-              lineHeight: '1.5',
-            }}>
-              Tamanho máximo: 50MB. Formatos suportados: PDF, DOCX, XLSX, PNG, JPG
-            </p>
+            <h2 style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', margin: '0 0 16px 0' }}>Arquivo</h2>
+            {file ? <FilePreviewCard file={file} onRemove={() => setFile(null)} /> : currentDocument ? <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 16, padding: 18, background: '#F8FAFC' }}><p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#0F172A' }}>{currentDocument.fileName}</p><p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748B' }}>{currentDocument.fileSizeFormatted}</p><p style={{ margin: '12px 0 0', fontSize: 11, color: '#94A3B8' }}>A API atual permite editar metadados. Para substituir o arquivo, envie um novo documento.</p></div> : <div onClick={() => fileInputRef.current?.click()} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); setFile(e.dataTransfer.files?.[0] ?? null); }} style={{ border: '2px dashed rgba(99,102,241,0.3)', borderRadius: 16, padding: '40px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, cursor: 'pointer', background: 'rgba(99,102,241,0.02)', textAlign: 'center' }}><Upload size={24} color="#6366F1" /><p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#0F172A' }}>Arraste o arquivo aqui</p><p style={{ margin: 0, fontSize: 13, color: '#6366F1', textDecoration: 'underline' }}>ou clique para selecionar</p><p style={{ margin: 0, fontSize: 11, color: '#94A3B8' }}>PDF, DOCX, XLSX, PNG, JPG, WEBP ou TXT</p></div>}
+            <input data-testid="document-file" ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp,.txt" style={{ display: 'none' }} onChange={e => setFile(e.target.files?.[0] ?? null)} />
+            <p style={{ margin: '14px 0 0 0', fontSize: 11, color: '#94A3B8', textAlign: 'center', lineHeight: 1.5 }}>Tamanho maximo aceito pelo backend: 20MB. O storage e o tenant sao resolvidos pelo backend.</p>
           </div>
         </div>
-      </div>
-    </div>
+      </div>}
+    </form>
   );
 }
+

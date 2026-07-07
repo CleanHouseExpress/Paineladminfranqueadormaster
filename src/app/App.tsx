@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+﻿import { lazy, Suspense } from 'react';
 import type { ComponentType } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 
@@ -66,6 +66,11 @@ const CatalogListPage = lazyPage(() => import('../modules/catalog'), 'CatalogLis
 const CatalogFormPage = lazyPage(() => import('../modules/catalog'), 'CatalogFormPage');
 const CatalogDetailPage = lazyPage(() => import('../modules/catalog'), 'CatalogDetailPage');
 const CatalogSettingsPage = lazyPage(() => import('../modules/catalog'), 'CatalogSettingsPage');
+const DocumentListPage = lazyPage(() => import('../modules/documents'), 'DocumentListPage');
+const DocumentFormPage = lazyPage(() => import('../modules/documents'), 'DocumentFormPage');
+const DocumentDetailPage = lazyPage(() => import('../modules/documents'), 'DocumentDetailPage');
+const DocumentCategoriesPage = lazyPage(() => import('../modules/documents'), 'DocumentCategoriesPage');
+const DocumentSettingsPage = lazyPage(() => import('../modules/documents'), 'DocumentSettingsPage');
 
 const ChecklistsDashboardPage = lazyPage(() => import('../modules/checklists'), 'ChecklistsDashboardPage');
 const ChecklistTemplatesPage = lazyPage(() => import('../modules/checklists'), 'ChecklistTemplatesPage');
@@ -182,6 +187,11 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   'catalog-form': CatalogFormPage,
   'catalog-detail': CatalogDetailPage,
   'catalog-settings': CatalogSettingsPage,
+  'documents-list': DocumentListPage,
+  'document-new': DocumentFormPage,
+  'document-detail': DocumentDetailPage,
+  'document-categories': DocumentCategoriesPage,
+  'document-settings': DocumentSettingsPage,
   analytics: AnalyticsDashboardPage,
   operations: () => <PlaceholderPage title="Operacao" description="Checklists, pendencias e diario de bordo para gestao operacional da rede." />,
   checklists: ChecklistsDashboardPage,
@@ -305,3 +315,4 @@ export default function App() {
     </AppProvider>
   );
 }
+
