@@ -44,6 +44,14 @@ function normalizeSelected(value: unknown): string[] {
   return Array.isArray(value) ? value.map(String) : [];
 }
 
+function fieldType(field: SupportedField): string {
+  return String(field.type ?? ('field_type' in field ? field.field_type : 'text'));
+}
+
+function isSelectLike(type: string): boolean {
+  return ['select', 'product', 'supplier', 'unit', 'customer', 'employee'].includes(type);
+}
+
 function inputStyle(readOnly: boolean, hasError: boolean): React.CSSProperties {
   return {
     width: '100%',
@@ -145,7 +153,7 @@ export function DynamicFormRenderer({
     () => schema.filter((field): field is DynamicFieldSchema => (
       'options_source' in field
       && Boolean(field.options_source)
-      && ['select', 'multiselect'].includes(field.type)
+      && ['select', 'multiselect', 'product', 'supplier', 'unit', 'customer', 'employee'].includes(fieldType(field))
     )),
     [schema],
   );
@@ -267,7 +275,7 @@ export function DynamicFormRenderer({
       );
     }
 
-    if (field.type === 'select') {
+    if (isSelectLike(fieldType(field))) {
       return (
         <select value={stringValue} disabled={blocked} style={style} onChange={event => emitChange(key, event.target.value)}>
           <option value="">{field.placeholder ?? 'Selecione...'}</option>
@@ -278,7 +286,7 @@ export function DynamicFormRenderer({
       );
     }
 
-    if (['photo', 'image', 'signature', 'file'].includes(String(field.type))) {
+    if (['photo', 'image', 'signature', 'file'].includes(fieldType(field))) {
       const Icon = field.type === 'signature' ? PenLine : field.type === 'file' ? Paperclip : Camera;
       return (
         <div style={{
@@ -296,8 +304,32 @@ export function DynamicFormRenderer({
       );
     }
 
+    if (fieldType(field) === 'repeater') {
+      const jsonValue = Array.isArray(current) ? JSON.stringify(current, null, 2) : stringValue;
+      return (
+        <textarea
+          value={jsonValue}
+          placeholder={field.placeholder ?? '[]'}
+          rows={5}
+          disabled={blocked}
+          style={{ ...style, resize: 'vertical', lineHeight: 1.5, fontFamily: 'monospace' }}
+          onChange={event => {
+            try {
+              emitChange(key, JSON.parse(event.target.value || '[]'));
+            } catch {
+              emitChange(key, event.target.value);
+            }
+          }}
+        />
+      );
+    }
+
+    if (['title', 'divider'].includes(fieldType(field))) {
+      return <div style={{ borderTop: '1px solid rgba(0,0,0,0.08)', paddingTop: '8px' }} />;
+    }
+
     const InlineIcon = field.type === 'email' ? Mail : field.type === 'phone' ? Phone : field.type === 'url' ? Link2 : null;
-    const inputType = field.type === 'textarea' ? 'textarea' : String(field.type === 'currency' ? 'number' : field.type);
+    const inputType = field.type === 'textarea' ? 'textarea' : ['currency', 'number', 'quantity', 'percentage', 'temperature'].includes(fieldType(field)) ? 'number' : fieldType(field) === 'expiration_date' ? 'date' : String(field.type);
 
     if (field.type === 'textarea') {
       return (
@@ -327,7 +359,7 @@ export function DynamicFormRenderer({
           disabled={blocked}
           style={InlineIcon ? { ...style, paddingLeft: '32px' } : style}
           onChange={event => {
-            const next = field.type === 'number' || field.type === 'currency'
+            const next = ['number', 'currency', 'quantity', 'percentage', 'temperature'].includes(fieldType(field))
               ? event.target.value === '' ? '' : Number(event.target.value)
               : event.target.value;
             emitChange(key, next);

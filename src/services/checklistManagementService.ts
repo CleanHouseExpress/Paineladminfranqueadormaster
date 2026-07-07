@@ -46,6 +46,12 @@ export const checklistManagementService = {
   deleteTemplate: (id: string | number) =>
     apiClient.delete<null>(`/api/company/checklists/templates/${id}`),
 
+  publishTemplate: async (id: string | number) =>
+    (await apiClient.post<DataResponse<ChecklistTemplate>>(`/api/company/checklists/templates/${id}/publish`)).data,
+
+  archiveTemplate: async (id: string | number) =>
+    (await apiClient.post<DataResponse<ChecklistTemplate>>(`/api/company/checklists/templates/${id}/archive`)).data,
+
   listExecutions: (params: Record<string, unknown> = {}) =>
     apiClient.get<ListResponse<ChecklistExecution>>(`/api/company/checklists/executions${queryString(params)}`),
 

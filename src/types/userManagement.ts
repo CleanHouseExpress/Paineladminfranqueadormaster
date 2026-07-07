@@ -46,7 +46,7 @@ export interface DynamicFieldOption {
 export interface DynamicFieldSchema {
   key: string;
   label: string;
-  type: 'text' | 'email' | 'password' | 'boolean' | 'multiselect' | 'textarea' | 'date' | 'phone' | 'cpf' | 'cnpj' | 'document' | 'datetime' | 'currency' | 'number' | 'select' | 'radio' | 'checkbox' | 'url' | 'photo' | 'signature';
+  type: 'text' | 'email' | 'password' | 'boolean' | 'multiselect' | 'textarea' | 'date' | 'phone' | 'cpf' | 'cnpj' | 'document' | 'datetime' | 'currency' | 'number' | 'quantity' | 'percentage' | 'temperature' | 'time' | 'select' | 'radio' | 'checkbox' | 'url' | 'photo' | 'signature' | 'file' | 'json' | 'repeater' | 'product' | 'supplier' | 'unit' | 'customer' | 'employee' | 'batch' | 'expiration_date' | 'barcode' | 'qrcode' | 'gps' | 'calculated' | 'title' | 'divider';
   field_type?: string;
   required?: boolean;
   visible?: boolean;

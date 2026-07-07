@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { AlertTriangle, ArrowLeft, ClipboardCheck, Edit, Package, Play, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
+import { AlertTriangle, Archive, ArrowLeft, ClipboardCheck, Edit, Package, Play, Plus, RefreshCw, Save, Send, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../../app/components/ui/button';
 import { Input } from '../../app/components/ui/input';
@@ -234,6 +234,8 @@ export function ChecklistTemplatesPage() {
   );
 }
 
+const FORM_FIELD_TYPES = ['text', 'textarea', 'number', 'quantity', 'currency', 'percentage', 'date', 'datetime', 'time', 'email', 'phone', 'document', 'boolean', 'select', 'multiselect', 'product', 'supplier', 'repeater', 'photo', 'signature', 'file'] as const;
+
 function defaultField(order: number): DynamicFieldSchema {
   return {
     key: `campo_${order}`,
@@ -249,7 +251,9 @@ function defaultField(order: number): DynamicFieldSchema {
 }
 
 export function ChecklistTemplateFormPage() {
-  const { id } = useParams();
+  const params = useParams();
+  const id = params.id ?? params.entityId;
+  const routeBase = params.entityId !== undefined ? '/settings/form-builder' : '/checklists/templates';
   const navigate = useNavigate();
   const isNew = !id || id === 'new';
   const [loading, setLoading] = useState(!isNew);
@@ -258,6 +262,7 @@ export function ChecklistTemplateFormPage() {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('operacional');
   const [active, setActive] = useState(true);
+  const [status, setStatus] = useState('draft');
   const [fields, setFields] = useState<DynamicFieldSchema[]>([defaultField(10)]);
   const [activeTab, setActiveTab] = useState<'configuration' | 'inventory'>('configuration');
 
@@ -271,6 +276,7 @@ export function ChecklistTemplateFormPage() {
       setDescription(template.description ?? '');
       setCategory(template.category ?? 'operacional');
       setActive(template.active);
+      setStatus(template.status ?? (template.active ? 'active' : 'inactive'));
       setFields(templateSchema(template));
       setLoading(false);
     }
@@ -305,9 +311,40 @@ export function ChecklistTemplateFormPage() {
         : await checklistManagementService.updateTemplate(id as string, payload);
 
       toast.success('Modelo salvo.');
-      navigate(`/checklists/templates/${template.id}`);
+      setStatus(template.status ?? status);
+      navigate(`${routeBase}/${template.id}`);
     } catch (error) {
-      toast.error(apiErrorMessage(error, 'Não foi possível salvar o modelo.'));
+      toast.error(apiErrorMessage(error, 'NÃ£o foi possÃ­vel salvar o modelo.'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function publishTemplate() {
+    if (isNew || !id) return;
+    setSaving(true);
+    try {
+      const template = await checklistManagementService.publishTemplate(id);
+      setActive(template.active);
+      setStatus(template.status ?? 'published');
+      toast.success('Modelo publicado.');
+    } catch (error) {
+      toast.error(apiErrorMessage(error, 'Nao foi possivel publicar o modelo.'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function archiveTemplate() {
+    if (isNew || !id) return;
+    setSaving(true);
+    try {
+      const template = await checklistManagementService.archiveTemplate(id);
+      setActive(template.active);
+      setStatus(template.status ?? 'archived');
+      toast.success('Modelo arquivado.');
+    } catch (error) {
+      toast.error(apiErrorMessage(error, 'Nao foi possivel arquivar o modelo.'));
     } finally {
       setSaving(false);
     }
@@ -327,7 +364,14 @@ export function ChecklistTemplateFormPage() {
   return (
     <PageShell
       title={isNew ? 'Novo modelo' : 'Editar modelo'}
-      actions={<Button asChild variant="outline"><Link to="/checklists/templates"><ArrowLeft className="size-4" />Voltar</Link></Button>}
+      actions={
+        <>
+          {!isNew && <StatusBadge status={status} />}
+          {!isNew && status !== 'published' && <Button disabled={saving} variant="outline" onClick={() => void publishTemplate()}><Send className="size-4" />Publicar</Button>}
+          {!isNew && status !== 'archived' && <Button disabled={saving} variant="outline" onClick={() => void archiveTemplate()}><Archive className="size-4" />Arquivar</Button>}
+          <Button asChild variant="outline"><Link to={routeBase}><ArrowLeft className="size-4" />Voltar</Link></Button>
+        </>
+      }
     >
       <div className="flex border-b">
         <button
@@ -335,7 +379,7 @@ export function ChecklistTemplateFormPage() {
           className={`border-b-2 px-4 py-3 text-sm font-medium ${activeTab === 'configuration' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-muted-foreground'}`}
           onClick={() => setActiveTab('configuration')}
         >
-          Configuração
+          ConfiguraÃ§Ã£o
         </button>
         <button
           type="button"
@@ -384,9 +428,16 @@ export function ChecklistTemplateFormPage() {
               <select
                 className="h-9 rounded-md border bg-background px-3 text-sm"
                 value={field.type}
-                onChange={event => updateField(index, { type: event.target.value, field_type: event.target.value })}
+                onChange={event => {
+                  const nextType = event.target.value;
+                  const patch: Partial<DynamicFieldSchema> = { type: nextType as DynamicFieldSchema['type'], field_type: nextType };
+                  if (nextType === 'product') patch.options_source = '/api/company/inventory/items/options';
+                  if (nextType === 'supplier') patch.options_source = '/api/company/inventory/suppliers/options';
+                  if (nextType === 'repeater' && !field.fields) patch.fields = [defaultField(10)];
+                  updateField(index, patch);
+                }}
               >
-                {['text', 'textarea', 'number', 'currency', 'date', 'datetime', 'email', 'phone', 'document', 'boolean', 'select', 'multiselect', 'photo', 'signature'].map(type => (
+                {FORM_FIELD_TYPES.map(type => (
                   <option key={type} value={type}>{type}</option>
                 ))}
               </select>
@@ -395,6 +446,15 @@ export function ChecklistTemplateFormPage() {
                 <input type="checkbox" checked={Boolean(field.required)} onChange={event => updateField(index, { required: event.target.checked })} />
                 Obrigatorio
               </label>
+              <Input value={field.options_source ?? ''} placeholder="Fonte de opcoes" onChange={event => updateField(index, { options_source: event.target.value })} />
+              <Input value={JSON.stringify(field.rules ?? {})} placeholder="Regras JSON" onChange={event => { try { updateField(index, { rules: JSON.parse(event.target.value || '{}') }); } catch { /* mantem ate o JSON ficar valido */ } }} />
+              {field.type === 'repeater' && (
+                <Textarea
+                  className="md:col-span-5"
+                  value={JSON.stringify(field.fields ?? [], null, 2)}
+                  onChange={event => { try { updateField(index, { fields: JSON.parse(event.target.value || '[]') }); } catch { /* mantem ate o JSON ficar valido */ } }}
+                />
+              )}
             </div>
           ))}
           </div>
@@ -411,7 +471,7 @@ export function ChecklistTemplateFormPage() {
           <Package className="mx-auto size-10 text-muted-foreground/50" />
           <p className="mt-3 font-medium">Salve o modelo primeiro</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            A configuração de estoque fica disponível depois que o template recebe um ID.
+            A configuraÃ§Ã£o de estoque fica disponÃ­vel depois que o template recebe um ID.
           </p>
         </div>
       ) : (
@@ -550,13 +610,13 @@ export function ChecklistExecutionPage() {
         : await checklistManagementService.updateExecution(execution.id, payload);
       setExecution(updated);
       setAnswers(answersFromExecution(updated));
-      toast.success(complete ? 'Checklist concluído.' : 'Respostas salvas.');
+      toast.success(complete ? 'Checklist concluÃ­do.' : 'Respostas salvas.');
     } catch (error) {
       toast.error(apiErrorMessage(
         error,
         complete
-          ? 'Não foi possível concluir. Verifique as respostas e o saldo de estoque.'
-          : 'Não foi possível salvar as respostas.',
+          ? 'NÃ£o foi possÃ­vel concluir. Verifique as respostas e o saldo de estoque.'
+          : 'NÃ£o foi possÃ­vel salvar as respostas.',
       ));
     } finally {
       setSaving(false);
@@ -576,9 +636,9 @@ export function ChecklistExecutionPage() {
         <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <Package className="size-5 shrink-0" />
           <div>
-            <p className="font-medium">Este checklist gera movimentações de estoque ao ser concluído.</p>
+            <p className="font-medium">Este checklist gera movimentaÃ§Ãµes de estoque ao ser concluÃ­do.</p>
             <p className="text-xs text-amber-800">
-              Se não houver saldo suficiente, a conclusão será cancelada sem aplicar baixas parciais.
+              Se nÃ£o houver saldo suficiente, a conclusÃ£o serÃ¡ cancelada sem aplicar baixas parciais.
             </p>
           </div>
         </div>
