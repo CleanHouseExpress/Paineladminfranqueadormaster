@@ -52,6 +52,12 @@ export const checklistManagementService = {
   archiveTemplate: async (id: string | number) =>
     (await apiClient.post<DataResponse<ChecklistTemplate>>(`/api/company/checklists/templates/${id}/archive`)).data,
 
+  listTemplateAutomations: async (id: string | number) =>
+    (await apiClient.get<{ data: Record<string, unknown>[] }>(`/api/company/checklists/templates/${id}/automations`)).data,
+
+  updateTemplateAutomations: async (id: string | number, automations: Record<string, unknown>[]) =>
+    (await apiClient.put<{ data: Record<string, unknown>[] }>(`/api/company/checklists/templates/${id}/automations`, { automations })).data,
+
   listExecutions: (params: Record<string, unknown> = {}) =>
     apiClient.get<ListResponse<ChecklistExecution>>(`/api/company/checklists/executions${queryString(params)}`),
 

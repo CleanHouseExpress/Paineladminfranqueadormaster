@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { AlertTriangle, Archive, ArrowLeft, ClipboardCheck, Edit, Package, Play, Plus, RefreshCw, Save, Send, Trash2 } from 'lucide-react';
+import { AlertTriangle, Archive, ArrowLeft, ClipboardCheck, Edit, Package, Play, Plus, RefreshCw, Save, Send, Trash2, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../../app/components/ui/button';
 import { Input } from '../../app/components/ui/input';
@@ -235,6 +235,27 @@ export function ChecklistTemplatesPage() {
 }
 
 const FORM_FIELD_TYPES = ['text', 'textarea', 'number', 'quantity', 'currency', 'percentage', 'date', 'datetime', 'time', 'email', 'phone', 'document', 'boolean', 'select', 'multiselect', 'product', 'supplier', 'repeater', 'photo', 'signature', 'file'] as const;
+const AUTOMATION_OPERATORS = [
+  ['equals', 'igual'], ['not_equals', 'diferente'], ['greater_than', 'maior que'], ['less_than', 'menor que'],
+  ['greater_or_equal', 'maior ou igual'], ['less_or_equal', 'menor ou igual'], ['contains', 'contem'],
+  ['not_contains', 'nao contem'], ['empty', 'vazio'], ['filled', 'preenchido'], ['true', 'verdadeiro'], ['false', 'falso'],
+] as const;
+const AUTOMATION_ACTIONS = [
+  ['inventory_exit', 'Baixar estoque'], ['inventory_entry', 'Entrada de estoque'], ['inventory_adjustment', 'Ajustar quantidade'],
+  ['create_task', 'Criar tarefa'], ['create_noc_alert', 'Criar alerta NOC'], ['audit_only', 'Registrar auditoria'],
+  ['require_field', 'Exigir campo'], ['block_completion', 'Impedir conclusao'], ['send_email', 'Enviar e-mail'],
+  ['send_whatsapp', 'Enviar WhatsApp'], ['generate_document', 'Gerar documento'],
+] as const;
+
+type TemplateAutomation = {
+  id?: number;
+  name: string;
+  description?: string | null;
+  condition: { field?: string; operator?: string; value?: unknown; compare_field?: string };
+  action_type: string;
+  parameters: Record<string, unknown>;
+  is_active: boolean;
+};
 
 function defaultField(order: number): DynamicFieldSchema {
   return {
@@ -264,20 +285,25 @@ export function ChecklistTemplateFormPage() {
   const [active, setActive] = useState(true);
   const [status, setStatus] = useState('draft');
   const [fields, setFields] = useState<DynamicFieldSchema[]>([defaultField(10)]);
-  const [activeTab, setActiveTab] = useState<'configuration' | 'inventory'>('configuration');
+  const [automations, setAutomations] = useState<TemplateAutomation[]>([]);
+  const [activeTab, setActiveTab] = useState<'configuration' | 'inventory' | 'automations'>('configuration');
 
   useEffect(() => {
     if (isNew) return;
 
     async function load() {
       setLoading(true);
-      const template = await checklistManagementService.getTemplate(id as string);
+      const [template, automationRows] = await Promise.all([
+        checklistManagementService.getTemplate(id as string),
+        checklistManagementService.listTemplateAutomations(id as string).catch(() => []),
+      ]);
       setName(template.name);
       setDescription(template.description ?? '');
       setCategory(template.category ?? 'operacional');
       setActive(template.active);
       setStatus(template.status ?? (template.active ? 'active' : 'inactive'));
       setFields(templateSchema(template));
+      setAutomations(automationRows as TemplateAutomation[]);
       setLoading(false);
     }
 
@@ -288,6 +314,36 @@ export function ChecklistTemplateFormPage() {
     setFields(current => current.map((field, fieldIndex) => (
       fieldIndex === index ? { ...field, ...patch, field_type: patch.type ?? field.field_type } : field
     )));
+  }
+
+  function defaultAutomation(): TemplateAutomation {
+    return {
+      name: `Automacao ${automations.length + 1}`,
+      condition: { field: fields[0]?.key ?? '', operator: 'equals', value: '' },
+      action_type: 'create_task',
+      parameters: { title: 'Tarefa operacional', priority: 'medium' },
+      is_active: true,
+    };
+  }
+
+  function patchAutomation(index: number, patch: Partial<TemplateAutomation>) {
+    setAutomations(current => current.map((automation, automationIndex) => (
+      automationIndex === index ? { ...automation, ...patch } : automation
+    )));
+  }
+
+  async function saveAutomations() {
+    if (isNew || !id) return;
+    setSaving(true);
+    try {
+      const updated = await checklistManagementService.updateTemplateAutomations(id, automations as unknown as Record<string, unknown>[]);
+      setAutomations(updated as TemplateAutomation[]);
+      toast.success('Automacoes salvas.');
+    } catch (error) {
+      toast.error(apiErrorMessage(error, 'Nao foi possivel salvar as automacoes.'));
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function save(event: FormEvent) {
@@ -314,7 +370,7 @@ export function ChecklistTemplateFormPage() {
       setStatus(template.status ?? status);
       navigate(`${routeBase}/${template.id}`);
     } catch (error) {
-      toast.error(apiErrorMessage(error, 'NÃ£o foi possÃ­vel salvar o modelo.'));
+      toast.error(apiErrorMessage(error, 'NÃƒÂ£o foi possÃƒÂ­vel salvar o modelo.'));
     } finally {
       setSaving(false);
     }
@@ -379,7 +435,7 @@ export function ChecklistTemplateFormPage() {
           className={`border-b-2 px-4 py-3 text-sm font-medium ${activeTab === 'configuration' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-muted-foreground'}`}
           onClick={() => setActiveTab('configuration')}
         >
-          ConfiguraÃ§Ã£o
+          ConfiguraÃƒÂ§ÃƒÂ£o
         </button>
         <button
           type="button"
@@ -389,6 +445,16 @@ export function ChecklistTemplateFormPage() {
           <Package className="size-4" /> Estoque
           {numericFields.length > 0 && (
             <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">{numericFields.length}</span>
+          )}
+        </button>
+        <button
+          type="button"
+          className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium ${activeTab === 'automations' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-muted-foreground'}`}
+          onClick={() => setActiveTab('automations')}
+        >
+          <Zap className="size-4" /> Automacoes
+          {automations.length > 0 && (
+            <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">{automations.length}</span>
           )}
         </button>
       </div>
@@ -466,22 +532,77 @@ export function ChecklistTemplateFormPage() {
             </Button>
           </div>
         </form>
+      ) : activeTab === 'inventory' ? (
+        isNew ? (
+          <div className="rounded-xl border border-dashed bg-muted/20 p-12 text-center">
+            <Package className="mx-auto size-10 text-muted-foreground/50" />
+            <p className="mt-3 font-medium">Salve o modelo primeiro</p>
+            <p className="mt-1 text-sm text-muted-foreground">A configuracao de estoque fica disponivel depois que o template recebe um ID.</p>
+          </div>
+        ) : (
+          <ChecklistInventoryConfig
+            templateId={id as string}
+            templateName={name}
+            numericFields={numericFields}
+          />
+        )
       ) : isNew ? (
         <div className="rounded-xl border border-dashed bg-muted/20 p-12 text-center">
-          <Package className="mx-auto size-10 text-muted-foreground/50" />
+          <Zap className="mx-auto size-10 text-muted-foreground/50" />
           <p className="mt-3 font-medium">Salve o modelo primeiro</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            A configuraÃ§Ã£o de estoque fica disponÃ­vel depois que o template recebe um ID.
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">As automacoes ficam disponiveis depois que o template recebe um ID.</p>
         </div>
       ) : (
-        <ChecklistInventoryConfig
-          templateId={id as string}
-          templateName={name}
-          numericFields={numericFields}
-        />
-      )}
-    </PageShell>
+        <div className="grid gap-4 rounded-md border bg-card p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-medium">Automacoes operacionais</h2>
+              <p className="text-sm text-muted-foreground">Quando o formulario for enviado, avalie uma condicao e execute uma acao.</p>
+            </div>
+            <Button type="button" variant="outline" onClick={() => setAutomations(current => [...current, defaultAutomation()])}>
+              <Plus className="size-4" />Adicionar automacao
+            </Button>
+          </div>
+
+          {automations.length === 0 ? <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">Nenhuma automacao cadastrada.</p> : null}
+
+          {automations.map((automation, index) => (
+            <div key={`${automation.id ?? 'new'}-${index}`} className="grid gap-3 rounded-md border p-3 md:grid-cols-6">
+              <Input className="md:col-span-2" value={automation.name} placeholder="Nome" onChange={event => patchAutomation(index, { name: event.target.value })} />
+              <select className="h-9 rounded-md border bg-background px-3 text-sm" value={automation.condition?.field ?? ''} onChange={event => patchAutomation(index, { condition: { ...automation.condition, field: event.target.value } })}>
+                <option value="">Sempre executar</option>
+                {fields.map(field => <option key={field.key} value={field.key}>{field.label}</option>)}
+              </select>
+              <select className="h-9 rounded-md border bg-background px-3 text-sm" value={automation.condition?.operator ?? 'equals'} onChange={event => patchAutomation(index, { condition: { ...automation.condition, operator: event.target.value } })}>
+                {AUTOMATION_OPERATORS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+              <Input value={String(automation.condition?.value ?? '')} placeholder="Valor" onChange={event => patchAutomation(index, { condition: { ...automation.condition, value: event.target.value } })} />
+              <select className="h-9 rounded-md border bg-background px-3 text-sm" value={automation.condition?.compare_field ?? ''} onChange={event => patchAutomation(index, { condition: { ...automation.condition, compare_field: event.target.value || undefined } })}>
+                <option value="">Comparar com valor</option>
+                {fields.map(field => <option key={field.key} value={field.key}>Campo: {field.label}</option>)}
+              </select>
+              <select className="h-9 rounded-md border bg-background px-3 text-sm md:col-span-2" value={automation.action_type} onChange={event => patchAutomation(index, { action_type: event.target.value })}>
+                {AUTOMATION_ACTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+              <Textarea className="md:col-span-3" value={JSON.stringify(automation.parameters ?? {}, null, 2)} onChange={event => { try { patchAutomation(index, { parameters: JSON.parse(event.target.value || '{}') }); } catch { /* aguarda JSON valido */ } }} />
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={automation.is_active} onChange={event => patchAutomation(index, { is_active: event.target.checked })} />
+                Ativa
+              </label>
+              <Button type="button" variant="outline" onClick={() => setAutomations(current => current.filter((_, automationIndex) => automationIndex !== index))}>
+                <Trash2 className="size-4" />Remover
+              </Button>
+            </div>
+          ))}
+
+          <div className="flex justify-end">
+            <Button disabled={saving} type="button" onClick={() => void saveAutomations()}>
+              {saving ? <RefreshCw className="size-4 animate-spin" /> : <Save className="size-4" />}
+              Salvar automacoes
+            </Button>
+          </div>
+        </div>
+      )}    </PageShell>
   );
 }
 
@@ -610,13 +731,13 @@ export function ChecklistExecutionPage() {
         : await checklistManagementService.updateExecution(execution.id, payload);
       setExecution(updated);
       setAnswers(answersFromExecution(updated));
-      toast.success(complete ? 'Checklist concluÃ­do.' : 'Respostas salvas.');
+      toast.success(complete ? 'Checklist concluÃƒÂ­do.' : 'Respostas salvas.');
     } catch (error) {
       toast.error(apiErrorMessage(
         error,
         complete
-          ? 'NÃ£o foi possÃ­vel concluir. Verifique as respostas e o saldo de estoque.'
-          : 'NÃ£o foi possÃ­vel salvar as respostas.',
+          ? 'NÃƒÂ£o foi possÃƒÂ­vel concluir. Verifique as respostas e o saldo de estoque.'
+          : 'NÃƒÂ£o foi possÃƒÂ­vel salvar as respostas.',
       ));
     } finally {
       setSaving(false);
@@ -636,9 +757,9 @@ export function ChecklistExecutionPage() {
         <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <Package className="size-5 shrink-0" />
           <div>
-            <p className="font-medium">Este checklist gera movimentaÃ§Ãµes de estoque ao ser concluÃ­do.</p>
+            <p className="font-medium">Este checklist gera movimentaÃƒÂ§ÃƒÂµes de estoque ao ser concluÃƒÂ­do.</p>
             <p className="text-xs text-amber-800">
-              Se nÃ£o houver saldo suficiente, a conclusÃ£o serÃ¡ cancelada sem aplicar baixas parciais.
+              Se nÃƒÂ£o houver saldo suficiente, a conclusÃƒÂ£o serÃƒÂ¡ cancelada sem aplicar baixas parciais.
             </p>
           </div>
         </div>
