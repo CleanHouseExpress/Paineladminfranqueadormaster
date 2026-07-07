@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+﻿import { expect, test, type Page } from '@playwright/test';
 import { disableOnboarding } from './support/auth';
 
 const summaryPayload = {
@@ -194,7 +194,6 @@ async function mockInbox(
     conversations: 0,
     detail: 0,
     messages: 0,
-    messageStatuses: 0,
     assign: 0,
     close: 0,
     reopen: 0,
@@ -214,19 +213,14 @@ async function mockInbox(
     status: options.closed ? 'closed' : conversationsPayload.data[0].status,
   };
   const secondConversation = conversationsPayload.data[1];
-  let currentMessages = [...messagesPayload.data];
-  let currentMessageStatuses = [
-    {
-      message_id: 'm-2',
-      status: options.messageStatus ?? 'sent',
-      sent_at: '2026-06-25T12:31:01.000Z',
-      delivered_at: ['delivered', 'read'].includes(options.messageStatus ?? '')
-        ? '2026-06-25T12:31:02.000Z'
-        : null,
-      read_at: options.messageStatus === 'read' ? '2026-06-25T12:31:03.000Z' : null,
-      failed_at: options.messageStatus === 'failed' ? '2026-06-25T12:31:04.000Z' : null,
-    },
-  ];
+  let currentMessages = messagesPayload.data.map(message => message.id === 'm-2' ? {
+    ...message,
+    status: options.messageStatus ?? 'sent',
+    sent_at: '2026-06-25T12:31:01.000Z',
+    delivered_at: ['delivered', 'read'].includes(options.messageStatus ?? '') ? '2026-06-25T12:31:02.000Z' : null,
+    read_at: options.messageStatus === 'read' ? '2026-06-25T12:31:03.000Z' : null,
+    failed_at: options.messageStatus === 'failed' ? '2026-06-25T12:31:04.000Z' : null,
+  } : message);
   const helpers = {
     pushInboundMessage(body = 'Mensagem nova em tempo real') {
       const nextMessage = {
@@ -247,15 +241,15 @@ async function mockInbox(
       return nextMessage;
     },
     setMessageStatus(status: 'sent' | 'delivered' | 'read' | 'failed' | 'pending') {
-      currentMessageStatuses = currentMessageStatuses.map(item => item.message_id === 'm-2'
+      currentMessages = currentMessages.map(message => message.id === 'm-2'
         ? {
-          ...item,
+          ...message,
           status,
           delivered_at: ['delivered', 'read'].includes(status) ? '2026-06-25T12:31:02.000Z' : null,
           read_at: status === 'read' ? '2026-06-25T12:31:03.000Z' : null,
           failed_at: status === 'failed' ? '2026-06-25T12:31:04.000Z' : null,
         }
-        : item);
+        : message);
     },
   };
 
@@ -397,19 +391,13 @@ async function mockInbox(
         sender_name: 'Admin Master',
         body: body.text ?? '',
         created_at: '2026-06-25T12:32:00.000Z',
+        status: 'sent',
+        sent_at: '2026-06-25T12:32:00.000Z',
+        delivered_at: null,
+        read_at: null,
+        failed_at: null,
       };
       currentMessages = [...currentMessages, nextMessage];
-      currentMessageStatuses = [
-        ...currentMessageStatuses,
-        {
-          message_id: nextMessage.id,
-          status: 'sent',
-          sent_at: nextMessage.created_at,
-          delivered_at: null,
-          read_at: null,
-          failed_at: null,
-        },
-      ];
       currentConversation = {
         ...currentConversation,
         last_message: body.text ?? '',
@@ -423,23 +411,6 @@ async function mockInbox(
       });
     }
 
-    if (path.endsWith('/conversations/c-1/messages/status')) {
-      calls.messageStatuses += 1;
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ data: currentMessageStatuses }),
-      });
-    }
-
-    if (path.endsWith('/conversations/c-2/messages/status')) {
-      calls.messageStatuses += 1;
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ data: [] }),
-      });
-    }
 
     if (path.endsWith('/conversations/c-1/messages')) {
       calls.messages += 1;
@@ -635,11 +606,11 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await page.goto('/communication/inbox');
     await expect(page.getByTestId('communication-message-status-m-2')).toContainText('Enviada');
 
-    const initialStatuses = calls.messageStatuses;
+    const initialMessages = calls.messages;
     calls.setMessageStatus('read');
     await emitRealtimeEvent(page, 'MessageStatusUpdated', { conversation_id: 'c-1', message_id: 'm-2' });
 
-    await expect.poll(() => calls.messageStatuses).toBeGreaterThan(initialStatuses);
+    await expect.poll(() => calls.messages).toBeGreaterThan(initialMessages);
     await expect(page.getByTestId('communication-message-status-m-2')).toContainText('Lida');
   });
 
@@ -706,7 +677,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
 
     await page.goto('/communication/inbox');
 
-    await expect.poll(() => calls.messageStatuses).toBeGreaterThan(0);
+    await expect.poll(() => calls.messages).toBeGreaterThan(0);
     await expect(page.getByTestId('communication-message-status-m-2')).toContainText('Enviada');
   });
 
@@ -981,7 +952,6 @@ test.describe('@smoke @communication Communication Inbox', () => {
 
     await expect.poll(() => calls.sendMessage).toBe(1);
     await expect.poll(() => calls.messages).toBeGreaterThan(1);
-    await expect.poll(() => calls.messageStatuses).toBeGreaterThan(1);
     await expect.poll(() => calls.summary).toBeGreaterThan(1);
     await expect.poll(() => calls.conversations).toBeGreaterThan(1);
     await expect(page.getByTestId('communication-message-input')).toHaveValue('');
@@ -1060,3 +1030,5 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await expect(page.getByText('Tentar novamente').first()).toBeVisible();
   });
 });
+
+

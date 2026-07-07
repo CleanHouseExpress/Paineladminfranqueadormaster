@@ -1,11 +1,11 @@
-import { expect, test, type Page } from '@playwright/test';
+﻿import { expect, test, type Page } from '@playwright/test';
 import { disableOnboarding } from './support/auth';
 
 const forbiddenGateCopy = [
   'Communication Inbox esta disponivel',
-  'Communication Inbox está disponível',
+  'Communication Inbox estÃ¡ disponÃ­vel',
   'Este modulo esta disponivel para ativacao',
-  'Este módulo está disponível para ativação',
+  'Este mÃ³dulo estÃ¡ disponÃ­vel para ativaÃ§Ã£o',
 ];
 
 const channelsPayload = {
@@ -37,8 +37,8 @@ const provisionedChannelPayload = {
     channel: {
       id: 'channel-provisioned-1',
       name: 'WhatsApp Atendimento',
+      type: 'whatsapp',
       provider: 'z_api',
-      expected_phone_number: '5531999999999',
       phone_number: '5531999999999',
       status: 'qr_pending',
       department: 'Atendimento',
@@ -111,7 +111,6 @@ async function mockAuthWithCommunicationAlias(page: Page) {
   await disableOnboarding(page);
   await page.addInitScript(() => {
     window.localStorage.setItem('orchestra_auth_token', 'e2e-token');
-    window.localStorage.removeItem('communication-inbox-channels-v1');
   });
 
   await page.route('**/api/me', route => route.fulfill({
@@ -170,13 +169,6 @@ async function mockCommunicationInbox(page: Page) {
       });
     }
 
-    if (path.endsWith('/conversations/conversation-1/messages/status')) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ data: [] }),
-      });
-    }
 
     if (path.endsWith('/conversations/conversation-1/messages')) {
       return route.fulfill({
@@ -217,7 +209,16 @@ async function mockCommunicationChannels(page: Page) {
     body: JSON.stringify(channelsPayload),
   }));
 
-  await page.route('**/api/tenant/communication/channels/provision-whatsapp', route => route.fulfill({
+  await page.route('**/api/tenant/communication/channels', route => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    return route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: provisionedChannelPayload.data.channel }),
+    });
+  });
+
+  await page.route('**/api/tenant/communication/channels/channel-provisioned-1/connect', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify(provisionedChannelPayload),
@@ -293,12 +294,13 @@ test.describe('@smoke @communication Communication gate and aliases', () => {
 
   test('/communication/settings/channels provisiona WhatsApp sem campos tecnicos', async ({ page }) => {
     let provisionPayload: Record<string, unknown> | null = null;
-    await page.route('**/api/tenant/communication/channels/provision-whatsapp', route => {
+    await page.route('**/api/tenant/communication/channels', route => {
+      if (route.request().method() !== 'POST') return route.fallback();
       provisionPayload = route.request().postDataJSON() as Record<string, unknown>;
       return route.fulfill({
-        status: 200,
+        status: 201,
         contentType: 'application/json',
-        body: JSON.stringify(provisionedChannelPayload),
+        body: JSON.stringify({ data: provisionedChannelPayload.data.channel }),
       });
     });
 
@@ -321,12 +323,18 @@ test.describe('@smoke @communication Communication gate and aliases', () => {
     await expect(page.getByText('QR seguro de teste')).toBeVisible();
     expect(provisionPayload).toEqual({
       name: 'WhatsApp Atendimento',
-      expected_phone_number: '5531999999999',
+      type: 'whatsapp',
+      provider: 'z_api',
+      phone_number: '5531999999999',
+      status: 'draft',
       default_department_id: null,
       default_assignee_id: null,
+      unit_id: null,
+      provider_instance_id: null,
     });
-    expect(provisionPayload).not.toHaveProperty('provider_instance_id');
     expect(provisionPayload).not.toHaveProperty('provider_instance_token');
     expect(provisionPayload).not.toHaveProperty('provider_client_token');
   });
 });
+
+

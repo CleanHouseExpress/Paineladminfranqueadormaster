@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   Bot,
@@ -25,7 +25,6 @@ import { useTenant } from '../../shared/context/TenantContext';
 import { useRealtime } from '../../services/realtime';
 import {
   useConversation,
-  useConversationMessageStatuses,
   useConversationMessages,
   useConversationTimeline,
   useCommunicationAssignees,
@@ -157,9 +156,9 @@ function formatHandoffStatusLabel(value?: string | null) {
 function formatDeliveryStatusLabel(value?: string | null) {
   const status = String(value ?? '').toLowerCase();
   if (['pending', 'sending'].includes(status)) return 'Enviando...';
-  if (status === 'sent') return 'Enviada ✓';
-  if (status === 'delivered') return 'Entregue ✓✓';
-  if (status === 'read') return 'Lida ✓✓';
+  if (status === 'sent') return 'Enviada âœ“';
+  if (status === 'delivered') return 'Entregue âœ“âœ“';
+  if (status === 'read') return 'Lida âœ“âœ“';
   if (status === 'failed') return 'Falhou';
   return value ?? '';
 }
@@ -335,7 +334,6 @@ export function CommunicationInboxPage() {
 
   const selectedConversationQuery = useConversation(selectedConversationId);
   const messagesQuery = useConversationMessages(selectedConversationId);
-  const messageStatusesQuery = useConversationMessageStatuses(selectedConversationId);
   const timelineQuery = useConversationTimeline(
     activeConversationTab === 'timeline' ? selectedConversationId : null,
   );
@@ -361,9 +359,18 @@ export function CommunicationInboxPage() {
     ?? conversations.find(conversation => conversation.id === selectedConversationId)
     ?? null;
   const messageStatusById = useMemo(() => {
-    const statuses = new Map(messageStatusesQuery.data?.map(status => [status.messageId, status]) ?? []);
+    const statuses = new Map<string, { status?: string | null; sentAt?: string | null; deliveredAt?: string | null; readAt?: string | null; failedAt?: string | null }>();
+    for (const message of messagesQuery.data?.data ?? []) {
+      statuses.set(message.id, {
+        status: message.status,
+        sentAt: message.sentAt,
+        deliveredAt: message.deliveredAt,
+        readAt: message.readAt,
+        failedAt: message.failedAt,
+      });
+    }
     return statuses;
-  }, [messageStatusesQuery.data]);
+  }, [messagesQuery.data]);
 
   useEffect(() => {
     if (!selectedConversationId && conversations.length > 0) {
@@ -427,7 +434,6 @@ export function CommunicationInboxPage() {
       conversationsQuery.refetch(),
       selectedConversationId ? selectedConversationQuery.refetch() : Promise.resolve(),
       selectedConversationId ? messagesQuery.refetch() : Promise.resolve(),
-      selectedConversationId ? messageStatusesQuery.refetch() : Promise.resolve(),
     ]);
   };
 
@@ -454,13 +460,12 @@ export function CommunicationInboxPage() {
       conversationsQuery.refetch(),
       shouldRefreshSelectedConversation ? selectedConversationQuery.refetch() : Promise.resolve(),
       shouldRefreshMessages ? messagesQuery.refetch() : Promise.resolve(),
-      shouldRefreshStatuses ? messageStatusesQuery.refetch() : Promise.resolve(),
+      shouldRefreshStatuses ? messagesQuery.refetch() : Promise.resolve(),
       shouldRefreshTimeline ? timelineQuery.refetch() : Promise.resolve(),
     ]);
   }, [
     activeConversationTab,
     conversationsQuery,
-    messageStatusesQuery,
     messagesQuery,
     selectedConversationId,
     selectedConversationQuery,
@@ -949,7 +954,7 @@ export function CommunicationInboxPage() {
                             >
                               <Icon className="h-3.5 w-3.5" />
                               <span>{message.senderName || message.senderType}</span>
-                              <span>·</span>
+                              <span>Â·</span>
                               <span>{formatDateTime(message.createdAt)}</span>
                             </div>
                             <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.body || 'Mensagem sem texto'}</p>
@@ -1228,3 +1233,4 @@ export function CommunicationInboxPage() {
     </CommunicationAreaShell>
   );
 }
+

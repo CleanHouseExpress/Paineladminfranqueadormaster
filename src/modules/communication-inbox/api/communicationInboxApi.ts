@@ -1,8 +1,7 @@
-import { apiClient } from '../../../services/apiClient';
+﻿import { apiClient } from '../../../services/apiClient';
 import {
   normalizeAssignee,
   normalizeConversation,
-  normalizeMessageDeliveryStatus,
   normalizeMessage,
   normalizePaginated,
   normalizeSummary,
@@ -15,7 +14,6 @@ import type {
   ConversationTimelineEvent,
   ConversationFilters,
   InboxSummary,
-  MessageDeliveryStatus,
   MessageFilters,
   PaginatedResult,
 } from '../types';
@@ -92,12 +90,6 @@ export const communicationInboxApi = {
     return normalizePaginated(payload, normalizeMessage);
   },
 
-  async listMessageStatuses(conversationId: string | number): Promise<MessageDeliveryStatus[]> {
-    const payload = await apiClient.get<unknown>(
-      `${INBOX_BASE}/conversations/${conversationId}/messages/status`,
-    );
-    return normalizePaginated(payload, normalizeMessageDeliveryStatus).data;
-  },
 
   async listTimeline(conversationId: string | number): Promise<ConversationTimelineEvent[]> {
     const payload = await apiClient.get<unknown>(
@@ -175,3 +167,4 @@ export const communicationInboxApi = {
     return normalizeMessagePayload(payload);
   },
 };
+

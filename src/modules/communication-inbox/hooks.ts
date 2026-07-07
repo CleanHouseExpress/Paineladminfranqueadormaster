@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type DependencyList } from 'react';
+﻿import { useCallback, useEffect, useMemo, useState, type DependencyList } from 'react';
 import { communicationInboxApi } from './api/communicationInboxApi';
 import type {
   CommunicationAssignee,
@@ -7,7 +7,6 @@ import type {
   ConversationTimelineEvent,
   ConversationFilters,
   InboxSummary,
-  MessageDeliveryStatus,
   MessageFilters,
   PaginatedResult,
 } from './types';
@@ -161,13 +160,6 @@ export function useConversationMessages(conversationId?: string | null, filters:
   );
 }
 
-export function useConversationMessageStatuses(conversationId?: string | null) {
-  return useAsyncQuery<MessageDeliveryStatus[]>(
-    () => communicationInboxApi.listMessageStatuses(conversationId as string),
-    [conversationId],
-    Boolean(conversationId),
-  );
-}
 
 export function useConversationTimeline(conversationId?: string | null) {
   return useAsyncQuery<ConversationTimelineEvent[]>(
@@ -227,3 +219,4 @@ export function useTransferConversation() {
     communicationInboxApi.transferConversation(conversationId, assigneeId)
   );
 }
+
