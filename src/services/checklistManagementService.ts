@@ -5,6 +5,7 @@ import type {
   ChecklistMeta,
   ChecklistMetrics,
   ChecklistTemplate,
+  ChecklistTemplateLibraryItem,
   ChecklistTemplatePayload,
 } from '../types/checklistManagement';
 
@@ -33,6 +34,12 @@ function queryString(params: Record<string, unknown>) {
 export const checklistManagementService = {
   listTemplates: (params: Record<string, unknown> = {}) =>
     apiClient.get<ListResponse<ChecklistTemplate>>(`/api/company/checklists/templates${queryString(params)}`),
+
+  listTemplateLibrary: (params: Record<string, unknown> = {}) =>
+    apiClient.get<{ data: ChecklistTemplateLibraryItem[] }>(`/api/company/checklists/template-library${queryString(params)}`),
+
+  importTemplateLibraryItem: async (id: string | number) =>
+    (await apiClient.post<DataResponse<ChecklistTemplate>>(`/api/company/checklists/template-library/${id}/import`)).data,
 
   getTemplate: async (id: string | number) =>
     (await apiClient.get<DataResponse<ChecklistTemplate>>(`/api/company/checklists/templates/${id}`)).data,

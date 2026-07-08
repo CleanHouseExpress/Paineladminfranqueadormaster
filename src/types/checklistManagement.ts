@@ -15,6 +15,16 @@ export interface ChecklistTemplate {
   updated_at?: string | null;
 }
 
+export interface ChecklistTemplateLibraryItem {
+  id: number;
+  slug: string;
+  name: string;
+  category: string;
+  description?: string | null;
+  fields_count: number;
+  automations_count: number;
+}
+
 export interface ChecklistExecution {
   id: number;
   template_id: number;
