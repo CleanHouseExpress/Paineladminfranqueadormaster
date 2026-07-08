@@ -286,7 +286,8 @@ export function ChecklistTemplateFormPage() {
   const [status, setStatus] = useState('draft');
   const [fields, setFields] = useState<DynamicFieldSchema[]>([defaultField(10)]);
   const [automations, setAutomations] = useState<TemplateAutomation[]>([]);
-  const [activeTab, setActiveTab] = useState<'configuration' | 'inventory' | 'automations'>('configuration');
+  const [activeTab, setActiveTab] = useState<'configuration' | 'inventory' | 'automations' | 'preview' | 'publication'>('configuration');
+  const [previewValues, setPreviewValues] = useState<Record<string, unknown>>({});
 
   useEffect(() => {
     if (isNew) return;
@@ -416,6 +417,10 @@ export function ChecklistTemplateFormPage() {
       label: String(field.label),
       type: String(field.field_type ?? field.type),
     }));
+  const requiredCount = fields.filter(field => field.required).length;
+  const automatedFieldKeys = new Set(automations.map(automation => String(automation.condition?.field ?? '')).filter(Boolean));
+  const specialFieldTypes = new Set(['product', 'supplier', 'repeater', 'signature', 'file', 'photo', 'upload']);
+  const specialCount = fields.filter(field => specialFieldTypes.has(String(field.field_type ?? field.type))).length;
 
   return (
     <PageShell
@@ -429,7 +434,7 @@ export function ChecklistTemplateFormPage() {
         </>
       }
     >
-      <div className="flex border-b">
+      <div className="flex gap-1 overflow-x-auto border-b">
         <button
           type="button"
           className={`border-b-2 px-4 py-3 text-sm font-medium ${activeTab === 'configuration' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-muted-foreground'}`}
@@ -456,6 +461,20 @@ export function ChecklistTemplateFormPage() {
           {automations.length > 0 && (
             <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">{automations.length}</span>
           )}
+        </button>
+        <button
+          type="button"
+          className={`shrink-0 border-b-2 px-4 py-3 text-sm font-medium ${activeTab === 'preview' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-muted-foreground'}`}
+          onClick={() => setActiveTab('preview')}
+        >
+          Preview
+        </button>
+        <button
+          type="button"
+          className={`shrink-0 border-b-2 px-4 py-3 text-sm font-medium ${activeTab === 'publication' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-muted-foreground'}`}
+          onClick={() => setActiveTab('publication')}
+        >
+          Publicacao
         </button>
       </div>
 
@@ -488,7 +507,12 @@ export function ChecklistTemplateFormPage() {
             </Button>
           </div>
           {fields.map((field, index) => (
-            <div key={`${field.key}-${index}`} className="grid gap-3 rounded-md border p-3 md:grid-cols-5">
+            <div key={`${field.key}-${index}`} className={`grid gap-3 rounded-md border p-3 md:grid-cols-5 ${field.required ? 'border-amber-300 bg-amber-50/30' : ''}`}>
+              <div className="flex flex-wrap gap-2 md:col-span-5">
+                {field.required ? <span className="rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-700">Obrigatorio</span> : null}
+                {automatedFieldKeys.has(String(field.key)) ? <span className="rounded-full bg-indigo-100 px-2 py-1 text-xs text-indigo-700">Com automacao</span> : null}
+                {specialFieldTypes.has(String(field.field_type ?? field.type)) ? <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs text-emerald-700">Campo operacional</span> : null}
+              </div>
               <Input value={field.key} placeholder="key" onChange={event => updateField(index, { key: event.target.value })} />
               <Input value={field.label} placeholder="Label" onChange={event => updateField(index, { label: event.target.value })} />
               <select
@@ -546,13 +570,13 @@ export function ChecklistTemplateFormPage() {
             numericFields={numericFields}
           />
         )
-      ) : isNew ? (
+      ) : activeTab === 'automations' && isNew ? (
         <div className="rounded-xl border border-dashed bg-muted/20 p-12 text-center">
           <Zap className="mx-auto size-10 text-muted-foreground/50" />
           <p className="mt-3 font-medium">Salve o modelo primeiro</p>
           <p className="mt-1 text-sm text-muted-foreground">As automacoes ficam disponiveis depois que o template recebe um ID.</p>
         </div>
-      ) : (
+      ) : activeTab === 'automations' ? (
         <div className="grid gap-4 rounded-md border bg-card p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -602,7 +626,50 @@ export function ChecklistTemplateFormPage() {
             </Button>
           </div>
         </div>
-      )}    </PageShell>
+      ) : activeTab === 'preview' ? (
+        <div className="rounded-md border bg-card p-4">
+          <div className="mb-4">
+            <h2 className="font-medium">Preview do formulario</h2>
+            <p className="text-sm text-muted-foreground">Visualizacao simples de como o franqueado vera o formulario. Nenhuma resposta sera salva.</p>
+          </div>
+          <DynamicFormRenderer
+            schema={fields}
+            values={previewValues}
+            onChange={(key, value) => setPreviewValues(current => ({ ...current, [key]: value }))}
+            showProgress
+            highlightRequired
+          />
+        </div>
+      ) : activeTab === 'publication' ? (
+        <div className="grid gap-4 rounded-md border bg-card p-4">
+          <div>
+            <h2 className="font-medium">Publicacao</h2>
+            <p className="text-sm text-muted-foreground">Revise o status antes de liberar este template para execucao nas unidades.</p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-4">
+            <div className="rounded-md border p-3"><div className="text-xs text-muted-foreground">Status</div><div className="mt-1 font-semibold">{status}</div></div>
+            <div className="rounded-md border p-3"><div className="text-xs text-muted-foreground">Campos</div><div className="mt-1 font-semibold">{fields.length}</div></div>
+            <div className="rounded-md border p-3"><div className="text-xs text-muted-foreground">Obrigatorios</div><div className="mt-1 font-semibold">{requiredCount}</div></div>
+            <div className="rounded-md border p-3"><div className="text-xs text-muted-foreground">Automacoes</div><div className="mt-1 font-semibold">{automations.length}</div></div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {!isNew && status !== 'published' && <Button disabled={saving} onClick={() => void publishTemplate()}><Send className="size-4" />Publicar template</Button>}
+            {!isNew && status !== 'archived' && <Button disabled={saving} variant="outline" onClick={() => void archiveTemplate()}><Archive className="size-4" />Arquivar</Button>}
+          </div>
+        </div>
+      ) : null}
+
+      <aside className="rounded-md border bg-card p-4">
+        <h2 className="font-medium">Resumo do template</h2>
+        <div className="mt-4 grid gap-3 text-sm md:grid-cols-5">
+          <div><div className="text-xs text-muted-foreground">Status</div><div className="mt-1"><StatusBadge status={status} /></div></div>
+          <div><div className="text-xs text-muted-foreground">Campos</div><strong>{fields.length}</strong></div>
+          <div><div className="text-xs text-muted-foreground">Obrigatorios</div><strong>{requiredCount}</strong></div>
+          <div><div className="text-xs text-muted-foreground">Operacionais</div><strong>{specialCount}</strong></div>
+          <div><div className="text-xs text-muted-foreground">Automacoes</div><strong>{automations.length}</strong></div>
+        </div>
+      </aside>
+    </PageShell>
   );
 }
 
