@@ -4,7 +4,7 @@ import {
   Building2, Users, DollarSign, TrendingUp, BarChart3, Package,
   Receipt, ClipboardCheck, AlertCircle, BookOpen, MessageCircle,
   Instagram, Bot, Zap, FileBarChart, Plug, Star, Boxes,
-  Search, Filter, CheckCircle, Lock, Clock, ChevronRight
+  Search, Filter, CheckCircle, Lock, Clock, ChevronRight, LayoutTemplate
 } from "lucide-react";
 import { mockModules, moduleCategories } from "../data/mockData";
 
@@ -12,8 +12,12 @@ type ModuleStatus = "active" | "available" | "review" | "development" | "blocked
 
 const iconMap: Record<string, React.FC<any>> = {
   Building2, Users, DollarSign, TrendingUp, BarChart3, Package,
-  Receipt, ClipboardCheck, AlertCircle, BookOpen, MessageCircle,
+  Receipt, ClipboardCheck, AlertCircle, BookOpen, MessageCircle, LayoutTemplate,
   Instagram, Bot, Zap, FileBarChart, Plug, Star, Boxes,
+};
+
+const directModuleRoutes: Record<string, string> = {
+  "form-builder": "/settings/form-builder",
 };
 
 const statusConfig: Record<ModuleStatus, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
@@ -63,14 +67,14 @@ function ModuleCard({ module }: { module: typeof mockModules[0] }) {
         {module.status === "active" && (
           <button className="flex-1 px-3 py-2 rounded-lg text-white transition-colors"
             style={{ background: "#6366F1", fontSize: "12px", fontWeight: 500 }}
-            onClick={e => { e.stopPropagation(); }}>
+            onClick={e => { e.stopPropagation(); navigate(directModuleRoutes[module.id] ?? `/modules/${module.id}`); }}>
             Configurar
           </button>
         )}
         {module.status === "available" && (
           <button className="flex-1 px-3 py-2 rounded-lg transition-colors"
             style={{ background: "#EEF2FF", color: "#6366F1", fontSize: "12px", fontWeight: 500 }}
-            onClick={e => { e.stopPropagation(); navigate(`/modules/${module.id}/request`); }}>
+            onClick={e => { e.stopPropagation(); navigate(directModuleRoutes[module.id] ?? `/modules/${module.id}/request`); }}>
             Ativar módulo
           </button>
         )}

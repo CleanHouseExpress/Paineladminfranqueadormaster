@@ -197,7 +197,7 @@ async function mockAuth(page: Page) {
     contentType: 'application/json',
     body: JSON.stringify({ data: { id: 1, name: 'Orchestra E2E', plan: 'enterprise' } }),
   }));
-  await page.route('**/api/me/modules/sidebar', route => route.fulfill({
+  await page.route('**/api/me/modules**', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({ data: [

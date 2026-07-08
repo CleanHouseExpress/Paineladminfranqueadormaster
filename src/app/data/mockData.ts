@@ -19,6 +19,7 @@ export const mockModules = [
   { id: "diario", name: "Diário de Bordo", description: "Registro diário das operações de cada unidade com histórico e auditoria.", category: "Operação", icon: "BookOpen", status: "active" as const, price: "Incluso" },
   { id: "whatsapp", name: "Atendimento WhatsApp", description: "Central de atendimento multicanal via WhatsApp com distribuição por unidade.", category: "Atendimento", icon: "MessageCircle", status: "available" as const, price: "R$ 297/mês" },
   { id: "instagram", name: "Atendimento Instagram", description: "Gestão de mensagens e comentários do Instagram de todas as unidades.", category: "Atendimento", icon: "Instagram", status: "review" as const, price: "R$ 197/mês" },
+  { id: "form-builder", name: "Form Builder", description: "Configure formularios, campos e templates operacionais sem escrever codigo.", category: "Configurações", icon: "LayoutTemplate", status: "active" as const, price: "Incluso" },
   { id: "agente-ia", name: "Agente IA", description: "Assistente inteligente para resposta automática, análise e sugestões operacionais.", category: "IA", icon: "Bot", status: "development" as const, price: "Em breve" },
   { id: "automacoes", name: "Automações", description: "Fluxos automatizados para notificações, cobranças e processos repetitivos.", category: "Automações", icon: "Zap", status: "available" as const, price: "R$ 197/mês" },
   { id: "relatorios", name: "Relatórios Avançados", description: "Relatórios customizados com exportação e agendamento automático.", category: "Relatórios", icon: "FileBarChart", status: "available" as const, price: "R$ 97/mês" },
@@ -121,7 +122,7 @@ export const mockRoyalties = [
   { unit: "Unidade BH Savassi", code: "BV-007", revenue: 22100, royaltyRate: 5, royaltyValue: 1105, adFundRate: 2, adFundValue: 442, total: 1547, status: "overdue" as const, dueDate: "2024-01-15", paidDate: null },
 ];
 
-export const moduleCategories = ["Todos", "Gestão da Rede", "Clientes e CRM", "Financeiro", "Operação", "Atendimento", "IA", "Automações", "Relatórios", "Integrações"];
+export const moduleCategories = ["Todos", "Gestão da Rede", "Clientes e CRM", "Financeiro", "Operação", "Atendimento", "Configurações", "IA", "Automações", "Relatórios", "Integrações"];
 
 export const roles = [
   { id: "master", name: "Franqueador Master", description: "Acesso total à plataforma e todas as unidades", users: 1, color: "#6366F1" },

@@ -22,7 +22,7 @@ async function mockAuth(page: Page) {
   await page.addInitScript(() => window.localStorage.setItem('orchestra_auth_token', 'documents-e2e-token'));
   await page.route('**/api/me', route => json(route, { data: { id: 1, name: 'Admin Master', email: 'admin@orchestra.test' } }));
   await page.route('**/api/me/company', route => json(route, { data: { id: 1, name: 'Orchestra E2E', plan: 'enterprise' } }));
-  await page.route('**/api/me/modules/sidebar', route => json(route, { data: [
+  await page.route('**/api/me/modules**', route => json(route, { data: [
     { module_id: 'dashboard', name: 'Dashboard', status: 'active' },
     { module_id: 'documents', name: 'Documentos', status: 'active' },
   ] }));

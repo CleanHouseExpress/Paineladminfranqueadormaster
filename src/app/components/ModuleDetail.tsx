@@ -3,14 +3,18 @@ import {
   ArrowLeft, CheckCircle, Settings, Link, History, Shield,
   TrendingUp, Users, Clock, ChevronRight, Building2, DollarSign,
   BarChart3, Package, Receipt, ClipboardCheck, AlertCircle,
-  BookOpen, MessageCircle, Bot, Zap, FileBarChart, Plug, Star, Boxes, Instagram
+  BookOpen, MessageCircle, Bot, Zap, FileBarChart, Plug, Star, Boxes, Instagram, LayoutTemplate
 } from "lucide-react";
 import { mockModules } from "../data/mockData";
 
 const iconMap: Record<string, React.FC<any>> = {
   Building2, Users, DollarSign, TrendingUp, BarChart3, Package,
-  Receipt, ClipboardCheck, AlertCircle, BookOpen, MessageCircle,
+  Receipt, ClipboardCheck, AlertCircle, BookOpen, MessageCircle, LayoutTemplate,
   Instagram, Bot, Zap, FileBarChart, Plug, Star, Boxes,
+};
+
+const directModuleRoutes: Record<string, string> = {
+  "form-builder": "/settings/form-builder",
 };
 
 const moduleDetails: Record<string, {
@@ -95,13 +99,14 @@ export function ModuleDetail() {
           </div>
           <div className="flex flex-col gap-2">
             {module.status === "active" && (
-              <button className="px-5 py-2.5 rounded-xl text-white transition-opacity hover:opacity-90"
+              <button onClick={() => navigate(directModuleRoutes[module.id] ?? `/modules/${module.id}`)}
+                className="px-5 py-2.5 rounded-xl text-white transition-opacity hover:opacity-90"
                 style={{ background: "#6366F1", fontSize: "13px", fontWeight: 500 }}>
                 Configurar módulo
               </button>
             )}
             {module.status === "available" && (
-              <button onClick={() => navigate(`/modules/${module.id}/request`)}
+              <button onClick={() => navigate(directModuleRoutes[module.id] ?? `/modules/${module.id}/request`)}
                 className="px-5 py-2.5 rounded-xl text-white transition-opacity hover:opacity-90"
                 style={{ background: "#6366F1", fontSize: "13px", fontWeight: 500 }}>
                 Ativar módulo
