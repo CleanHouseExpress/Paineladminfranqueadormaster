@@ -60,6 +60,28 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   },
 
   {
+    id: 'onboarding',
+    name: 'Onboarding',
+    description: 'Programas versionados para conduzir redes, unidades e franqueados ate o Go Live.',
+    icon: 'Rocket',
+    status: 'active',
+    nav: {
+      show: true,
+      order: 1.5,
+      group: 'main',
+      children: [
+        { label: 'Programas', path: '/onboarding/programs' },
+        { label: 'Implementations', path: '/onboarding/implementations' },
+      ],
+    },
+    routes: [
+      { path: '/onboarding/programs', componentId: 'onboarding-program-builder', requiredPermissions: ['tenant.onboarding.programs.view'] },
+      { path: '/onboarding/implementations', componentId: 'onboarding-implementation-lifecycle', requiredPermissions: ['tenant.onboarding.implementations.view'] },
+    ],
+    marketplace: { show: true, category: 'Gestao da Rede', price: 'Incluso' },
+  },
+
+  {
     id: 'customers',
     name: 'Clientes',
     description: 'Cadastro configuravel de clientes, pacientes, alunos ou associados por tenant.',

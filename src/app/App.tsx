@@ -114,6 +114,8 @@ const CommunicationSettingsSlaPage = lazyPage(() => import('../modules/communica
 const CommunicationSettingsTagsPage = lazyPage(() => import('../modules/communication-inbox'), 'TagsPage');
 const CommunicationSettingsAiPage = lazyPage(() => import('../modules/communication-inbox'), 'AIPage');
 const CommunicationSettingsWebhooksPage = lazyPage(() => import('../modules/communication-inbox'), 'WebhooksPage');
+const OnboardingProgramBuilderPage = lazyPage(() => import('./components/onboarding/OnboardingProgramBuilder'), 'OnboardingProgramBuilder');
+const OnboardingImplementationLifecyclePage = lazyPage(() => import('./components/onboarding/OnboardingImplementationLifecycle'), 'OnboardingImplementationLifecycle');
 const ImplementationsDashboardPage = lazyPage(() => import('./components/implementations/ImplementationsDashboard'), 'ImplementationsDashboard');
 const ImplementationTemplatesPage = lazyPage(() => import('./components/implementations/ImplementationTemplates'), 'ImplementationTemplates');
 
@@ -223,6 +225,8 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   'communication-settings-tags': CommunicationSettingsTagsPage,
   'communication-settings-ai': CommunicationSettingsAiPage,
   'communication-settings-webhooks': CommunicationSettingsWebhooksPage,
+  'onboarding-program-builder': OnboardingProgramBuilderPage,
+  'onboarding-implementation-lifecycle': OnboardingImplementationLifecyclePage,
   support: CommunicationInboxPage,
   automations: () => <PlaceholderPage title="Automacoes" description="Fluxos automatizados para notificacoes, cobrancas e processos repetitivos." />,
   reports: () => <PlaceholderPage title="Relatorios" description="Relatorios customizados com exportacao e agendamento automatico." />,

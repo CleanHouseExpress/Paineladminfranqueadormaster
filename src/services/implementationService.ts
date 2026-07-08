@@ -1,4 +1,3 @@
-import { implementationsMock, implementationTemplatesMock } from '../app/data/implementationMockData';
 import { apiClient, apiClientConfig, ApiError, AUTH_TOKEN_STORAGE_KEY } from './apiClient';
 import type {
   ImplementationChecklistItem,
@@ -16,94 +15,10 @@ import type {
   UnitImplementation,
 } from '../types/implementation';
 
-const IMPLEMENTATIONS_KEY = 'orchestra-unit-implementations-v1';
-const TEMPLATES_KEY = 'orchestra-implementation-templates-v1';
-
 type ApiRecord = Record<string, unknown>;
-
-const viteEnv = ((import.meta as ImportMeta & { env?: { DEV?: boolean; MODE?: string } }).env ?? {});
-const isDev = Boolean(viteEnv.DEV) || viteEnv.MODE === 'development';
-
-function canUseStorage() {
-  return typeof window !== 'undefined' && Boolean(window.localStorage);
-}
-
-function readJson<T>(key: string, fallback: T): T {
-  if (!canUseStorage()) return fallback;
-
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return fallback;
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeJson<T>(key: string, value: T) {
-  if (!canUseStorage()) return;
-  window.localStorage.setItem(key, JSON.stringify(value));
-}
 
 function now() {
   return new Date().toISOString();
-}
-
-function today() {
-  return now().slice(0, 10);
-}
-
-function cloneImplementation(item: UnitImplementation): UnitImplementation {
-  return JSON.parse(JSON.stringify(item)) as UnitImplementation;
-}
-
-function cloneTemplate(item: ImplementationTemplate): ImplementationTemplate {
-  return JSON.parse(JSON.stringify(item)) as ImplementationTemplate;
-}
-
-function normalizeImplementations(items: unknown): UnitImplementation[] {
-  if (!Array.isArray(items)) return implementationsMock.map(cloneImplementation);
-
-  return items
-    .filter(Boolean)
-    .map(item => ({
-      ...cloneImplementation(item as UnitImplementation),
-      phases: Array.isArray((item as UnitImplementation).phases) ? (item as UnitImplementation).phases : [],
-      history: Array.isArray((item as UnitImplementation).history) ? (item as UnitImplementation).history : [],
-    }));
-}
-
-function normalizeTemplates(items: unknown): ImplementationTemplate[] {
-  if (!Array.isArray(items)) return implementationTemplatesMock.map(cloneTemplate);
-
-  return items
-    .filter(Boolean)
-    .map(item => ({
-      ...cloneTemplate(item as ImplementationTemplate),
-      phases: Array.isArray((item as ImplementationTemplate).phases) ? (item as ImplementationTemplate).phases : [],
-    }));
-}
-
-function getMockImplementations() {
-  const stored = readJson<unknown>(IMPLEMENTATIONS_KEY, null);
-  const implementations = normalizeImplementations(stored ?? implementationsMock);
-  if (!stored) writeJson(IMPLEMENTATIONS_KEY, implementations);
-  return implementations;
-}
-
-function saveMockImplementations(items: UnitImplementation[]) {
-  writeJson(IMPLEMENTATIONS_KEY, items);
-}
-
-function getMockTemplates() {
-  const stored = readJson<unknown>(TEMPLATES_KEY, null);
-  const templates = normalizeTemplates(stored ?? implementationTemplatesMock);
-  if (!stored) writeJson(TEMPLATES_KEY, templates);
-  return templates;
-}
-
-function saveMockTemplates(items: ImplementationTemplate[]) {
-  writeJson(TEMPLATES_KEY, items);
 }
 
 function stringValue(value: unknown, fallback = '') {
@@ -140,16 +55,6 @@ function unwrapList(value: unknown): unknown[] {
   if (Array.isArray(record.items)) return record.items;
   if (Array.isArray(record.data)) return record.data;
   return [];
-}
-
-function isSafeDevFallback(error: unknown) {
-  if (!isDev) return false;
-  if (error instanceof ApiError) return error.status === 404 || error.status === 501;
-  return error instanceof TypeError;
-}
-
-function isHardApiError(error: unknown) {
-  return error instanceof ApiError && [401, 403, 422, 500].includes(error.status);
 }
 
 function shouldTreatUnitImplementationAsEmpty(error: unknown) {
@@ -430,73 +335,9 @@ function templateToPayload(template: ImplementationTemplate) {
   };
 }
 
-function recalculateMock(implementation: UnitImplementation): UnitImplementation {
-  const phases = (implementation.phases ?? []).map(phase => {
-    const tasks = phase.tasks ?? [];
-    const status = tasks.some(task => task.status === 'blocked')
-      ? 'blocked'
-      : tasks.some(task => task.status === 'delayed')
-        ? 'delayed'
-        : tasks.length > 0 && tasks.every(task => task.status === 'completed')
-          ? 'completed'
-          : tasks.some(task => task.status === 'completed' || task.status === 'in_progress')
-            ? 'in_progress'
-            : 'pending';
-
-    return { ...phase, status };
-  });
-
-  const tasks = phases.flatMap(phase => phase.tasks ?? []);
-  const completed = tasks.filter(task => task.status === 'completed').length;
-  const progress = tasks.length === 0 ? 0 : Math.round((completed / tasks.length) * 100);
-  const currentPhase = phases.find(phase => phase.status !== 'completed') ?? phases[phases.length - 1];
-  const hasDelayed = tasks.some(task => task.status === 'blocked' || task.status === 'delayed');
-
-  return {
-    ...implementation,
-    phases,
-    progress,
-    progressPercent: progress,
-    currentPhaseId: currentPhase?.id ?? implementation.currentPhaseId,
-    status: implementation.actualOpeningDate
-      ? 'completed'
-      : hasDelayed
-        ? 'delayed'
-        : progress > 0
-          ? 'in_progress'
-          : implementation.status,
-    updatedAt: now(),
-  };
-}
-
-function updateMockImplementation(
-  implementationId: string,
-  update: (implementation: UnitImplementation) => UnitImplementation,
-) {
-  const implementations = getMockImplementations();
-  const next = implementations.map(item => (
-    item.id === implementationId ? recalculateMock(update(cloneImplementation(item))) : item
-  ));
-  saveMockImplementations(next);
-  return next.find(item => item.id === implementationId) ?? null;
-}
-
-async function withSafeFallback<T>(request: () => Promise<T>, fallback: () => T | Promise<T>): Promise<T> {
-  try {
-    return await request();
-  } catch (error) {
-    if (isHardApiError(error)) throw error;
-    if (isSafeDevFallback(error)) return fallback();
-    throw error;
-  }
-}
-
 export const implementationService = {
   async listImplementations(): Promise<UnitImplementation[]> {
-    return withSafeFallback(
-      async () => unwrapList(await tenantApiGet<unknown>('/api/tenant/implementations')).map(mapImplementation),
-      () => getMockImplementations(),
-    );
+    return unwrapList(await tenantApiGet<unknown>('/api/tenant/implementations')).map(mapImplementation);
   },
 
   async getImplementationByUnit(unitId: number | string): Promise<UnitImplementation | null> {
@@ -505,271 +346,66 @@ export const implementationService = {
       return mapImplementation(response);
     } catch (error) {
       if (shouldTreatUnitImplementationAsEmpty(error)) return null;
-      if (isHardApiError(error)) throw error;
-      if (isSafeDevFallback(error)) return getMockImplementations().find(item => String(item.unitId) === String(unitId)) ?? null;
       throw error;
     }
   },
 
   async createImplementation(unitId: number | string, templateId: string): Promise<UnitImplementation> {
-    return withSafeFallback(
-      async () => mapImplementation(await tenantApiPost<unknown>(`/api/tenant/units/${unitId}/implementation/start`, { template_id: templateId })),
-      () => {
-        const templates = getMockTemplates();
-        const template = templates.find(item => item.id === templateId) ?? templates[0] ?? implementationTemplatesMock[0];
-        const existing = getMockImplementations().find(item => String(item.unitId) === String(unitId));
-        if (existing) return existing;
-
-        const phases = (template.phases ?? []).map(phase => ({
-          id: phase.id,
-          name: phase.title,
-          title: phase.title,
-          position: phase.order,
-          order: phase.order,
-          status: 'pending' as const,
-          startDate: null,
-          dueDate: null,
-          startedAt: null,
-          completedAt: null,
-          tasks: (phase.tasks ?? []).map(task => ({
-            id: task.id,
-            phaseId: phase.id,
-            name: task.title,
-            title: task.title,
-            description: task.description,
-            position: task.relativeDay,
-            status: 'pending' as const,
-            priority: task.priority,
-            responsibleUserId: null,
-            responsibleUserName: task.suggestedAssignee,
-            assignee: task.suggestedAssignee,
-            startDate: null,
-            dueDate: new Date(Date.now() + task.relativeDay * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-            completedAt: null,
-            dependsOnTaskIds: task.dependencies ?? [],
-            checklist: (task.checklist ?? []).map((title, index) => ({ id: `${task.id}-${index}`, title, completed: false })),
-            comments: [],
-            history: [],
-            files: [],
-            dependencies: task.dependencies ?? [],
-            documentRequired: task.documentRequired,
-            trainingRequired: task.trainingRequired,
-          })),
-        }));
-
-        const implementation = recalculateMock({
-          id: `impl-${unitId}`,
-          unitId,
-          unitName: `Unidade ${unitId}`,
-          city: '',
-          state: '',
-          brand: 'Bella Vita',
-          status: 'not_started',
-          responsibleUserId: null,
-          responsibleUserName: 'Consultor de implantacao',
-          consultant: 'Consultor de implantacao',
-          templateId: template.id,
-          plannedOpeningDate: new Date(Date.now() + 98 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-          expectedOpeningDate: new Date(Date.now() + 98 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-          actualOpeningDate: null,
-          currentPhaseId: phases[0]?.id ?? 'contract',
-          progressPercent: 0,
-          progress: 0,
-          createdAt: now(),
-          updatedAt: now(),
-          phases,
-          history: [{ id: `impl-${unitId}-created`, title: 'Implantacao criada', createdAt: now() }],
-        });
-
-        saveMockImplementations([...getMockImplementations(), implementation]);
-        return implementation;
-      },
-    );
+    return mapImplementation(await tenantApiPost<unknown>(`/api/tenant/units/${unitId}/implementation/start`, { template_id: templateId }));
   },
 
   async getImplementation(implementationId: string): Promise<UnitImplementation> {
-    return withSafeFallback(
-      async () => mapImplementation(await tenantApiGet<unknown>(`/api/tenant/implementations/${implementationId}`)),
-      () => {
-        const implementation = getMockImplementations().find(item => item.id === implementationId);
-        if (!implementation) throw new Error('Implantacao nao encontrada.');
-        return implementation;
-      },
-    );
+    return mapImplementation(await tenantApiGet<unknown>(`/api/tenant/implementations/${implementationId}`));
   },
 
   async updateImplementation(implementationId: string, payload: Partial<UnitImplementation>): Promise<UnitImplementation> {
-    return withSafeFallback(
-      async () => mapImplementation(await tenantApiPut<unknown>(`/api/tenant/implementations/${implementationId}`, {
-        status: payload.status,
-        responsible_user_id: payload.responsibleUserId,
-        planned_opening_date: payload.plannedOpeningDate,
-        actual_opening_date: payload.actualOpeningDate,
-      })),
-      () => {
-        const updated = updateMockImplementation(implementationId, implementation => ({ ...implementation, ...payload }));
-        if (!updated) throw new Error('Implantacao nao encontrada.');
-        return updated;
-      },
-    );
+    return mapImplementation(await tenantApiPut<unknown>(`/api/tenant/implementations/${implementationId}`, {
+      status: payload.status,
+      responsible_user_id: payload.responsibleUserId,
+      planned_opening_date: payload.plannedOpeningDate,
+      actual_opening_date: payload.actualOpeningDate,
+    }));
   },
 
   async completeTask(implementationId: string, taskId: string): Promise<UnitImplementation | null> {
-    return withSafeFallback(
-      async () => {
-        await tenantApiPost<unknown>(`/api/tenant/implementations/${implementationId}/tasks/${taskId}/complete`, {});
-        return mapImplementation(await tenantApiGet<unknown>(`/api/tenant/implementations/${implementationId}`));
-      },
-      () => updateMockImplementation(implementationId, implementation => ({
-        ...implementation,
-        phases: (implementation.phases ?? []).map(phase => ({
-          ...phase,
-          tasks: (phase.tasks ?? []).map(task => {
-            if (task.id !== taskId) return task;
-            const history: ImplementationHistoryItem[] = [
-              ...(task.history ?? []),
-              { id: `${task.id}-completed-${Date.now()}`, title: 'Tarefa concluida', createdAt: now() },
-            ];
-            return {
-              ...task,
-              status: 'completed',
-              completedAt: today(),
-              checklist: (task.checklist ?? []).map(item => ({ ...item, completed: true })),
-              history,
-            };
-          }),
-        })),
-        history: [
-          ...(implementation.history ?? []),
-          { id: `${implementation.id}-task-${Date.now()}`, title: 'Tarefa concluida', description: taskId, createdAt: now() },
-        ],
-      })),
-    );
+    await tenantApiPost<unknown>(`/api/tenant/implementations/${implementationId}/tasks/${taskId}/complete`, {});
+    return mapImplementation(await tenantApiGet<unknown>(`/api/tenant/implementations/${implementationId}`));
   },
 
   async updateTask(implementationId: string, taskId: string, payload: Partial<ImplementationTask>): Promise<ImplementationTask> {
-    return withSafeFallback(
-      async () => mapTask(await tenantApiPut<unknown>(`/api/tenant/implementations/${implementationId}/tasks/${taskId}`, {
-        name: payload.name ?? payload.title,
-        description: payload.description,
-        status: payload.status,
-        priority: payload.priority,
-        responsible_user_id: payload.responsibleUserId,
-        start_date: payload.startDate,
-        due_date: payload.dueDate,
-        depends_on_task_ids: payload.dependsOnTaskIds ?? payload.dependencies,
-        checklist: payload.checklist,
-      })),
-      () => {
-        const implementation = updateMockImplementation(implementationId, current => ({
-          ...current,
-          phases: (current.phases ?? []).map(phase => ({
-            ...phase,
-            tasks: (phase.tasks ?? []).map(task => task.id === taskId ? { ...task, ...payload } : task),
-          })),
-        }));
-        const task = implementation?.phases.flatMap(phase => phase.tasks ?? []).find(item => item.id === taskId);
-        if (!task) throw new Error('Tarefa nao encontrada.');
-        return task;
-      },
-    );
+    return mapTask(await tenantApiPut<unknown>(`/api/tenant/implementations/${implementationId}/tasks/${taskId}`, {
+      name: payload.name ?? payload.title,
+      description: payload.description,
+      status: payload.status,
+      priority: payload.priority,
+      responsible_user_id: payload.responsibleUserId,
+      start_date: payload.startDate,
+      due_date: payload.dueDate,
+      depends_on_task_ids: payload.dependsOnTaskIds ?? payload.dependencies,
+      checklist: payload.checklist,
+    }));
   },
 
   async reopenTask(implementationId: string, taskId: string): Promise<UnitImplementation | null> {
-    return withSafeFallback(
-      async () => {
-        await tenantApiPost<unknown>(`/api/tenant/implementations/${implementationId}/tasks/${taskId}/reopen`, {});
-        return mapImplementation(await tenantApiGet<unknown>(`/api/tenant/implementations/${implementationId}`));
-      },
-      () => updateMockImplementation(implementationId, implementation => ({
-        ...implementation,
-        phases: (implementation.phases ?? []).map(phase => ({
-          ...phase,
-          tasks: (phase.tasks ?? []).map(task => task.id === taskId ? { ...task, status: 'in_progress', completedAt: null } : task),
-        })),
-      })),
-    );
+    await tenantApiPost<unknown>(`/api/tenant/implementations/${implementationId}/tasks/${taskId}/reopen`, {});
+    return mapImplementation(await tenantApiGet<unknown>(`/api/tenant/implementations/${implementationId}`));
   },
 
   async addTaskComment(implementationId: string, taskId: string, comment: string): Promise<UnitImplementation | null> {
-    return withSafeFallback(
-      async () => {
-        await tenantApiPost<unknown>(`/api/tenant/implementations/${implementationId}/tasks/${taskId}/comments`, { comment });
-        return mapImplementation(await tenantApiGet<unknown>(`/api/tenant/implementations/${implementationId}`));
-      },
-      () => updateMockImplementation(implementationId, implementation => ({
-        ...implementation,
-        phases: (implementation.phases ?? []).map(phase => ({
-          ...phase,
-          tasks: (phase.tasks ?? []).map(task => {
-            if (task.id !== taskId) return task;
-            const comments: ImplementationTaskComment[] = [
-              ...(task.comments ?? []),
-              { id: `${task.id}-comment-${Date.now()}`, author: 'Usuario Orchestra', body: comment, createdAt: now() },
-            ];
-            return { ...task, comments };
-          }),
-        })),
-      })),
-    );
+    await tenantApiPost<unknown>(`/api/tenant/implementations/${implementationId}/tasks/${taskId}/comments`, { comment });
+    return mapImplementation(await tenantApiGet<unknown>(`/api/tenant/implementations/${implementationId}`));
   },
 
   async uploadTaskDocument(implementationId: string, taskId: string, file: File): Promise<UnitImplementation | null> {
-    return withSafeFallback(
-      async () => {
-        const formData = new FormData();
-        formData.append('file', file);
-        await tenantApiPost<unknown>(`/api/tenant/implementations/${implementationId}/tasks/${taskId}/documents`, formData);
-        return mapImplementation(await tenantApiGet<unknown>(`/api/tenant/implementations/${implementationId}`));
-      },
-      () => updateMockImplementation(implementationId, implementation => ({
-        ...implementation,
-        phases: (implementation.phases ?? []).map(phase => ({
-          ...phase,
-          tasks: (phase.tasks ?? []).map(task => {
-            if (task.id !== taskId) return task;
-            const document: ImplementationTaskDocument = {
-              id: `${task.id}-doc-${Date.now()}`,
-              taskId,
-              fileName: file.name,
-              originalName: file.name,
-              mimeType: file.type || null,
-              extension: file.name.split('.').pop() || null,
-              sizeBytes: file.size,
-              status: 'pending_approval',
-              uploadedBy: null,
-              uploadedByName: 'Usuario Orchestra',
-              approvedBy: null,
-              approvedByName: null,
-              approvedAt: null,
-              createdAt: now(),
-            };
-            return { ...task, documents: [document, ...(task.documents ?? [])], files: [file.name, ...(task.files ?? [])] };
-          }),
-        })),
-      })),
-    );
+    const formData = new FormData();
+    formData.append('file', file);
+    await tenantApiPost<unknown>(`/api/tenant/implementations/${implementationId}/tasks/${taskId}/documents`, formData);
+    return mapImplementation(await tenantApiGet<unknown>(`/api/tenant/implementations/${implementationId}`));
   },
 
   async approveTaskDocument(implementationId: string, taskId: string, documentId: string): Promise<UnitImplementation | null> {
-    return withSafeFallback(
-      async () => {
-        await tenantApiPost<unknown>(`/api/tenant/implementations/${implementationId}/tasks/${taskId}/documents/${documentId}/approve`, {});
-        return mapImplementation(await tenantApiGet<unknown>(`/api/tenant/implementations/${implementationId}`));
-      },
-      () => updateMockImplementation(implementationId, implementation => ({
-        ...implementation,
-        phases: (implementation.phases ?? []).map(phase => ({
-          ...phase,
-          tasks: (phase.tasks ?? []).map(task => task.id === taskId ? {
-            ...task,
-            documents: (task.documents ?? []).map(document => document.id === documentId
-              ? { ...document, status: 'approved', approvedByName: 'Usuario Orchestra', approvedAt: now() }
-              : document),
-          } : task),
-        })),
-      })),
-    );
+    await tenantApiPost<unknown>(`/api/tenant/implementations/${implementationId}/tasks/${taskId}/documents/${documentId}/approve`, {});
+    return mapImplementation(await tenantApiGet<unknown>(`/api/tenant/implementations/${implementationId}`));
   },
 
   async downloadTaskDocument(implementationId: string, taskId: string, documentId: string, filename: string): Promise<void> {
@@ -804,84 +440,37 @@ export const implementationService = {
   },
 
   async registerOpeningDate(implementationId: string, date: string): Promise<UnitImplementation | null> {
-    return withSafeFallback(
-      async () => mapImplementation(await tenantApiPost<unknown>(`/api/tenant/implementations/${implementationId}/register-opening`, {
-        actual_opening_date: date,
-      })),
-      () => updateMockImplementation(implementationId, implementation => ({
-        ...implementation,
-        actualOpeningDate: date,
-        status: 'completed',
-        progress: 100,
-        progressPercent: 100,
-        history: [
-          ...(implementation.history ?? []),
-          { id: `${implementation.id}-opening-${Date.now()}`, title: 'Inauguracao registrada', description: date, createdAt: now() },
-        ],
-      })),
-    );
+    return mapImplementation(await tenantApiPost<unknown>(`/api/tenant/implementations/${implementationId}/register-opening`, {
+      actual_opening_date: date,
+    }));
   },
 
   async getHistory(implementationId: string): Promise<ImplementationHistoryItem[]> {
-    return withSafeFallback(
-      async () => unwrapList(await tenantApiGet<unknown>(`/api/tenant/implementations/${implementationId}/history`)).map(mapHistoryItem),
-      () => getMockImplementations().find(item => item.id === implementationId)?.history ?? [],
-    );
+    return unwrapList(await tenantApiGet<unknown>(`/api/tenant/implementations/${implementationId}/history`)).map(mapHistoryItem);
   },
 
   async listTemplates(): Promise<ImplementationTemplate[]> {
-    return withSafeFallback(
-      async () => unwrapList(await tenantApiGet<unknown>('/api/tenant/implementations/templates')).map(mapTemplate),
-      () => getMockTemplates(),
-    );
+    return unwrapList(await tenantApiGet<unknown>('/api/tenant/implementations/templates')).map(mapTemplate);
   },
 
   async saveTemplate(template: ImplementationTemplate): Promise<ImplementationTemplate> {
-    return withSafeFallback(
-      async () => {
-        const payload = templateToPayload(template);
-        const response = template.id
-          ? await tenantApiPut<unknown>(`/api/tenant/implementations/templates/${template.id}`, payload)
-          : await tenantApiPost<unknown>('/api/tenant/implementations/templates', payload);
-        return mapTemplate(response);
-      },
-      () => {
-        const templates = getMockTemplates();
-        const nextTemplate = { ...template, updatedAt: now() };
-        const exists = templates.some(item => item.id === nextTemplate.id);
-        const next = exists
-          ? templates.map(item => (item.id === nextTemplate.id ? nextTemplate : item))
-          : [...templates, nextTemplate];
-        saveMockTemplates(next);
-        return nextTemplate;
-      },
-    );
+    const payload = templateToPayload(template);
+    const response = template.id
+      ? await tenantApiPut<unknown>(`/api/tenant/implementations/templates/${template.id}`, payload)
+      : await tenantApiPost<unknown>('/api/tenant/implementations/templates', payload);
+    return mapTemplate(response);
   },
 
   async deleteTemplate(templateId: string): Promise<void> {
-    return withSafeFallback(
-      async () => {
-        await tenantApiDelete<unknown>(`/api/tenant/implementations/templates/${templateId}`);
-      },
-      () => {
-        saveMockTemplates(getMockTemplates().filter(item => item.id !== templateId));
-      },
-    );
+    await tenantApiDelete<unknown>(`/api/tenant/implementations/templates/${templateId}`);
   },
 
   async getDashboard(): Promise<unknown> {
-    return withSafeFallback(
-      async () => tenantApiGet<unknown>('/api/tenant/implementations/dashboard'),
-      () => ({ data: getMockImplementations() }),
-    );
+    return tenantApiGet<unknown>('/api/tenant/implementations/dashboard');
   },
 
   getErrorMessage(error: unknown, fallback: string): string {
     return apiErrorMessage(error, fallback);
   },
 
-  async resetMocks(): Promise<void> {
-    saveMockImplementations(implementationsMock.map(cloneImplementation));
-    saveMockTemplates(implementationTemplatesMock.map(cloneTemplate));
-  },
 };

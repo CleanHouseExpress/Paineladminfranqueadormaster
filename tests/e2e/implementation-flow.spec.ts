@@ -476,15 +476,16 @@ test('implantacao 422 nao cai para mock', async ({ page }) => {
   await expect(page.getByText('65%')).not.toBeVisible();
 });
 
-test('implantacao network error em dev cai para fallback mock', async ({ page }) => {
+test('implantacao network error nao cai para mock', async ({ page }) => {
   await mockAuth(page);
   await mockUnits(page);
   await mockTemplates(page);
   await page.route('**/api/tenant/units/101/implementation', route => route.abort('failed'));
 
   await page.goto('/units/101?tab=implantacao');
-  await expect(page.getByTestId('implementation-tab')).toBeVisible();
-  await expect(page.getByText('BH Savassi')).toBeVisible();
+  await expect(page.getByText('Nao foi possivel carregar a implantacao da unidade.')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Tentar novamente/i })).toBeVisible();
+  await expect(page.getByText('BH Savassi')).not.toBeVisible();
 });
 
 test('implantacao 404 mostra estado vazio e 500 mostra erro com retry', async ({ page }) => {

@@ -271,7 +271,7 @@ export function UnitImplementationTab({ unit }: UnitImplementationTabProps) {
               <option key={template.id} value={template.id}>{template.name}</option>
             ))}
           </select>
-          <Button type="button" data-testid="implementation-start-button" disabled={saving || !selectedTemplateId} onClick={() => void startImplementation()}>
+          <Button type="button" data-testid="implementation-start-button" disabled={saving || Boolean(error) || !selectedTemplateId} onClick={() => void startImplementation()}>
             {saving ? <RefreshCw className="size-4 animate-spin" /> : <ClipboardCheck className="size-4" />}
             Iniciar implantacao
           </Button>

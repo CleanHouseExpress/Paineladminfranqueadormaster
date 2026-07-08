@@ -2,6 +2,8 @@ export type { ModuleStatus, ModuleUIState, NavChild, NavConfig, RouteConfig, Mar
 export type { WhiteLabelConfig, MenuItemConfig, TenantConfig } from './tenant';
 export type { WizardStepId, WizardStep, OnboardingState, ChecklistItem, TourStop, WizardStepData, NetworkStepData, WhiteLabelStepData, UnitEntry, UserInvite, FinancialStepData } from './onboarding';
 export { WIZARD_STEPS, TOUR_STOPS, INITIAL_CHECKLIST, INITIAL_ONBOARDING_STATE } from './onboarding';
+export type { OnboardingProgram, OnboardingProgramsMeta, OnboardingProgramsResult, OnboardingProgramStatus, OnboardingProgramStep, OnboardingProgramStepSla, OnboardingProgramVersion, OnboardingProgramVersionStatus } from './onboardingProgram';
+export { ONBOARDING_PROGRAM_STATUS_LABELS, ONBOARDING_PROGRAM_VERSION_STATUS_LABELS } from './onboardingProgram';
 export type { FieldType, FieldOrigin, FieldStatus, EntityStatus, VersionStatus, HistoryAction, FieldOption, FieldValidation, FormField, FormSection, FormGroup, FormEntity, FormVersion, HistoryEntry, ImpactSummary, FieldTypeDefinition } from './formBuilder';
 export { FIELD_TYPE_DEFINITIONS } from './formBuilder';
 export type { TenantRole, TenantUser, TenantUsersMeta, TenantUserPayload, DynamicFieldOption, DynamicFieldSchema, DynamicTableColumnSchema } from './userManagement';

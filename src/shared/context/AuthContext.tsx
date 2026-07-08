@@ -126,7 +126,7 @@ const MODULE_ID_ALIASES: Record<string, string> = {
   noc: 'network_operations_center',
 };
 
-const ALWAYS_ENABLED_MODULE_IDS = ['form-builder'];
+const ALWAYS_ENABLED_MODULE_IDS = ['form-builder', 'onboarding'];
 
 function normalizeModuleId(module: AuthModule) {
   const rawId = String(module.moduleId ?? module.module_id ?? module.slug ?? module.id ?? '');
