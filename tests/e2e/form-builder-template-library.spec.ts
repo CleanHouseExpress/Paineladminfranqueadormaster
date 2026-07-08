@@ -1,4 +1,5 @@
 import { test, expect } from './support/fixtures';
+import { disableOnboarding } from './support/auth';
 
 test('@smoke biblioteca oficial importa template para o Form Builder', async ({ masterPage }) => {
   await masterPage.goto('/settings/form-builder');
@@ -20,7 +21,7 @@ test('@smoke biblioteca oficial importa template para o Form Builder', async ({ 
   await details.getByRole('button', { name: /usar este template/i }).click();
   await expect(masterPage.getByText('Template importado com sucesso.')).toBeVisible();
   await expect(masterPage.getByRole('button', { name: /editar agora/i })).toBeVisible();
-  await expect(masterPage.getByRole('button', { name: /^publicar$/i })).toBeVisible();
+  await expect(masterPage.getByRole('button', { name: /^publicar$/i }).first()).toBeVisible();
 
   await masterPage.getByRole('button', { name: /editar agora/i }).click();
   await expect(masterPage).toHaveURL(/\/settings\/form-builder\/\d+$/);
@@ -44,4 +45,73 @@ test('@smoke Form Builder abre pela Central de Modulos sem solicitar acesso', as
 
   await expect(masterPage).toHaveURL(/\/settings\/form-builder$/);
   await expect(masterPage.getByRole('heading', { name: 'Form Builder' })).toBeVisible();
+});
+
+test('@smoke Form Builder permanece liberado quando API de modulos nao retorna o slug', async ({ page }) => {
+  await disableOnboarding(page);
+  await page.addInitScript(() => {
+    window.localStorage.setItem('orchestra_auth_token', 'e2e-token');
+  });
+
+  await page.route('**/api/me', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      user: {
+        id: 1,
+        name: 'Admin ACME',
+        email: 'admin@acme.test',
+        company_id: 10,
+      },
+      context: { companyId: 10 },
+    }),
+  }));
+  await page.route('**/api/me/company', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      data: {
+        id: 10,
+        name: 'ACME',
+        domain: 'acme',
+        plan: 'enterprise',
+        whiteLabel: {},
+      },
+    }),
+  }));
+  await page.route('**/api/me/modules**', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      data: [
+        { id: 'dashboard', slug: 'dashboard', status: 'active' },
+        { id: 'settings', slug: 'settings', status: 'active' },
+      ],
+    }),
+  }));
+  await page.route('**/api/me/roles', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ data: [{ id: 1, name: 'Admin Master' }] }),
+  }));
+  await page.route('**/api/me/permissions', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ data: [{ id: 'tenant.form-builder.view', name: 'tenant.form-builder.view' }] }),
+  }));
+  await page.route('**/api/company/checklists/templates**', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ data: [], meta: { total: 0 } }),
+  }));
+  await page.route('**/api/company/checklists/template-library**', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ data: [] }),
+  }));
+
+  await page.goto('/settings/form-builder');
+
+  await expect(page.getByRole('heading', { name: 'Form Builder' })).toBeVisible();
+  await expect(page.getByText(/solicite o acesso/i)).toHaveCount(0);
 });

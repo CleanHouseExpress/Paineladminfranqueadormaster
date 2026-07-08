@@ -126,6 +126,8 @@ const MODULE_ID_ALIASES: Record<string, string> = {
   noc: 'network_operations_center',
 };
 
+const ALWAYS_ENABLED_MODULE_IDS = ['form-builder'];
+
 function normalizeModuleId(module: AuthModule) {
   const rawId = String(module.moduleId ?? module.module_id ?? module.slug ?? module.id ?? '');
   return MODULE_ID_ALIASES[rawId] ?? rawId;
@@ -139,16 +141,20 @@ function normalizeTenantPlan(plan: unknown): TenantConfig['plan'] {
 
 function buildTenantPatch(company: AuthCompany, modules: AuthModule[]): Partial<TenantConfig> {
   const whiteLabel = company.whiteLabel ?? company.white_label ?? {};
+  const blockedModuleIds = modules
+    .filter(module => module.status === 'blocked')
+    .map(normalizeModuleId)
+    .filter(Boolean);
   const enabledModuleIds = modules
     .filter(module => module.status !== 'blocked' && module.status !== 'review')
     .map(normalizeModuleId)
     .filter(Boolean);
+  const effectiveEnabledModuleIds = Array.from(new Set([
+    ...enabledModuleIds,
+    ...ALWAYS_ENABLED_MODULE_IDS.filter(moduleId => !blockedModuleIds.includes(moduleId)),
+  ]));
   const pendingModuleIds = modules
     .filter(module => module.status === 'review')
-    .map(normalizeModuleId)
-    .filter(Boolean);
-  const blockedModuleIds = modules
-    .filter(module => module.status === 'blocked')
     .map(normalizeModuleId)
     .filter(Boolean);
 
@@ -158,7 +164,7 @@ function buildTenantPatch(company: AuthCompany, modules: AuthModule[]): Partial<
     domain: typeof company.domain === 'string' ? company.domain : undefined,
     plan: normalizeTenantPlan(company.plan),
     whiteLabel,
-    ...(enabledModuleIds.length ? { enabledModuleIds } : {}),
+    ...(effectiveEnabledModuleIds.length ? { enabledModuleIds: effectiveEnabledModuleIds } : {}),
     ...(pendingModuleIds.length ? { pendingModuleIds } : {}),
     ...(blockedModuleIds.length ? { blockedModuleIds } : {}),
   };
