@@ -85,9 +85,11 @@ const mapCalculation = (item: ApiCalculation): RoyaltyCalculation => ({
   } : null,
 });
 
+const readOptions = { expireSessionOnUnauthorized: false };
+
 export const royaltyService = {
   metrics: async (filters: Record<string, string | number | undefined> = {}): Promise<RoyaltyMetrics> => {
-    const data = await apiClient.get<Record<string, number>>(`/api/company/royalties/metrics${queryString(filters)}`);
+    const data = await apiClient.get<Record<string, number>>(`/api/company/royalties/metrics${queryString(filters)}`, readOptions);
     return {
       totalGenerated: Number(data.total_generated), totalPaid: Number(data.total_paid),
       totalPending: Number(data.total_pending), defaultAmount: Number(data.default_amount),
@@ -96,7 +98,7 @@ export const royaltyService = {
     };
   },
   listRules: async (filters: Record<string, string | number | boolean | undefined> = {}) => {
-    const response = await apiClient.get<ApiList<ApiRule>>(`/api/company/royalties/rules${queryString({ per_page: 100, ...filters })}`);
+    const response = await apiClient.get<ApiList<ApiRule>>(`/api/company/royalties/rules${queryString({ per_page: 100, ...filters })}`, readOptions);
     return { data: response.data.map(mapRule), meta: response.meta };
   },
   createRule: async (payload: RoyaltyRulePayload) =>
@@ -106,7 +108,7 @@ export const royaltyService = {
   deleteRule: (id: string) => apiClient.delete<void>(`/api/company/royalties/rules/${id}`),
 
   listAssignments: async (filters: Record<string, string | number | boolean | undefined> = {}) => {
-    const response = await apiClient.get<ApiList<ApiAssignment>>(`/api/company/royalties/assignments${queryString({ per_page: 100, ...filters })}`);
+    const response = await apiClient.get<ApiList<ApiAssignment>>(`/api/company/royalties/assignments${queryString({ per_page: 100, ...filters })}`, readOptions);
     return { data: response.data.map(mapAssignment), meta: response.meta };
   },
   createAssignment: async (payload: RoyaltyAssignmentPayload) =>
@@ -116,7 +118,7 @@ export const royaltyService = {
   deleteAssignment: (id: string) => apiClient.delete<void>(`/api/company/royalties/assignments/${id}`),
 
   listCalculations: async (filters: Record<string, string | number | undefined> = {}) => {
-    const response = await apiClient.get<ApiList<ApiCalculation>>(`/api/company/royalties/calculations${queryString({ per_page: 100, ...filters })}`);
+    const response = await apiClient.get<ApiList<ApiCalculation>>(`/api/company/royalties/calculations${queryString({ per_page: 100, ...filters })}`, readOptions);
     return { data: response.data.map(mapCalculation), meta: response.meta };
   },
   generate: async (payload: { reference_year: number; reference_month: number; unit_id?: number; royalty_rule_id?: number; custom_base_amount?: number }) =>
@@ -130,7 +132,7 @@ export const royaltyService = {
   cancel: async (id: string) =>
     mapCalculation((await apiClient.post<ApiItem<ApiCalculation>>(`/api/company/royalties/${id}/cancel`)).data),
   listPeriods: async () =>
-    (await apiClient.get<ApiItem<FinancialPeriod[]>>('/api/company/royalties/periods')).data,
+    (await apiClient.get<ApiItem<FinancialPeriod[]>>('/api/company/royalties/periods', readOptions)).data,
   closePeriod: async (payload: { year: number; month: number; notes?: string }) =>
     (await apiClient.post<ApiItem<FinancialPeriod>>('/api/company/royalties/close-period', payload)).data,
   reopenPeriod: async (id: number, notes?: string) =>
