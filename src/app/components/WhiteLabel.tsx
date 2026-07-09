@@ -1,6 +1,9 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight, Upload, Eye, Palette, Globe, MessageSquare, Loader2 } from "lucide-react";
 import {
+  getApiErrorMessage,
+} from "../../services/apiClient";
+import {
   getWhiteLabelBranding,
   getWhiteLabelCompany,
   getWhiteLabelLogoObjectUrl,
@@ -152,8 +155,8 @@ export function WhiteLabel() {
           logoFileName: response.data.logo_file_name ?? file.name,
         };
       });
-    } catch {
-      setError("Nao foi possivel enviar a logo. Use PNG, JPG, WEBP ou SVG com ate 2MB.");
+    } catch (uploadError) {
+      setError(getApiErrorMessage(uploadError, "Nao foi possivel enviar a logo. Use PNG, JPG, WEBP ou SVG com ate 2MB."));
     } finally {
       setUploadingLogo(false);
     }
