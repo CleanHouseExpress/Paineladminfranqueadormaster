@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import * as Icons from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
@@ -152,6 +152,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const primary = tenant.whiteLabel.primaryColor;
   const secondary = tenant.whiteLabel.secondaryColor;
+  const brandTitle = useMemo(
+    () => tenant.whiteLabel.platformName && tenant.whiteLabel.platformName !== 'Orchestra'
+      ? tenant.whiteLabel.platformName
+      : tenant.name,
+    [tenant.name, tenant.whiteLabel.platformName],
+  );
+  const brandSubtitle = tenant.name === brandTitle ? 'Painel da rede' : tenant.name;
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: '#F8FAFC', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
@@ -166,14 +173,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
       >
         {/* Brand */}
         <div className="flex items-center gap-3 px-4 py-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-            style={{ background: `linear-gradient(135deg, ${primary}, ${secondary})` }}>
-            <Layers size={16} color="white" />
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden"
+            style={{ background: tenant.whiteLabel.logoUrl ? '#FFFFFF' : `linear-gradient(135deg, ${primary}, ${secondary})` }}>
+            {tenant.whiteLabel.logoUrl ? (
+              <img src={tenant.whiteLabel.logoUrl} alt={tenant.name} className="w-full h-full object-contain p-1" />
+            ) : (
+              <Layers size={16} color="white" />
+            )}
           </div>
           {!collapsed && (
             <div className="min-w-0">
-              <div style={{ color: '#F1F5F9', fontWeight: 600, fontSize: '13px', lineHeight: 1.2 }}>{tenant.whiteLabel.platformName}</div>
-              <div style={{ color: '#64748B', fontSize: '11px' }} className="truncate">{tenant.name}</div>
+              <div style={{ color: '#F1F5F9', fontWeight: 600, fontSize: '13px', lineHeight: 1.2 }} className="truncate">{brandTitle}</div>
+              <div style={{ color: '#64748B', fontSize: '11px' }} className="truncate">{brandSubtitle}</div>
             </div>
           )}
           <button onClick={() => setCollapsed(c => !c)} className="ml-auto hidden lg:flex items-center justify-center w-6 h-6 rounded" style={{ color: '#64748B' }}>

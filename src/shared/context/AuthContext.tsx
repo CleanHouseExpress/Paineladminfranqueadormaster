@@ -11,6 +11,7 @@ import {
   type AuthUser,
   type LoginResponse,
 } from '../../services/authService';
+import { getWhiteLabelBranding, getWhiteLabelLogoObjectUrl } from '../../services/whiteLabelService';
 import type { TenantConfig } from '../../types';
 import { useTenant } from './TenantContext';
 
@@ -212,11 +213,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const normalizedMe = normalizeMePayload(mePayload);
       const nextUser = normalizedMe.user ?? fallbackUser;
 
-      const [companyResult, modulesResult, rolesResult, permissionsResult] = await Promise.allSettled([
+      const [companyResult, modulesResult, rolesResult, permissionsResult, brandingResult] = await Promise.allSettled([
         authService.getMeCompany(),
         authService.getMeModules(),
         authService.getMeRoles(),
         authService.getMePermissions(),
+        getWhiteLabelBranding(),
       ]);
 
       const companyPayload = companyResult.status === 'fulfilled'
@@ -231,6 +233,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const permissionsPayload = permissionsResult.status === 'fulfilled'
         ? unwrap<AuthPermission[]>(permissionsResult.value) ?? []
         : [];
+      const brandingPayload = brandingResult.status === 'fulfilled'
+        ? brandingResult.value.data
+        : null;
 
       const sessionContext = (normalizedMe.context ?? {}) as AuthSessionContext & {
         company_id?: string | number;
@@ -259,7 +264,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (nextCompany) {
-        hydrateTenant(buildTenantPatch(nextCompany, nextModules));
+        const tenantPatch = buildTenantPatch(nextCompany, nextModules);
+
+        if (brandingPayload) {
+          const logoUrl = brandingPayload.logo_url ? await getWhiteLabelLogoObjectUrl() : null;
+
+          tenantPatch.whiteLabel = {
+            ...tenantPatch.whiteLabel,
+            ...(logoUrl ? { logoUrl } : {}),
+            ...(brandingPayload.primary_color ? { primaryColor: brandingPayload.primary_color } : {}),
+            ...(brandingPayload.secondary_color ? { secondaryColor: brandingPayload.secondary_color } : {}),
+            platformName: nextCompany.name,
+          };
+        }
+
+        hydrateTenant(tenantPatch);
       }
     } catch (err) {
       const isUnauthorized = err instanceof ApiError && (err.status === 401 || err.status === 419);
