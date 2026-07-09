@@ -118,11 +118,11 @@ function StepNetwork() {
 }
 
 function StepWhiteLabel() {
-  const { state, saveStepData } = useOnboarding();
+  const { state, updateStepData } = useOnboarding();
   const { updateWhiteLabel } = useTenant();
   const d = state.stepData.whitelabel;
   const update = (k: string, v: string) => {
-    saveStepData('whitelabel', { whitelabel: { ...d, [k]: v } });
+    updateStepData({ whitelabel: { ...d, [k]: v } });
     updateWhiteLabel({ [k]: v } as Record<string, string>);
   };
   const primary = d.primaryColor ?? '#6366F1';
@@ -182,7 +182,7 @@ function StepWhiteLabel() {
 }
 
 function StepUnits() {
-  const { state, saveStepData } = useOnboarding();
+  const { state, updateStepData } = useOnboarding();
   const units = state.stepData.units;
   const [form, setForm] = useState({ name: '', city: '', state: 'SP', manager: '' });
   const STATES = ['SP','RJ','MG','PR','RS','BA','SC','GO','PE','CE'];
@@ -197,13 +197,13 @@ function StepUnits() {
       responsible_name: form.manager || null,
     });
     const next = [...units, { id: String(created.id), name: created.name, city: created.address_city ?? '', state: created.address_state ?? '', manager: created.responsible_name ?? '' }];
-    await saveStepData('units', { units: next });
+    updateStepData({ units: next });
     setForm({ name: '', city: '', state: 'SP', manager: '' });
   };
 
   const remove = async (id: string) => {
     await unitManagementService.deleteUnit(id);
-    await saveStepData('units', { units: units.filter(u => u.id !== id) });
+    updateStepData({ units: units.filter(u => u.id !== id) });
   };
 
   return (
@@ -258,7 +258,7 @@ function StepUnits() {
 }
 
 function StepUsers() {
-  const { state, saveStepData } = useOnboarding();
+  const { state, updateStepData } = useOnboarding();
   const users = state.stepData.users;
   const [email, setEmail] = useState('');
   const [roles, setRoles] = useState<TenantRole[]>([]);
@@ -281,12 +281,12 @@ function StepUsers() {
       active: true,
     });
     const next = [...users, { id: String(created.id), email: created.email, role: selectedRole?.name ?? selectedRole?.slug ?? 'Perfil operacional' }];
-    await saveStepData('users', { users: next });
+    updateStepData({ users: next });
     setEmail('');
   };
   const remove = async (id: string) => {
     await userManagementService.deactivateUser(id);
-    await saveStepData('users', { users: users.filter(u => u.id !== id) });
+    updateStepData({ users: users.filter(u => u.id !== id) });
   };
 
   return (
@@ -328,7 +328,7 @@ function StepUsers() {
 }
 
 function StepModules() {
-  const { state, saveStepData } = useOnboarding();
+  const { state, updateStepData } = useOnboarding();
   const selected = new Set(state.stepData.modules);
   const CORE = new Set(['dashboard', 'units', 'clients', 'financial', 'access', 'settings', 'marketplace']);
   const marketplaceModules = MODULE_REGISTRY.filter(m => m.marketplace?.show && !CORE.has(m.id));
@@ -336,7 +336,7 @@ function StepModules() {
   const toggle = (id: string) => {
     const next = new Set(selected);
     if (next.has(id)) next.delete(id); else next.add(id);
-    saveStepData('modules', { modules: Array.from(next) });
+    updateStepData({ modules: Array.from(next) });
   };
 
   const statusColors: Record<string, string> = {
@@ -386,9 +386,9 @@ function StepModules() {
 }
 
 function StepFinancial() {
-  const { state, saveStepData } = useOnboarding();
+  const { state, updateStepData } = useOnboarding();
   const d = state.stepData.financial;
-  const update = (k: string, v: number) => saveStepData('financial', { financial: { ...d, [k]: v } });
+  const update = (k: string, v: number) => updateStepData({ financial: { ...d, [k]: v } });
 
   const field = (label: string, key: keyof typeof d, suffix: string, min: number, max: number) => (
     <div>
@@ -429,13 +429,13 @@ function StepFinancial() {
 }
 
 function StepClients() {
-  const { state, saveStepData } = useOnboarding();
+  const { state, updateStepData } = useOnboarding();
   const [selected, setSelected] = useState<'csv' | 'manual' | null>(null);
   const imported = state.stepData.clientsImported;
 
   const handleCSV = () => {
     setSelected('csv');
-    saveStepData('clients', { clientsImported: true });
+    updateStepData({ clientsImported: true });
   };
 
   return (
@@ -466,7 +466,7 @@ function StepClients() {
               <div style={{ fontSize: '13px', color: '#6366F1', fontWeight: 500 }}>Importacao CSV sera feita pelo modulo de clientes</div>
               <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px' }}>Esta etapa registra apenas a preferencia inicial no backend.</div>
               <button className="mt-3 px-4 py-2 rounded-lg text-white" style={{ background: '#6366F1', fontSize: '12px' }}
-                onClick={() => saveStepData('clients', { clientsImported: true })}>
+                onClick={() => updateStepData({ clientsImported: true })}>
                 Continuar depois
               </button>
             </div>

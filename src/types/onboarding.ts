@@ -185,7 +185,7 @@ export const INITIAL_ONBOARDING_STATE: OnboardingState = {
     units: [],
     users: [],
     modules: [],
-    financial: {},
+    financial: { royaltyRate: 7, adFundRate: 2, billingDay: 15, graceDays: 5 },
     clientsImported: false,
   },
   tourCompleted: false,
