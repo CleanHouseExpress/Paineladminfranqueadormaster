@@ -152,8 +152,8 @@ export const INITIAL_CHECKLIST: ChecklistItem[] = [
   { id: 'unit',       label: 'Cadastrar primeira unidade',     description: 'Adicione ao menos uma unidade',    path: '/units',              completed: false },
   { id: 'user',       label: 'Convidar colaborador',           description: 'Gestores, admin ou operadores',    path: '/access',             completed: false },
   { id: 'modules',    label: 'Ativar módulos da rede',         description: 'Escolha as funcionalidades ativas',path: '/modules',            completed: false },
-  { id: 'royalties',  label: 'Configurar royalties',           description: 'Taxas e vencimentos por unidade',  path: '/financial/royalties',completed: false },
-  { id: 'clients',    label: 'Importar base de clientes',      description: 'CSV ou cadastro manual',           path: '/clients',            completed: false },
+  { id: 'royalties',  label: 'Configurar royalties',           description: 'Regras, taxas e vinculos por unidade', path: '/royalties/settings', completed: false },
+  { id: 'clients',    label: 'Importar base de clientes',      description: 'CSV ou cadastro manual',           path: '/customers',          completed: false },
   { id: 'tour',       label: 'Fazer tour pela plataforma',     description: 'Conheça todos os recursos',        path: '/',                   completed: false },
 ];
 

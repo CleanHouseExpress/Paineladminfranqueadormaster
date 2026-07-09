@@ -35,6 +35,9 @@ const CashFlowPage = lazyPage(() => import('./components/CashFlow'), 'CashFlow')
 const DREPage = lazyPage(() => import('./components/DRE'), 'DRE');
 const CMVPage = lazyPage(() => import('./components/CMV'), 'CMV');
 const RoyaltiesPage = lazyPage(() => import('./components/Royalties'), 'Royalties');
+const RoyaltyRulesPage = lazyPage(() => import('./components/Royalties'), 'RoyaltyRules');
+const RoyaltyCalculationsPage = lazyPage(() => import('./components/Royalties'), 'RoyaltyCalculations');
+const RoyaltySettingsPage = lazyPage(() => import('./components/Royalties'), 'RoyaltySettings');
 const DreGoalsPage = lazyPage(() => import('./components/financial/FinancialGovernancePages'), 'DreGoalsPage');
 const DreHistoryPage = lazyPage(() => import('./components/financial/FinancialGovernancePages'), 'DreHistoryPage');
 const DreProjectionPage = lazyPage(() => import('./components/financial/FinancialGovernancePages'), 'DreProjectionPage');
@@ -158,6 +161,9 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   dre: DREPage,
   cmv: CMVPage,
   royalties: RoyaltiesPage,
+  'royalty-rules': RoyaltyRulesPage,
+  'royalty-calculations': RoyaltyCalculationsPage,
+  'royalty-settings': RoyaltySettingsPage,
   'dre-goals': DreGoalsPage,
   'dre-history': DreHistoryPage,
   'dre-projection': DreProjectionPage,

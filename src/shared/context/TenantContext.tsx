@@ -3,9 +3,9 @@ import type { TenantConfig } from '../../types';
 
 /** Mock tenant — in a real app this comes from the auth session / API */
 const DEFAULT_TENANT: TenantConfig = {
-  id: 'bella-vita',
-  name: 'Bella Vita Franchising',
-  domain: 'bellavita.orchestra.app',
+  id: 'orchestra',
+  name: 'Orchestra',
+  domain: 'orchestra.app',
   plan: 'enterprise',
   enabledModuleIds: [
     'dashboard', 'units', 'clients',
@@ -20,9 +20,9 @@ const DEFAULT_TENANT: TenantConfig = {
   whiteLabel: {
     primaryColor: '#6366F1',
     secondaryColor: '#8B5CF6',
-    logoText: 'BV',
+    logoText: 'OR',
     platformName: 'Orchestra',
-    supportEmail: 'suporte@bellavita.com.br',
+    supportEmail: 'suporte@orchestra.app',
   },
   menuConfig: [],
 };

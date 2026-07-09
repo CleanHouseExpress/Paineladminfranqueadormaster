@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { OnboardingChecklist } from "./onboarding/OnboardingChecklist";
+import { useTenant } from "../../shared/context/TenantContext";
 import {
   TrendingUp, TrendingDown, Building2, Users, DollarSign,
   AlertCircle, Star, Puzzle, Clock, ArrowRight, CheckCircle,
@@ -146,13 +147,14 @@ function SvgChart({ labels, series, bars }: SvgChartProps) {
 
 export function Dashboard() {
   const [tab, setTab] = useState<"receita" | "resultado">("receita");
+  const { tenant } = useTenant();
 
   return (
     <div className="p-6 max-w-[1400px] mx-auto">
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-1" style={{ fontSize: "12px", color: "#94A3B8" }}>
-          <span>Bella Vita Franchising</span>
+          <span>{tenant.name}</span>
           <ChevronRight size={12} />
           <span>Dashboard</span>
         </div>
