@@ -26,6 +26,15 @@ type CompanyProfile = {
   responsible_email?: string | null;
 };
 
+type CompanySummary = {
+  name?: string | null;
+  document?: string | null;
+  segment?: string | null;
+  email?: string | null;
+  city?: string | null;
+  state?: string | null;
+};
+
 type TenantBranding = {
   logo_url?: string | null;
   primary_color?: string | null;
@@ -94,14 +103,18 @@ function backendStepCompleted(onboarding: ApiOnboarding | null, step: string) {
   return Array.isArray(onboarding?.completed_steps) && onboarding.completed_steps.includes(step);
 }
 
-function toNetwork(profile: CompanyProfile | null, settings: TenantSettings | null): WizardStepData['network'] {
+function firstFilled(...values: Array<string | null | undefined>): string {
+  return values.find(value => typeof value === 'string' && value.trim() !== '')?.trim() ?? '';
+}
+
+function toNetwork(profile: CompanyProfile | null, settings: TenantSettings | null, company: CompanySummary | null): WizardStepData['network'] {
   return {
-    networkName: profile?.trade_name ?? profile?.legal_name ?? INITIAL_ONBOARDING_STATE.stepData.network.networkName,
-    segment: profile?.segment ?? INITIAL_ONBOARDING_STATE.stepData.network.segment,
-    cnpj: profile?.document ?? INITIAL_ONBOARDING_STATE.stepData.network.cnpj,
-    email: profile?.email ?? profile?.responsible_email ?? INITIAL_ONBOARDING_STATE.stepData.network.email,
-    city: profile?.city ?? settings?.default_city ?? INITIAL_ONBOARDING_STATE.stepData.network.city,
-    state: profile?.state ?? settings?.default_state ?? INITIAL_ONBOARDING_STATE.stepData.network.state,
+    networkName: firstFilled(profile?.trade_name, profile?.legal_name, company?.name),
+    segment: firstFilled(profile?.segment, company?.segment),
+    cnpj: firstFilled(profile?.document, company?.document),
+    email: firstFilled(profile?.email, profile?.responsible_email, company?.email),
+    city: firstFilled(profile?.city, settings?.default_city, company?.city),
+    state: firstFilled(profile?.state, settings?.default_state, company?.state),
   };
 }
 
@@ -163,7 +176,7 @@ function checklistFromBackend(params: {
   modules: SidebarModuleResponse | null;
   settings: TenantSettings | null;
 }): ChecklistItem[] {
-  const modulesAvailable = (params.modules ?? []).length > 0;
+  const modulesAvailable = (Array.isArray(params.modules) ? params.modules : params.modules?.data ?? []).length > 0;
   const settingsCompleted = backendStepCompleted(params.onboarding, 'settings');
 
   const completed: Record<string, boolean> = {
@@ -205,9 +218,10 @@ function isWizardCompleted(onboarding: ApiOnboarding | null): boolean {
 export async function getOnboardingStatus(): Promise<OnboardingState> {
   if (!hasToken()) return { ...INITIAL_ONBOARDING_STATE };
 
-  const [onboarding, profileResponse, brandingResponse, settingsResponse, unitsResponse, usersResponse, modulesResponse] = await Promise.all([
+  const [onboarding, profileResponse, companyResponse, brandingResponse, settingsResponse, unitsResponse, usersResponse, modulesResponse] = await Promise.all([
     optional(apiClient.get<ApiOnboarding>('/api/me/onboarding', { expireSessionOnUnauthorized: false })),
     optional(apiClient.get<DataResponse<CompanyProfile>>('/api/me/onboarding/company-profile', { expireSessionOnUnauthorized: false })),
+    optional(apiClient.get<DataResponse<CompanySummary> | CompanySummary>('/api/me/company', { expireSessionOnUnauthorized: false })),
     optional(apiClient.get<DataResponse<TenantBranding>>('/api/me/onboarding/branding', { expireSessionOnUnauthorized: false })),
     optional(apiClient.get<DataResponse<TenantSettings>>('/api/me/settings', { expireSessionOnUnauthorized: false })),
     optional(apiClient.get<ListResponse<UnitSummary>>('/api/company/units?per_page=100', { expireSessionOnUnauthorized: false })),
@@ -228,6 +242,7 @@ export async function getOnboardingStatus(): Promise<OnboardingState> {
   }
 
   const profile = dataOf(profileResponse);
+  const company = dataOf(companyResponse);
   const branding = dataOf(brandingResponse);
   const settings = dataOf(settingsResponse);
   const units = unitsResponse?.data ?? [];
@@ -241,7 +256,7 @@ export async function getOnboardingStatus(): Promise<OnboardingState> {
     wizardCompleted: completed,
     currentWizardStep: currentWizardStep(onboarding),
     stepData: {
-      network: toNetwork(profile, settings),
+      network: toNetwork(profile, settings, company),
       whitelabel: toWhitelabel(branding),
       units: toUnits(units),
       users: toUsers(usersResponse?.data ?? []),
@@ -263,7 +278,7 @@ export function notifyOnboardingRealityChanged(): void {
 
 function validEmail(value: string | null): string | null {
   if (!value) return null;
-  return /^[^@s]+@[^@s]+.[^@s]+$/.test(value) ? value : null;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? value : null;
 }
 
 async function saveCompanyProfile(network: Partial<WizardStepData['network']>) {

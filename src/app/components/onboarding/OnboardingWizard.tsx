@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useOnboarding } from '../../../shared/hooks/useOnboarding';
 import { useTenant } from '../../../shared/context/TenantContext';
-import { WIZARD_STEPS, type WizardStepId } from '../../../types/onboarding';
+import { WIZARD_STEPS, type WizardStepData, type WizardStepId } from '../../../types/onboarding';
 import { MODULE_REGISTRY } from '../../../services/moduleRegistry';
 import { unitManagementService } from '../../../services/unitManagementService';
 import { userManagementService } from '../../../services/userManagementService';
@@ -85,7 +85,7 @@ function StepNetwork() {
   const SEGMENTS = ['Beleza e Estética', 'Alimentação', 'Educação', 'Saúde e Bem-estar', 'Serviços', 'Varejo', 'Outro'];
   return (
     <div className="space-y-4">
-      {field('Nome da rede', 'networkName', 'Ex: Bella Vita Franchising')}
+      {field('Nome da rede', 'networkName', 'Ex: Clin Franchising')}
       <div>
         <label className="block mb-1.5" style={{ fontSize: '12px', fontWeight: 600, color: '#374151' }}>Segmento</label>
         <select
@@ -94,6 +94,7 @@ function StepNetwork() {
           className="w-full px-3 py-2.5 rounded-xl outline-none"
           style={{ background: '#F8FAFC', border: '1px solid rgba(0,0,0,0.08)', fontSize: '13px', color: '#0F172A' }}
         >
+          <option value="">Selecione o segmento</option>
           {SEGMENTS.map(s => <option key={s}>{s}</option>)}
         </select>
       </div>
@@ -532,6 +533,18 @@ function StepReview() {
 const STEP_ICONS = [Layers, Network, Palette, Building2, Users, Puzzle, DollarSign, FileUp, Sparkles];
 const STEP_COMPONENTS = [StepWelcome, StepNetwork, StepWhiteLabel, StepUnits, StepUsers, StepModules, StepFinancial, StepClients, StepReview];
 
+function stepPayload(stepId: WizardStepId, data: WizardStepData): Partial<WizardStepData> {
+  if (stepId === 'network') return { network: data.network };
+  if (stepId === 'whitelabel') return { whitelabel: data.whitelabel };
+  if (stepId === 'units') return { units: data.units };
+  if (stepId === 'users') return { users: data.users };
+  if (stepId === 'modules') return { modules: data.modules };
+  if (stepId === 'financial') return { financial: data.financial };
+  if (stepId === 'clients') return { clientsImported: data.clientsImported };
+
+  return {};
+}
+
 // ─── Wizard shell ─────────────────────────────────────────────────────────────
 
 export function OnboardingWizard() {
@@ -548,7 +561,7 @@ export function OnboardingWizard() {
 
   const next = async () => {
     const stepId = stepDef.id as WizardStepId;
-    await saveStepData(stepId, {});
+    await saveStepData(stepId, stepPayload(stepId, state.stepData));
     if (isLast) {
       await completeWizard();
     } else {
@@ -558,7 +571,8 @@ export function OnboardingWizard() {
 
   const back = () => goToStep(currentWizardStep - 1);
   const skip = async () => {
-    await saveStepData(stepDef.id as WizardStepId, {});
+    const stepId = stepDef.id as WizardStepId;
+    await saveStepData(stepId, stepPayload(stepId, state.stepData));
     goToStep(currentWizardStep + 1);
   };
 
