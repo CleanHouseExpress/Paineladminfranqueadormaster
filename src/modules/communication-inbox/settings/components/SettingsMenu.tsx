@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 const menuItems = [
-  { label: 'Canais', path: '/communication/settings/channels', icon: MessageCircleMore, description: 'WhatsApp por QR Code' },
+  { label: 'Comunicacao', path: '/communication/settings/channels', icon: MessageCircleMore, description: 'WhatsApp e modulo' },
   { label: 'Departamentos', path: '/communication/settings/departments', icon: BriefcaseBusiness, description: 'Estrutura organizacional' },
   { label: 'Horários', path: '/communication/settings/schedules', icon: LayoutGrid, description: 'Janelas e disponibilidade' },
   { label: 'Distribuição', path: '/communication/settings/distribution', icon: Workflow, description: 'Regras de roteamento' },

@@ -1,55 +1,12 @@
-﻿import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { disableOnboarding } from './support/auth';
 
 const forbiddenGateCopy = [
   'Communication Inbox esta disponivel',
-  'Communication Inbox estÃ¡ disponÃ­vel',
+  'Communication Inbox está disponível',
   'Este modulo esta disponivel para ativacao',
-  'Este mÃ³dulo estÃ¡ disponÃ­vel para ativaÃ§Ã£o',
+  'Este módulo está disponível para ativação',
 ];
-
-const channelsPayload = {
-  data: [
-    {
-      id: 'channel-zapi-1',
-      name: 'WhatsApp Principal',
-      provider: 'z_api',
-      phone_number: '+55 11 99999-0000',
-      status: 'connected',
-      department: 'Atendimento',
-      default_assignee: 'Marina',
-      instance_id: 'instance-1',
-      last_connected_at: '2026-06-25T12:30:00.000Z',
-      last_disconnected_at: null,
-      last_status_check_at: '2026-06-25T12:45:00.000Z',
-      created_at: '2026-06-25T12:00:00.000Z',
-      updated_at: '2026-06-25T12:45:00.000Z',
-    },
-  ],
-};
-
-const provisionedChannelPayload = {
-  data: {
-    channel_id: 'channel-provisioned-1',
-    status: 'qr_pending',
-    qr_code: 'QR seguro de teste',
-    connection_status: 'qr_pending',
-    channel: {
-      id: 'channel-provisioned-1',
-      name: 'WhatsApp Atendimento',
-      type: 'whatsapp',
-      provider: 'z_api',
-      phone_number: '5531999999999',
-      status: 'qr_pending',
-      department: 'Atendimento',
-      default_assignee: 'Marina',
-      provisioned_by_system: true,
-      provisioned_at: '2026-06-30T12:00:00.000Z',
-      created_at: '2026-06-30T12:00:00.000Z',
-      updated_at: '2026-06-30T12:00:00.000Z',
-    },
-  },
-};
 
 const summaryPayload = {
   data: {
@@ -104,6 +61,37 @@ const messagesPayload = {
     last_page: 1,
     per_page: 50,
     total: 1,
+  },
+};
+
+const inactiveSettingsPayload = {
+  data: {
+    module_active: false,
+    module_status: 'inactive',
+    state: 'module_inactive',
+  },
+};
+
+const disconnectedSettingsPayload = {
+  data: {
+    module_active: true,
+    module_status: 'active',
+    state: 'qrcode_available',
+    instance_name: 'orchestra-acme-whatsapp',
+    qr_code: 'QR seguro de teste',
+    connected_phone_number: null,
+    last_updated_at: '2026-07-09T13:20:00.000Z',
+  },
+};
+
+const connectedSettingsPayload = {
+  data: {
+    module_active: true,
+    module_status: 'active',
+    state: 'connected',
+    instance_name: 'orchestra-acme-whatsapp',
+    connected_phone_number: '+55 11 99999-0000',
+    last_updated_at: '2026-07-09T13:25:00.000Z',
   },
 };
 
@@ -169,7 +157,6 @@ async function mockCommunicationInbox(page: Page) {
       });
     }
 
-
     if (path.endsWith('/conversations/conversation-1/messages')) {
       return route.fulfill({
         status: 200,
@@ -202,58 +189,85 @@ async function mockCommunicationInbox(page: Page) {
   });
 }
 
-async function mockCommunicationChannels(page: Page) {
-  await page.route('**/api/tenant/communication/channels?**', route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify(channelsPayload),
-  }));
-
-  await page.route('**/api/tenant/communication/channels', route => {
-    if (route.request().method() !== 'POST') return route.fallback();
-    return route.fulfill({
-      status: 201,
-      contentType: 'application/json',
-      body: JSON.stringify({ data: provisionedChannelPayload.data.channel }),
-    });
-  });
-
-  await page.route('**/api/tenant/communication/channels/channel-provisioned-1/connect', route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify(provisionedChannelPayload),
-  }));
-
-  await page.route('**/api/tenant/communication/channels/channel-provisioned-1/refresh-qr', route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify(provisionedChannelPayload),
-  }));
-
-  await page.route('**/api/tenant/communication/channels/channel-provisioned-1/connection-status', route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify(provisionedChannelPayload),
-  }));
-
-  await page.route('**/api/tenant/communication/channels/*/logs', route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify({ data: [] }),
-  }));
-}
-
 async function expectModuleGateNotVisible(page: Page) {
   for (const text of forbiddenGateCopy) {
     await expect(page.getByText(text, { exact: false })).toHaveCount(0);
   }
 }
 
+async function mockCommunicationSettings(
+  page: Page,
+  options: {
+    settings?: unknown;
+    status?: unknown;
+    refresh?: unknown;
+    activate?: unknown;
+    settingsStatus?: number;
+  } = {},
+) {
+  let statusCalls = 0;
+  let activateCalls = 0;
+  let refreshCalls = 0;
+  let directServiceCalls = 0;
+
+  await page.route('**/api/internal/communication/**', route => {
+    directServiceCalls += 1;
+    return route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({ message: 'Browser must not call Communication Service directly.' }),
+    });
+  });
+
+  await page.route('**/api/tenant/communication/settings', route => route.fulfill({
+    status: options.settingsStatus ?? 200,
+    contentType: 'application/json',
+    body: JSON.stringify(options.settings ?? disconnectedSettingsPayload),
+  }));
+
+  await page.route('**/api/tenant/communication/activate', route => {
+    activateCalls += 1;
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(options.activate ?? disconnectedSettingsPayload),
+    });
+  });
+
+  await page.route('**/api/tenant/communication/whatsapp/status', route => {
+    statusCalls += 1;
+    const body = Array.isArray(options.status)
+      ? options.status[Math.min(statusCalls - 1, options.status.length - 1)]
+      : options.status;
+
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(body ?? disconnectedSettingsPayload),
+    });
+  });
+
+  await page.route('**/api/tenant/communication/whatsapp/qrcode/refresh', route => {
+    refreshCalls += 1;
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(options.refresh ?? disconnectedSettingsPayload),
+    });
+  });
+
+  return {
+    statusCalls: () => statusCalls,
+    activateCalls: () => activateCalls,
+    refreshCalls: () => refreshCalls,
+    directServiceCalls: () => directServiceCalls,
+  };
+}
+
 test.describe('@smoke @communication Communication gate and aliases', () => {
   test.beforeEach(async ({ page }) => {
     await mockAuthWithCommunicationAlias(page);
     await mockCommunicationInbox(page);
-    await mockCommunicationChannels(page);
   });
 
   test('/communication/inbox abre com modulo vindo como communication', async ({ page }) => {
@@ -272,69 +286,101 @@ test.describe('@smoke @communication Communication gate and aliases', () => {
     await expectModuleGateNotVisible(page);
   });
 
-  test('/communication/settings/channels nao cai no ModuleGate e renderiza acoes principais', async ({ page }) => {
+  test('/communication/settings/channels mostra card de ativacao quando modulo esta inativo', async ({ page }) => {
+    await mockCommunicationSettings(page, { settings: inactiveSettingsPayload });
+
     await page.goto('/communication/settings/channels');
 
     await expect(page.getByTestId('communication-settings-channels-page')).toBeVisible();
-    await expect(page.getByText('WhatsApp Principal')).toBeVisible();
-    await expect(page.getByTestId('communication-channel-create')).toBeVisible();
-    await expect(page.getByTestId('communication-channel-create')).toContainText('Conectar WhatsApp');
-    await expect(page.getByTestId('communication-channel-refresh')).toBeVisible();
-    await expect(page.getByTestId('communication-channel-connect-channel-zapi-1')).toBeVisible();
-    await expect(page.getByTestId('communication-channel-sync-channel-zapi-1')).toBeVisible();
-    await expect(page.getByTestId('communication-channel-disconnect-channel-zapi-1')).toBeVisible();
-    await expect(page.getByText('Provedor')).toHaveCount(0);
-    await expect(page.getByText('Instance ID')).toHaveCount(0);
-    await expect(page.getByText('Instance Token')).toHaveCount(0);
-    await expect(page.getByText('Client Token')).toHaveCount(0);
-    await expect(page.getByText('Z-API')).toHaveCount(0);
-    await expect(page.getByTestId('communication-channel-logs-channel-zapi-1')).toHaveCount(0);
+    await expect(page.getByText('Communication ainda nao esta ativo')).toBeVisible();
+    await expect(page.getByTestId('communication-activate-button')).toContainText('Ativar modulo Communication');
     await expectModuleGateNotVisible(page);
   });
 
-  test('/communication/settings/channels provisiona WhatsApp sem campos tecnicos', async ({ page }) => {
-    let provisionPayload: Record<string, unknown> | null = null;
-    await page.route('**/api/tenant/communication/channels', route => {
-      if (route.request().method() !== 'POST') return route.fallback();
-      provisionPayload = route.request().postDataJSON() as Record<string, unknown>;
-      return route.fulfill({
-        status: 201,
-        contentType: 'application/json',
-        body: JSON.stringify({ data: provisionedChannelPayload.data.channel }),
-      });
+  test('/communication/settings/channels ativa modulo e recarrega status', async ({ page }) => {
+    const calls = await mockCommunicationSettings(page, {
+      settings: inactiveSettingsPayload,
+      activate: disconnectedSettingsPayload,
+      status: disconnectedSettingsPayload,
     });
 
     await page.goto('/communication/settings/channels');
-    await page.getByTestId('communication-channel-create').click();
+    await page.getByTestId('communication-activate-button').click();
 
-    await expect(page.getByRole('heading', { name: 'Conectar WhatsApp' })).toBeVisible();
-    await expect(page.getByText('Instance ID')).toHaveCount(0);
-    await expect(page.getByText('Instance Token')).toHaveCount(0);
-    await expect(page.getByText('Client Token')).toHaveCount(0);
-    await expect(page.getByText('Provider')).toHaveCount(0);
-    await expect(page.getByText('Z-API')).toHaveCount(0);
+    await expect(page.getByText('orchestra-acme-whatsapp')).toBeVisible();
+    await expect(page.getByTestId('communication-whatsapp-qrcode-panel')).toBeVisible();
+    expect(calls.activateCalls()).toBe(1);
+    expect(calls.statusCalls()).toBe(1);
+    expect(calls.directServiceCalls()).toBe(0);
+  });
 
-    await page.getByPlaceholder('Ex.: WhatsApp Atendimento').fill('WhatsApp Atendimento');
-    await page.getByPlaceholder('5531999999999').fill('5531999999999');
-    await page.getByRole('textbox', { name: 'Departamento padrao (opcional)' }).fill('Atendimento');
-    await page.getByRole('textbox', { name: 'Atendente padrao (opcional)' }).fill('Marina');
-    await page.getByRole('button', { name: 'Conectar WhatsApp' }).last().click();
+  test('/communication/settings/channels status disconnected mostra QR Code', async ({ page }) => {
+    const calls = await mockCommunicationSettings(page, { settings: disconnectedSettingsPayload });
 
-    await expect(page.getByText('QR seguro de teste')).toBeVisible();
-    expect(provisionPayload).toEqual({
-      name: 'WhatsApp Atendimento',
-      type: 'whatsapp',
-      provider: 'z_api',
-      phone_number: '5531999999999',
-      status: 'draft',
-      default_department_id: null,
-      default_assignee_id: null,
-      unit_id: null,
-      provider_instance_id: null,
+    await page.goto('/communication/settings/channels');
+
+    await expect(page.getByText('QR Code disponivel')).toBeVisible();
+    await expect(page.getByTestId('communication-whatsapp-qrcode-panel')).toBeVisible();
+    await expect(page.getByText('Abra o WhatsApp no celular, va em Aparelhos conectados e escaneie este QR Code.')).toBeVisible();
+    await expect(page.getByTestId('communication-whatsapp-qrcode-text')).toContainText('QR seguro de teste');
+    expect(calls.directServiceCalls()).toBe(0);
+  });
+
+  test('/communication/settings/channels status connected mostra badge e esconde QR Code', async ({ page }) => {
+    await mockCommunicationSettings(page, { settings: connectedSettingsPayload });
+
+    await page.goto('/communication/settings/channels');
+
+    await expect(page.getByTestId('communication-connected-success')).toContainText('WhatsApp conectado');
+    await expect(page.getByText('+55 11 99999-0000')).toBeVisible();
+    await expect(page.getByTestId('communication-whatsapp-qrcode-panel')).toHaveCount(0);
+  });
+
+  test('/communication/settings/channels erro de API mostra alerta amigavel', async ({ page }) => {
+    await mockCommunicationSettings(page, {
+      settingsStatus: 500,
+      settings: { message: 'Communication service is unavailable.' },
     });
-    expect(provisionPayload).not.toHaveProperty('provider_instance_token');
-    expect(provisionPayload).not.toHaveProperty('provider_client_token');
+
+    await page.goto('/communication/settings/channels');
+
+    await expect(page.getByTestId('communication-settings-error')).toContainText('Communication service is unavailable.');
+  });
+
+  test('/communication/settings/channels botao atualizar status recarrega dados', async ({ page }) => {
+    const calls = await mockCommunicationSettings(page, {
+      settings: disconnectedSettingsPayload,
+      status: connectedSettingsPayload,
+    });
+
+    await page.goto('/communication/settings/channels');
+    await page.getByTestId('communication-refresh-status-button').click();
+
+    await expect(page.getByTestId('communication-connected-success')).toContainText('WhatsApp conectado');
+    await expect(page.getByTestId('communication-whatsapp-qrcode-panel')).toHaveCount(0);
+    expect(calls.statusCalls()).toBe(1);
+  });
+
+  test('/communication/settings/channels botao gerar QR Code recarrega painel', async ({ page }) => {
+    const calls = await mockCommunicationSettings(page, {
+      settings: {
+        data: {
+          ...disconnectedSettingsPayload.data,
+          qr_code: 'QR antigo',
+        },
+      },
+      refresh: {
+        data: {
+          ...disconnectedSettingsPayload.data,
+          qr_code: 'QR novo',
+        },
+      },
+    });
+
+    await page.goto('/communication/settings/channels');
+    await page.getByTestId('communication-refresh-qrcode-action').click();
+
+    await expect(page.getByTestId('communication-whatsapp-qrcode-text')).toContainText('QR novo');
+    expect(calls.refreshCalls()).toBe(1);
   });
 });
-
-

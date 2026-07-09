@@ -64,6 +64,7 @@ type UnitSummary = {
 };
 type UserSummary = { id: number | string; email: string; roles?: Array<{ name?: string; slug?: string }> };
 type ListResponse<T> = { data: T[]; meta?: { total?: number } };
+type RoyaltySetupResponse = { data?: unknown[]; meta?: { total?: number } };
 type SidebarModule = { id?: string; slug?: string; enabled?: boolean; status?: string };
 type SidebarModuleResponse = SidebarModule[] | { data?: SidebarModule[] };
 
@@ -169,15 +170,22 @@ function clientsImported(settings: TenantSettings | null): boolean {
   return settings?.dashboard_preferences?.onboarding_clients_imported === true;
 }
 
+function hasItems(response: RoyaltySetupResponse | null): boolean {
+  return Number(response?.meta?.total ?? response?.data?.length ?? 0) > 0;
+}
+
 function checklistFromBackend(params: {
   onboarding: ApiOnboarding | null;
   units: UnitSummary[];
   usersTotal: number;
   modules: SidebarModuleResponse | null;
   settings: TenantSettings | null;
+  royaltyRules: RoyaltySetupResponse | null;
+  royaltyAssignments: RoyaltySetupResponse | null;
 }): ChecklistItem[] {
   const modulesAvailable = (Array.isArray(params.modules) ? params.modules : params.modules?.data ?? []).length > 0;
   const settingsCompleted = backendStepCompleted(params.onboarding, 'settings');
+  const royaltiesConfigured = hasItems(params.royaltyRules) && hasItems(params.royaltyAssignments);
 
   const completed: Record<string, boolean> = {
     network: backendStepCompleted(params.onboarding, 'company_profile'),
@@ -185,7 +193,7 @@ function checklistFromBackend(params: {
     unit: params.units.length > 0,
     user: params.usersTotal > 1,
     modules: settingsCompleted || modulesAvailable,
-    royalties: settingsCompleted || Boolean(params.settings?.dashboard_preferences?.onboarding_financial),
+    royalties: royaltiesConfigured || Boolean(params.settings?.dashboard_preferences?.onboarding_financial),
     clients: clientsImported(params.settings),
     tour: params.onboarding?.status === 'completed',
   };
@@ -218,7 +226,7 @@ function isWizardCompleted(onboarding: ApiOnboarding | null): boolean {
 export async function getOnboardingStatus(): Promise<OnboardingState> {
   if (!hasToken()) return { ...INITIAL_ONBOARDING_STATE };
 
-  const [onboarding, profileResponse, companyResponse, brandingResponse, settingsResponse, unitsResponse, usersResponse, modulesResponse] = await Promise.all([
+  const [onboarding, profileResponse, companyResponse, brandingResponse, settingsResponse, unitsResponse, usersResponse, modulesResponse, royaltyRulesResponse, royaltyAssignmentsResponse] = await Promise.all([
     optional(apiClient.get<ApiOnboarding>('/api/me/onboarding', { expireSessionOnUnauthorized: false })),
     optional(apiClient.get<DataResponse<CompanyProfile>>('/api/me/onboarding/company-profile', { expireSessionOnUnauthorized: false })),
     optional(apiClient.get<DataResponse<CompanySummary> | CompanySummary>('/api/me/company', { expireSessionOnUnauthorized: false })),
@@ -227,6 +235,8 @@ export async function getOnboardingStatus(): Promise<OnboardingState> {
     optional(apiClient.get<ListResponse<UnitSummary>>('/api/company/units?per_page=100', { expireSessionOnUnauthorized: false })),
     optional(apiClient.get<ListResponse<UserSummary>>('/api/company/users?per_page=100', { expireSessionOnUnauthorized: false })),
     optional(apiClient.get<SidebarModuleResponse>('/api/me/modules/sidebar', { expireSessionOnUnauthorized: false })),
+    optional(apiClient.get<RoyaltySetupResponse>('/api/company/royalties/rules?per_page=1', { expireSessionOnUnauthorized: false })),
+    optional(apiClient.get<RoyaltySetupResponse>('/api/company/royalties/assignments?per_page=1', { expireSessionOnUnauthorized: false })),
   ]);
 
   if (!onboarding) {
@@ -267,7 +277,15 @@ export async function getOnboardingStatus(): Promise<OnboardingState> {
     tourCompleted: completed,
     tourActive: false,
     currentTourStop: 0,
-    checklist: checklistFromBackend({ onboarding, units, usersTotal, modules, settings }),
+    checklist: checklistFromBackend({
+      onboarding,
+      units,
+      usersTotal,
+      modules,
+      settings,
+      royaltyRules: royaltyRulesResponse,
+      royaltyAssignments: royaltyAssignmentsResponse,
+    }),
     lastSynced: new Date().toISOString(),
   };
 }

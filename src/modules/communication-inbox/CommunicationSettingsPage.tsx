@@ -5,7 +5,7 @@ import { CommunicationPageHeader } from './components/CommunicationPageHeader';
 import { CommunicationSectionCard } from './components/CommunicationSectionCard';
 
 const settingsEntries = [
-  { title: 'Canais', description: 'Conecte WhatsApp por QR Code.', path: '/communication/settings/channels', icon: MessageCircleMore },
+  { title: 'Comunicacao', description: 'Ative o modulo e conecte WhatsApp por QR Code.', path: '/communication/settings/channels', icon: MessageCircleMore },
   { title: 'Departamentos', description: 'Estruture a operação por área.', path: '/communication/settings/departments', icon: BriefcaseBusiness },
   { title: 'Horários', description: 'Defina a janela operacional.', path: '/communication/settings/schedules', icon: CalendarDays },
   { title: 'Distribuição', description: 'Organize regras de roteamento.', path: '/communication/settings/distribution', icon: Workflow },

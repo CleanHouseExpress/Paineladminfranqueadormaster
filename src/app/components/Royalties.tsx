@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 
 import { ApiError } from '../../services/apiClient';
 import { financialService } from '../../services/financialService';
+import { notifyOnboardingRealityChanged } from '../../services/onboardingService';
 import { royaltyService } from '../../services/royaltyService';
 import { unitManagementService } from '../../services/unitManagementService';
 import { ModuleStateView } from '../../shared/components/ModuleStateView';
@@ -234,13 +235,14 @@ export function RoyaltyRules() {
       if (editing) await royaltyService.updateRule(editing.id, form);
       else await royaltyService.createRule(form);
       toast.success(editing ? 'Regra atualizada.' : 'Regra criada.');
+      notifyOnboardingRealityChanged();
       setOpen(false); await load();
     } catch (saveError) { toast.error(apiMessage(saveError, 'Não foi possível salvar a regra.')); }
     finally { setSaving(false); }
   };
   const remove = async (rule: RoyaltyRule) => {
     if (!window.confirm(`Excluir a regra "${rule.name}"?`)) return;
-    try { await royaltyService.deleteRule(rule.id); toast.success('Regra excluída.'); await load(); }
+    try { await royaltyService.deleteRule(rule.id); toast.success('Regra excluída.'); notifyOnboardingRealityChanged(); await load(); }
     catch (deleteError) { toast.error(apiMessage(deleteError, 'Não foi possível excluir a regra.')); }
   };
 
@@ -434,13 +436,14 @@ export function RoyaltySettings() {
     try {
       if (editing) await royaltyService.updateAssignment(editing.id, form);
       else await royaltyService.createAssignment(form);
+      notifyOnboardingRealityChanged();
       toast.success(editing ? 'Vínculo atualizado.' : 'Vínculo criado.'); setOpen(false); await load();
     } catch (saveError) { toast.error(apiMessage(saveError, 'Não foi possível salvar o vínculo.')); }
     finally { setSaving(false); }
   };
   const remove = async (assignment: RoyaltyAssignment) => {
     if (!window.confirm(`Excluir o vínculo de ${assignment.unit?.name} com ${assignment.rule?.name}?`)) return;
-    try { await royaltyService.deleteAssignment(assignment.id); toast.success('Vínculo excluído.'); await load(); }
+    try { await royaltyService.deleteAssignment(assignment.id); toast.success('Vínculo excluído.'); notifyOnboardingRealityChanged(); await load(); }
     catch (deleteError) { toast.error(apiMessage(deleteError, 'Não foi possível excluir o vínculo.')); }
   };
 
