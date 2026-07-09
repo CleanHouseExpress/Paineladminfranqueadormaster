@@ -67,9 +67,9 @@ function StepWelcome() {
 }
 
 function StepNetwork() {
-  const { state, saveStepData } = useOnboarding();
+  const { state, updateStepData } = useOnboarding();
   const d = state.stepData.network;
-  const update = (k: string, v: string) => saveStepData('network', { network: { ...d, [k]: v } });
+  const update = (k: string, v: string) => updateStepData({ network: { ...d, [k]: v } });
   const field = (label: string, key: keyof typeof d, placeholder: string, half?: boolean) => (
     <div className={half ? 'flex-1' : 'w-full'}>
       <label className="block mb-1.5" style={{ fontSize: '12px', fontWeight: 600, color: '#374151' }}>{label}</label>

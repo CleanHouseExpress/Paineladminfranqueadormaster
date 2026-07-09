@@ -69,6 +69,7 @@ interface OnboardingContextValue {
   openWizard: () => void;
   closeWizard: () => void;
   goToStep: (step: number) => void;
+  updateStepData: (data: Partial<WizardStepData>) => void;
   saveStepData: (stepId: WizardStepId, data: Partial<WizardStepData>) => Promise<void>;
   completeWizard: () => Promise<void>;
   // Tour
@@ -114,6 +115,10 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 
   const goToStep = useCallback((step: number) => {
     dispatch({ type: 'SET_WIZARD_STEP', step });
+  }, []);
+
+  const updateStepData = useCallback((data: Partial<WizardStepData>) => {
+    dispatch({ type: 'SAVE_STEP_DATA', data });
   }, []);
 
   const saveStepData = useCallback(async (
@@ -167,6 +172,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       openWizard,
       closeWizard,
       goToStep,
+      updateStepData,
       saveStepData,
       completeWizard,
       startTour,
