@@ -1,8 +1,8 @@
 # Contrato arquitetural: Assinaturas e Billing recorrente
 
-**Status:** Draft arquitetural validado tecnicamente contra o backend Orchestra API, pendente de decisões de produto e negócio.
+**Status:** Aprovado tecnicamente para planejamento. Implementação pendente de decisões de produto da seção 30.
 
-**Versão:** 0.2
+**Versão:** 0.3
 
 **Data da revisão:** 2026-07-10
 
@@ -13,7 +13,12 @@
 
 **Escopo:** contrato arquitetural para implementação futura dos domínios de Subscriptions e Billing recorrente dentro da arquitetura real do Orchestra API. Este documento não implementa código funcional.
 
-**Dependências arquiteturais:** Catalog, Sales, Contracts, Finance, Royalties, Automation, Communication, Analytics, auditoria central, RBAC tenant, tenancy por subdomínio/schema e rotas protegidas por `tenant.auth` + `tenant.context`.
+**Documentos relacionados:**
+
+- `docs/architecture/domain-map.md`, mapa mestre de bounded contexts do Orchestra.
+- `docs/architecture/subscriptions-product-decisions.md`, decision log das decisões de produto pendentes.
+
+**Dependências arquiteturais:** Catalog, Pricing futuro, Sales, Contracts, Subscriptions, Entitlements futuro, Billing, Payments futuro, Finance, Revenue Settlement futuro/Royalties atual, Automation, Communication, Analytics, auditoria central, RBAC tenant, tenancy por subdomínio/schema e rotas protegidas por `tenant.auth` + `tenant.context`.
 
 **Responsáveis por validação:** arquitetura/engenharia do Orchestra API, produto financeiro, produto franquias/rede, financeiro/contabilidade, operações e segurança.
 
@@ -38,25 +43,50 @@ O domínio de Assinaturas deve controlar o ciclo contratual recorrente de client
 
 O domínio de Billing deve calcular ciclos e cobranças recorrentes, produzindo documentos comerciais de cobrança e os lançamentos necessários para integração com Finance, sem assumir responsabilidade por baixa, caixa, competência financeira, royalties ou gateway.
 
+O aggregate root de Billing deve ser `BillingInvoice`, não `Subscription`. A assinatura informa o direito recorrente contratado e o ciclo esperado; a invoice materializa uma cobrança específica, com estado, itens, régua de cobrança, referência ao título financeiro e, no futuro, referências a tentativas executadas por Payments.
+
 O contrato anterior foi revisado porque o backend Laravel está disponível em `C:\repos\Clin\orchestra-api`. A arquitetura real é Laravel 13/PHP 8.3, namespace `App\`, pastas por camada (`Models`, `Services`, `Http\Controllers\Api`, `Http\Requests`, `Events`, `Policies`, `Support`) e tenancy por subdomínio/schema, não uma pasta `Modules/` já existente. Portanto, Subscriptions e Billing devem nascer aderentes ao padrão atual de services, models, controllers e tenant migrations.
 
 ## 2. Limites dos domínios
 
-Fluxo macro oficial:
+Fluxo macro oficial entre bounded contexts:
 
 ```text
 Catalog
+  -> Pricing
   -> Sale or Proposal
   -> Contract
   -> Subscription
+  -> Entitlements
   -> Billing Cycle
   -> Billing Invoice
-  -> Payment Attempt
-  -> Financial Transaction
-  -> Royalty/Settlement
+  -> Finance Receivable / Financial Transaction
+  -> Payments
+  -> Revenue Settlement
 ```
 
+Fluxo financeiro específico:
+
+```text
+BillingInvoice
+   ├── gera Receivable em Finance
+   └── solicita cobrança em Payments
+
+Payments
+   └── informa resultado para Finance e Billing
+```
+
+Ordem de responsabilidade:
+
+1. Billing calcula a cobrança e emite `BillingInvoice`.
+2. Finance registra o recebível em `financial_transactions`.
+3. Payments executa a cobrança quando existir gateway/provider.
+4. Finance confirma a baixa.
+5. Billing reflete o estado financeiro sem recalcular a invoice.
+
 **Catalog** define o que pode ser vendido. Já existe `catalog_items` com `item_type` incluindo `subscription` e `plan`, detalhe em `catalog_subscription_details` e governança corporativo/local por unidade em `catalog_settings` e `catalog_unit_prices`. Catalog não gerencia assinatura ativa, renovação, inadimplência ou MRR.
+
+**Pricing** deve ser tratado como bounded context futuro. Hoje parte do preço está no Catalog (`base_price`, `catalog_unit_prices`) e parte ficará em políticas recorrentes. No futuro, Pricing deve responder "quanto isto deveria custar hoje?", incluindo reajuste, IPCA, cupom, campanha, preço regional, preço corporativo e preço por unidade. Billing responde "quanto será cobrado neste ciclo?", usando snapshots e decisões de Pricing, sem se tornar dono de política comercial ampla. O MVP de Subscriptions/Billing não depende da implementação prévia de Pricing; Catalog, `CatalogUnitPrice` e snapshot comercial resolvido são suficientes até a extração planejada.
 
 **Sales** registra o ato comercial em `sales_orders` e `sales_order_items`. Já valida item vendável pelo Catalog e pode gerar `financial_transactions` pendentes via `SalesOrderService::generateFinancialTransaction`. Uma venda recorrente deve originar uma assinatura após confirmação ou conclusão, por comando explícito e idempotente de Subscriptions, não por alteração silenciosa em Sales.
 
@@ -64,13 +94,15 @@ Catalog
 
 **Subscriptions** controlará ciclo de vida recorrente, snapshot contratual, alterações, pausa, suspensão, cancelamento, renovação e métricas contratadas.
 
-**Billing** calculará ciclos, invoices comerciais, itens, consumo, créditos, descontos, multa, juros, impostos e parcelas. Billing não deve baixar caixa nem substituir `financial_transactions`.
+**Entitlements** deve ser tratado como bounded context futuro. Subscriptions gera direitos contratados, mas não deve virar o lugar onde todos os limites de uso, módulos, licenças, features e add-ons são verificados. Entitlements deverá conversar com Module Registry e com consumo para responder se um cliente/unidade pode usar determinado recurso.
 
-**Payments** ainda não existe como módulo dedicado no backend. Deve ser criado como camada futura de contratos/providers quando houver gateway, PIX, boleto, cartão ou adquirente. Até lá, Billing pode gerar títulos financeiros pendentes e registrar tentativas internas sem gateway.
+**Billing** calculará ciclos, invoices comerciais, itens, consumo, créditos, descontos, multa, juros, impostos e parcelas. Seu aggregate root é `BillingInvoice`. Billing não deve baixar caixa nem substituir `financial_transactions`.
 
-**Finance** já existe e controla `financial_accounts`, `financial_transactions`, status financeiro, pagamento/baixa e competências (`financial_periods`). Billing deve integrar criando ou atualizando `financial_transactions` com `reference_type` e `reference_id`.
+**Payments** ainda não existe como módulo dedicado no backend. Deve ser criado como camada futura de contratos/providers quando houver gateway, PIX, boleto, cartão ou adquirente. Até lá, Billing pode gerar títulos financeiros pendentes e a baixa manual acontece em Finance. `PaymentAttempt` pertence conceitualmente a Payments; no MVP sem gateway, ele pode não existir.
 
-**Royalties** já existe e cobre regras, vínculos por unidade, cálculos, aprovação, geração de financeiro, pagamento e fechamento/snapshot de período. Revenue Settlement avançado deve ser tratado como evolução de Royalties/Finance, não duplicado em Subscriptions.
+**Finance** já existe e controla `financial_accounts`, `financial_transactions`, status financeiro, pagamento/baixa e competências (`financial_periods`). Finance consome Billing criando/baixando recebíveis, mas nunca recalcula Billing. Billing pode solicitar ou materializar um título financeiro com `reference_type` e `reference_id`, mas a baixa pertence a Finance.
+
+**Revenue Settlement** deve ser bounded context próprio no roadmap. O módulo atual de Royalties já cobre um caso de uso importante: regras, vínculos por unidade, cálculos, aprovação, geração de financeiro, pagamento e fechamento/snapshot de período. No futuro, Revenue Settlement deve englobar Royalties, Split, Commissions, Transfers e Settlement Cycles. Royalties será um subdomínio/caso de uso dentro dele, não todo o contexto.
 
 ## 3. Princípios arquiteturais
 
@@ -82,6 +114,8 @@ Catalog
 - Seguir o padrão monetário atual `decimal(..., 2)`, reconhecendo risco técnico. O princípio ideal é evitar ponto flutuante em cálculo; se valores em centavos forem adotados, a mudança deve ser transversal e planejada.
 - Usar `AuditLogService` e `audit_logs` central para auditoria; não criar infraestrutura paralela.
 - Usar `tenant_settings`, `catalog_settings` e tabelas específicas quando política exigir governança e versionamento. Evitar sete tabelas soltas se uma estrutura versionada comum for criada.
+- Tratar bounded contexts explicitamente: Catalog define ofertas, Pricing calcula preço esperado, Subscriptions controla contrato recorrente, Entitlements libera direitos, Billing materializa cobrança, Finance registra recebíveis/baixas, Payments executa provedores e Revenue Settlement distribui receita.
+- Manter dependência direcional: Subscriptions não consulta nem depende de `BillingInvoice`; Billing referencia `Subscription` para cobrar ciclos; Finance consome invoices/títulos, sem recalcular Billing.
 - Integrar Automation/Communication por eventos e regras; Subscriptions/Billing não devem enviar WhatsApp/e-mail diretamente.
 - Jobs e commands devem preservar contexto tenant por schema/subdomínio, seguindo o padrão de `routes/console.php`.
 - Webhooks/gateways futuros devem ser idempotentes e reconciliáveis, mas não existem hoje.
@@ -108,14 +142,14 @@ Entidades novas propostas:
 - `SubscriptionPolicyVersion`: versão resolvida de políticas recorrentes por empresa/unidade/contrato.
 - `Subscription`: aggregate root recorrente no schema tenant.
 - `SubscriptionItem`: itens recorrentes contratados com snapshot do catálogo.
-- `SubscriptionCycle`: ciclo de serviço/cobrança.
+- `SubscriptionCycle`: ciclo contratual/serviço previsto. Billing pode referenciar o ciclo, mas a assinatura não deve guardar dependência obrigatória da invoice.
 - `SubscriptionChange`: ledger de alterações contratuais.
 - `SubscriptionPause`: pausa solicitada.
 - `SubscriptionCancellation`: cancelamento solicitado/agendado/executado.
 - `SubscriptionTimelineEvent`: histórico/auditoria de domínio para leitura operacional. Não é event sourcing.
-- `BillingInvoice`: documento comercial de cobrança calculado por Billing.
+- `BillingInvoice`: aggregate root do Billing e documento comercial de cobrança calculado.
 - `BillingInvoiceItem`: itens da cobrança.
-- `PaymentAttempt`: tentativa de cobrança, hoje interna/manual; futuramente ligada a Payments/providers.
+- `PaymentAttempt`: tentativa de cobrança pertencente conceitualmente a Payments. No MVP sem gateway, pode não existir; se for indispensável registrar tentativas antes de Payments, a persistência em Billing deve ser técnica, transitória e explicitamente marcada para migração.
 - `DunningPolicyVersion`: versão da régua de cobrança.
 - `DunningProcess`: execução da régua para uma invoice/assinatura.
 - `DunningAction`: cada tentativa ou ação da régua.
@@ -124,6 +158,19 @@ Entidades novas propostas:
 - `MrrMovement`: ledger de MRR contratado/faturável.
 
 `SubscriptionPlanConfiguration` do contrato anterior deve ser renomeada ou absorvida por `SubscriptionPolicyVersion` + `CatalogSubscriptionDetail`, porque o backend já possui detalhes de assinatura no catálogo e governança de catálogo por unidade.
+
+Aggregate de Billing:
+
+```text
+Billing
+└── BillingInvoice
+    ├── BillingInvoiceItem
+    ├── DunningProcess
+    ├── FinancialTransaction (referência externa)
+    └── PaymentAttempt (referência futura de Payments)
+```
+
+`BillingInvoice` possui estado próprio, itens próprios, write-off, estorno, dunning e referência ao título financeiro. Quando Payments existir, ela também poderá referenciar tentativas de pagamento externas. Por isso ela deve ser o aggregate root de Billing, sem tornar Billing dono conceitual de `PaymentAttempt`.
 
 ## 5. Snapshot contratual
 
@@ -139,7 +186,6 @@ Referenciar:
 - `unit_id`
 - `seller_id`/`created_by`
 - `policy_version_id`
-- `financial_transaction_id`, quando uma invoice gerar título financeiro
 
 Copiar em snapshot:
 
@@ -179,13 +225,28 @@ Estados: `draft`, `open`, `partially_paid`, `paid`, `overdue`, `canceled`, `refu
 
 `BillingInvoice` é documento comercial de cobrança, não o título financeiro. Ao emitir, pode gerar `financial_transactions` com `reference_type = billing_invoice` e status `pending`. Ao pagar, Finance continua responsável pela baixa via `TenantFinancialTransactionService::pay`.
 
+Transições principais:
+
+- `draft -> open|canceled`
+- `open -> partially_paid|paid|overdue|canceled|written_off`
+- `partially_paid -> paid|overdue|written_off|refunded`
+- `overdue -> paid|partially_paid|written_off|canceled`
+- `paid -> refunded|chargeback_handling`, se Payments futuro expuser contestação
+
 Transições proibidas: `paid -> open` silencioso, `canceled -> paid`, fechamento duplicado do mesmo ciclo.
 
-### PaymentAttempt
+Efeitos colaterais esperados:
+
+- `open`: pode solicitar criação de `financial_transactions`.
+- `paid`: é consequência de baixa financeira ou confirmação de pagamento, não cálculo próprio de Billing.
+- `written_off`: deve refletir decisão financeira autorizada.
+- `refunded`: deve gerar ajuste/estorno em Finance e, quando Payments existir, no `PaymentAttempt`, sem reabrir cobrança silenciosamente.
+
+### PaymentAttempt futuro
 
 Estados: `pending`, `processing`, `authorized`, `paid`, `failed`, `canceled`, `refunded`, `chargeback`.
 
-Como não há Payments/gateway hoje, `PaymentAttempt` deve começar como registro interno de tentativa de cobrança manual/Finance. Quando Payments existir, esses estados mapearão callbacks/webhooks e polling.
+Como não há Payments/gateway hoje, `PaymentAttempt` não é necessário para o MVP. Tentativas manuais podem ser registradas como ação financeira e auditoria. Quando Payments existir, `PaymentAttempt` deve nascer no contexto correto e esses estados mapearão callbacks/webhooks e polling.
 
 Status da assinatura, invoice, payment attempt e financial transaction são independentes:
 
@@ -254,6 +315,8 @@ Reativação:
 
 ## 11. Billing
 
+Billing é o bounded context de cobrança recorrente. Seu aggregate root é `BillingInvoice`.
+
 Billing deve calcular:
 
 - Preço fixo, por unidade, faixas, volume, consumo e modelo híbrido.
@@ -267,6 +330,14 @@ Fronteira com Finance:
 - FinancialTransaction: título financeiro/contas a receber existente em `financial_transactions`.
 - Payment/baixa: `TenantFinancialTransactionService::pay`.
 - Competência/fechamento: `FinancialPeriodService`.
+
+Contrato de dependência:
+
+- Billing pode solicitar/criar um recebível em Finance a partir de uma invoice emitida.
+- Finance pode ler dados da invoice para descrever o título financeiro.
+- Finance nunca recalcula itens, descontos, consumo, pro-rata ou total de Billing.
+- Billing nunca baixa caixa, altera saldo de conta financeira ou fecha competência.
+- Payments deve liquidar ou falhar contra o recebível/tentativa de pagamento; a baixa final continua em Finance.
 
 Billing não deve duplicar `financial_accounts`, `financial_periods` ou `royalty_calculations`.
 
@@ -359,7 +430,20 @@ Ownership econômico proposto em `Subscription`:
 - `billing_owner_unit_id`: unidade responsável pela cobrança.
 - `receivable_owner_unit_id`: unidade/empresa que receberá o financeiro.
 
-Royalties e repasses continuam no domínio Royalties/Settlement.
+Royalties e repasses continuam fora de Subscriptions. No curto prazo, usam o módulo atual de Royalties; no roadmap, devem migrar conceitualmente para Revenue Settlement.
+
+Revenue Settlement futuro:
+
+```text
+Revenue Settlement
+├── Royalties
+├── Split
+├── Commissions
+├── Transfers
+└── Settlement Cycles
+```
+
+Subscriptions e Billing devem fornecer contexto econômico suficiente para Revenue Settlement, mas não calcular split, comissão, royalties avançados, repasse de marketplace ou transferência entre participantes.
 
 ## 17. Integração com Payments
 
@@ -383,7 +467,19 @@ Contratos conceituais:
 - `fetchPaymentStatus`
 - `tokenizePaymentMethod`
 
-Até Payments existir, Billing deve gerar `financial_transactions` pendentes e permitir cobrança/baixa manual via Finance.
+Até Payments existir, Billing deve gerar `financial_transactions` pendentes e permitir cobrança/baixa manual via Finance. `PaymentAttempt` não deve ser criado no MVP salvo decisão explícita; se isso ocorrer, a persistência inicial em Billing será técnica e o ownership conceitual/API futura permanecerá em Payments.
+
+Quando Payments existir, a dependência esperada é:
+
+```text
+BillingInvoice
+   ├── FinancialTransaction/Receivable
+   └── PaymentAttempt -> Provider
+
+PaymentAttempt -> Finance/Billing
+```
+
+Payments não deve decidir renovação, valor contratado, desconto, pro-rata ou MRR. Payments executa a cobrança e informa resultado de pagamento. Finance confirma baixa/caixa; Billing reflete o estado financeiro sem recalcular a invoice.
 
 ## 18. Eventos de domínio
 
@@ -505,10 +601,13 @@ Seguir `routes/company.php` para módulos tenant administrativos/operacionais:
 - `POST /api/company/subscriptions/{id}/reactivate`
 - `GET /api/company/subscriptions/{id}/cycles`
 - `GET /api/company/billing/invoices`
+- `POST /api/company/billing/invoices`
+- `GET /api/company/billing/invoices/{id}`
 - `POST /api/company/billing/invoices/{id}/issue`
 - `POST /api/company/billing/invoices/{id}/cancel`
 - `POST /api/company/billing/invoices/{id}/charge`
 - `POST /api/company/billing/invoices/{id}/write-off`
+- `GET /api/company/billing/invoices/{id}/dunning`
 - `GET /api/company/usage-records`
 - `POST /api/company/usage-records`
 - `GET /api/company/dunning/processes`
@@ -534,7 +633,6 @@ app/
     SubscriptionTimelineEvent.php
     BillingInvoice.php
     BillingInvoiceItem.php
-    PaymentAttempt.php
     DunningPolicyVersion.php
     DunningProcess.php
     DunningAction.php
@@ -545,11 +643,11 @@ app/
     SubscriptionService.php
     SubscriptionPolicyService.php
     SubscriptionCycleService.php
+    UsageRecordService.php
+    MrrService.php
     BillingInvoiceService.php
     BillingCalculatorService.php
     DunningService.php
-    UsageRecordService.php
-    MrrService.php
   Http/
     Controllers/Api/
       SubscriptionController.php
@@ -567,6 +665,8 @@ database/
 
 Se a plataforma adotar módulos PHP no futuro, este desenho pode migrar, mas hoje deve seguir a organização por camada.
 
+Quando Payments for implementado, `PaymentAttempt`, provider contracts, webhooks e reconciliação devem nascer no contexto de Payments. Eles não fazem parte da fundação inicial de Subscriptions/Billing.
+
 ## 24. Banco de dados
 
 Tabelas novas no schema tenant, sem `tenant_id` por padrão:
@@ -574,14 +674,19 @@ Tabelas novas no schema tenant, sem `tenant_id` por padrão:
 - `subscription_policy_versions`: escopo, versão, JSON de políticas, vigência e publicação.
 - `subscriptions`: IDs incrementais, `customer_id`, `unit_id`, `contract_id`, `sales_order_id`, status, datas, moeda, snapshots JSON, owners e índices por status/renovação/unidade/cliente.
 - `subscription_items`: FK assinatura, `catalog_item_id`, snapshot JSON, quantidade, preço, desconto, periodicidade.
-- `subscription_cycles`: período, status, invoice, chave única por assinatura/período.
+- `subscription_cycles`: período contratual/serviço, status e chave única por assinatura/período. Não deve depender de `billing_invoice_id`; a invoice referencia o ciclo quando houver cobrança.
 - `subscription_changes`, `subscription_pauses`, `subscription_cancellations`, `subscription_timeline_events`.
-- `billing_invoices`, `billing_invoice_items`: documento comercial, status, valores `decimal(16,2)`, due_date, issued_at, `financial_transaction_id`.
-- `payment_attempts`: invoice, status, amount, provider futuro, external_reference, idempotency_key.
+- `billing_invoices`, `billing_invoice_items`: aggregate de Billing, documento comercial, status, valores `decimal(16,2)`, due_date, issued_at, `subscription_id`, `subscription_cycle_id` opcional e `financial_transaction_id`.
 - `dunning_policy_versions`, `dunning_processes`, `dunning_actions`.
 - `usage_records`: consumo e idempotência.
 - `subscription_credits`: saldo/origem/expiração.
 - `mrr_movements`: ledger explicável.
+
+Tabelas futuras de Payments, fora do MVP sem gateway:
+
+- `payment_attempts`: invoice/receivable, status, amount, provider, external_reference, idempotency_key.
+- `payment_webhook_events`: payload externo sanitizado, assinatura, idempotência e correlação.
+- `payment_reconciliation_runs`: execuções de conciliação por provider/período.
 
 Reutilizar:
 
@@ -596,7 +701,7 @@ Reutilizar:
 - Assinatura cancelada não renova.
 - Ciclo não fecha duas vezes.
 - Invoice paga não volta silenciosamente para aberta.
-- PaymentAttempt duplicado não gera duas baixas.
+- PaymentAttempt duplicado não gera duas baixas, quando Payments existir.
 - BillingInvoice emitida pode gerar no máximo um título financeiro ativo por chave idempotente.
 - `financial_transactions` pagas não são editadas diretamente, coerente com `TenantFinancialTransactionService`.
 - Mudança no Catalog não altera snapshot ativo.
@@ -638,10 +743,12 @@ Todo log operacional deve incluir subdomain/schema, company_id quando disponíve
 
 ## 28. Estratégia de implementação
 
+O primeiro plano implementável deve cobrir somente `Subscriptions Foundation`: `Subscription`, `SubscriptionItem`, `SubscriptionCycle`, snapshots, estados e transições, permissões, auditoria e eventos. Sem Payments, dunning, consumo, Pricing ou Entitlements nessa primeira fase.
+
 | Fase | Objetivo | Dependências | Entregáveis | Riscos | Critérios de aceite | Testes |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Fundação | tenant migrations, RBAC, auditoria | models, migrations, services base, policies, seed permissions | duplicar Finance/Catalog | assinatura criada com snapshot e auditoria | unit/feature tenant |
-| 2 | Ciclos e invoice fixa | fase 1, Catalog/Sales | cycles, BillingInvoice, emissão, título financeiro pendente | duplicidade de financeiro | invoice gera `financial_transactions` idempotente | feature com schema tenant |
+| 1 | Subscriptions Foundation | Catalog atual, tenant migrations, RBAC, auditoria | Subscription, SubscriptionItem, SubscriptionCycle, snapshots, estados, permissões, auditoria, eventos | acoplar Billing/Pricing cedo demais | assinatura criada com snapshot, ciclo previsto e auditoria | unit/feature tenant |
+| 2 | Billing invoice fixa | fase 1, Catalog/Sales, Finance | BillingInvoice, emissão, título financeiro pendente | duplicidade de financeiro | invoice gera `financial_transactions` idempotente | feature com schema tenant |
 | 3 | Alterações/pro-rata | fases 1-2 | SubscriptionChange, credits, MRR movements | cálculo monetário | alteração explicável por ledger | unit de cálculo |
 | 4 | Payments futuro | fase 2 | contratos provider, PaymentAttempt, webhooks | gateway acoplar domínio | provider fake e idempotência | integration fake |
 | 5 | Dunning | Billing/Finance/Automation | policies, processes/actions, suspensão | suspensão indevida | régua executa sem enviar comunicação direta | feature/command |
@@ -665,8 +772,15 @@ Fora da primeira implementação:
 - Revenue Settlement completo além do módulo Royalties atual;
 - migração global de money para centavos;
 - event sourcing/outbox, salvo decisão técnica futura.
+- Payments, gateway, webhook, conciliação e `PaymentAttempt`;
+- dunning automatizado;
+- consumo medido;
+- Pricing como bounded context extraído;
+- Entitlements como bounded context extraído.
 
 ## 30. Questões em aberto
+
+As questões abaixo devem ser decididas no decision log `docs/architecture/subscriptions-product-decisions.md` antes do plano implementável. O contrato arquitetural está tecnicamente aprovado para planejamento, mas migrations e services dependem dessas escolhas.
 
 - Produto confirma `Company` como “rede/franqueadora” em todos os contextos ou será criada entidade Network?
 - Contrato será obrigatório para todos os tipos de assinatura ou apenas para planos com fidelidade/documento?
