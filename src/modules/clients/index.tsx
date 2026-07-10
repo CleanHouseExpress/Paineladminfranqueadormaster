@@ -23,6 +23,7 @@ import {
 } from '../../app/components/ui/table';
 import type { CustomerTableColumn } from '../../types/customerManagement';
 import { metadataService } from '../../services/metadataService';
+import { markCustomerManagementConfigured } from '../../services/onboardingService';
 
 const EMPTY_META: CustomersMeta = {
   current_page: 1,
@@ -380,6 +381,7 @@ export function CustomerSettingsPage() {
         fields: updated.form_schema ?? updated.fields,
         table_columns: updated.table_schema ?? updated.table_columns,
       });
+      await markCustomerManagementConfigured();
       setSaved(true);
     } catch {
       setError('Nao foi possivel salvar a configuracao.');

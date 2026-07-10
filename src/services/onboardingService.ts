@@ -166,8 +166,9 @@ function toFinancial(settings: TenantSettings | null): WizardStepData['financial
   };
 }
 
-function clientsImported(settings: TenantSettings | null): boolean {
-  return settings?.dashboard_preferences?.onboarding_clients_imported === true;
+function customersConfigured(settings: TenantSettings | null): boolean {
+  return settings?.dashboard_preferences?.onboarding_customers_configured === true
+    || settings?.dashboard_preferences?.onboarding_clients_imported === true;
 }
 
 function hasItems(response: RoyaltySetupResponse | null): boolean {
@@ -194,7 +195,7 @@ function checklistFromBackend(params: {
     user: params.usersTotal > 1,
     modules: settingsCompleted || modulesAvailable,
     royalties: royaltiesConfigured || Boolean(params.settings?.dashboard_preferences?.onboarding_financial),
-    clients: clientsImported(params.settings),
+    clients: customersConfigured(params.settings),
     tour: params.onboarding?.status === 'completed',
   };
 
@@ -272,7 +273,7 @@ export async function getOnboardingStatus(): Promise<OnboardingState> {
       users: toUsers(usersResponse?.data ?? []),
       modules: toModules(modules),
       financial: toFinancial(settings),
-      clientsImported: clientsImported(settings),
+      clientsImported: customersConfigured(settings),
     },
     tourCompleted: completed,
     tourActive: false,
@@ -292,6 +293,30 @@ export async function getOnboardingStatus(): Promise<OnboardingState> {
 
 export function notifyOnboardingRealityChanged(): void {
   window.dispatchEvent(new Event(ONBOARDING_REALITY_CHANGED_EVENT));
+}
+
+export async function markCustomerManagementConfigured(): Promise<void> {
+  const current = dataOf(await optional(apiClient.get<DataResponse<TenantSettings>>('/api/me/settings', { expireSessionOnUnauthorized: false })));
+  const preferences: Record<string, unknown> = {
+    ...(current?.dashboard_preferences ?? {}),
+    onboarding_customers_configured: true,
+  };
+
+  await apiClient.put('/api/me/settings', {
+    timezone: current?.timezone ?? 'America/Sao_Paulo',
+    language: current?.language ?? 'pt-BR',
+    currency: current?.currency ?? 'BRL',
+    default_city: current?.default_city ?? null,
+    default_state: current?.default_state ?? null,
+    network_type: current?.network_type ?? 'franchise',
+    unit_management_mode: current?.unit_management_mode ?? 'hybrid',
+    email_notifications: true,
+    system_notifications: true,
+    critical_alerts: true,
+    dashboard_preferences: preferences,
+  });
+
+  notifyOnboardingRealityChanged();
 }
 
 function validEmail(value: string | null): string | null {
