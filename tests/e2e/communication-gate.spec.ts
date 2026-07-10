@@ -119,6 +119,7 @@ async function mockAuthWithCommunicationAlias(page: Page) {
     body: JSON.stringify({
       data: [
         { module_id: 'communication', name: 'Communication Inbox', status: 'active' },
+        { module_id: 'support', name: 'Atendimento', status: 'active' },
         { module_id: 'dashboard', name: 'Dashboard', status: 'active' },
       ],
     }),
@@ -274,6 +275,9 @@ test.describe('@smoke @communication Communication gate and aliases', () => {
     await page.goto('/communication/inbox');
 
     await expect(page.getByTestId('communication-inbox-page')).toBeVisible();
+    await expect(page.getByTestId('sidebar-communication-inbox')).toHaveCount(1);
+    await expect(page.getByTestId('sidebar-support')).toHaveCount(0);
+    await expect(page.getByTestId('sidebar-communication-inbox')).toContainText('Central de Conversas');
     await expect(page.getByTestId('communication-conversation-list')).toContainText('Ana Cliente');
     await expectModuleGateNotVisible(page);
   });

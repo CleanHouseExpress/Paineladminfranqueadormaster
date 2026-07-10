@@ -367,26 +367,17 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   // â”€â”€â”€ Atendimento â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   {
-    id: 'support',
-    name: 'Atendimento',
-    description: 'Central de atendimento multicanal. Ative o mÃ³dulo WhatsApp ou Instagram para comeÃ§ar.',
-    icon: 'MessageCircle',
-    status: 'active',
-    nav: { show: true, order: 5, group: 'main' },
-    routes: [{ path: '/support', componentId: 'support' }],
-  },
-  {
     id: 'communication-inbox',
-    name: 'Communication Inbox',
-    description: 'Ãrea central de comunicaÃ§Ã£o com inbox, dashboard, analytics e configuraÃ§Ãµes.',
-    icon: 'Inbox',
+    name: 'Central de Conversas',
+    description: 'Central de atendimento multicanal com inbox, dashboard, analytics e configuraÃ§Ãµes.',
+    icon: 'MessageCircle',
     status: 'active',
     nav: {
       show: true,
       order: 5.1,
       group: 'main',
       children: [
-        { label: 'Caixa de Entrada', path: '/communication/inbox' },
+        { label: 'Atendimento', path: '/communication/inbox' },
         { label: 'Dashboard', path: '/communication/dashboard' },
         { label: 'Analytics', path: '/communication/analytics' },
         { label: 'ConfiguraÃ§Ãµes', path: '/communication/settings' },
@@ -405,7 +396,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
       { path: '/communication/settings/tags', componentId: 'communication-settings-tags' },
       { path: '/communication/settings/ai', componentId: 'communication-settings-ai' },
       { path: '/communication/settings/webhooks', componentId: 'communication-settings-webhooks' },
-      { path: '/support', componentId: 'support' },
+      { path: '/support', componentId: 'communication-inbox', moduleId: 'communication-inbox' },
     ],
   },
   {

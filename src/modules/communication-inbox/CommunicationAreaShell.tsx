@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router';
 import { BarChart3, Inbox, LayoutDashboard, Settings2 } from 'lucide-react';
 
 const navigation = [
-  { label: 'Caixa de Entrada', path: '/communication/inbox', icon: Inbox },
+  { label: 'Atendimento', path: '/communication/inbox', icon: Inbox },
   { label: 'Dashboard', path: '/communication/dashboard', icon: LayoutDashboard },
   { label: 'Analytics', path: '/communication/analytics', icon: BarChart3 },
   { label: 'Configurações', path: '/communication/settings', icon: Settings2 },
@@ -34,11 +34,11 @@ export function CommunicationAreaShell({ children, title, subtitle }: Communicat
           <div>
             <div className="flex items-center gap-2 text-sm font-medium text-blue-700">
               <Inbox className="h-4 w-4" />
-              Comunicação
+              Central de Conversas
             </div>
-            <h1 className="mt-1 text-2xl font-semibold text-slate-950">{title ?? 'Centro de Comunicação'}</h1>
+            <h1 className="mt-1 text-2xl font-semibold text-slate-950">{title ?? 'Central de Conversas'}</h1>
             <p className="mt-1 text-sm text-slate-600">
-              {subtitle ?? 'Área central para atender, acompanhar e configurar a comunicação da operação.'}
+              {subtitle ?? 'Area central para atender, acompanhar e configurar as conversas da operacao.'}
             </p>
           </div>
 

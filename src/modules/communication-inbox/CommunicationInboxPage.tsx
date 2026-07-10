@@ -581,16 +581,16 @@ export function CommunicationInboxPage() {
   };
 
   return (
-    <CommunicationAreaShell title="Caixa de Entrada" subtitle="Leitura de conversas e mensagens vindas da orchestra-api.">
+    <CommunicationAreaShell title="Atendimento" subtitle="Leitura de conversas e mensagens vindas da orchestra-api.">
     <main className="flex h-full min-h-0 flex-col bg-slate-50" data-testid="communication-inbox-page">
       <header className="border-b border-slate-200 bg-white px-6 py-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex items-center gap-2 text-sm font-medium text-blue-700">
               <Inbox className="h-4 w-4" />
-              Communication Inbox
+              Atendimento
             </div>
-            <h1 className="mt-1 text-2xl font-semibold text-slate-950">Caixa de comunicacao</h1>
+            <h1 className="mt-1 text-2xl font-semibold text-slate-950">Atendimento</h1>
             <p className="mt-1 text-sm text-slate-600">Leitura de conversas e mensagens vindas da orchestra-api.</p>
             <div
               className={`mt-2 inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium ${
