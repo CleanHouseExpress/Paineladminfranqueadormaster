@@ -288,6 +288,8 @@ export function ChannelsPage() {
   }, []);
 
   const handleActivate = async () => {
+    if (activating) return;
+
     setActivating(true);
     setError(null);
     try {
@@ -301,6 +303,8 @@ export function ChannelsPage() {
   };
 
   const handleRefreshStatus = async () => {
+    if (loading || refreshingStatus) return;
+
     setRefreshingStatus(true);
     setError(null);
     try {
@@ -313,6 +317,8 @@ export function ChannelsPage() {
   };
 
   const handleRefreshQrCode = async () => {
+    if (loading || refreshingQrCode || status?.state === 'connected') return;
+
     setRefreshingQrCode(true);
     setError(null);
     try {
