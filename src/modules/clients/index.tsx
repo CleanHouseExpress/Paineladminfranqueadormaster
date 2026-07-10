@@ -24,6 +24,8 @@ import {
 import type { CustomerTableColumn } from '../../types/customerManagement';
 import { metadataService } from '../../services/metadataService';
 import { markCustomerManagementConfigured } from '../../services/onboardingService';
+import { useAuth } from '../../shared/context/AuthContext';
+import { configuredModuleLabel } from '../../services/moduleLabels';
 
 const EMPTY_META: CustomersMeta = {
   current_page: 1,
@@ -54,6 +56,7 @@ async function loadSettings() {
 }
 
 export function CustomersListPage() {
+  const { modules } = useAuth();
   const [settings, setSettings] = useState<CustomerFormSettings>(DEFAULT_CUSTOMER_SETTINGS);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [meta, setMeta] = useState<CustomersMeta>(EMPTY_META);
@@ -65,6 +68,7 @@ export function CustomersListPage() {
   const [error, setError] = useState<string | null>(null);
 
   const columns = useMemo<CustomerTableColumn[]>(() => settings.table_columns ?? settings.table_schema ?? [], [settings]);
+  const pluralLabel = configuredModuleLabel(modules, 'customers') ?? settings.plural_label;
 
   const load = async () => {
     setLoading(true);
@@ -77,7 +81,7 @@ export function CustomersListPage() {
       setCustomers(customersPayload.data);
       setMeta(customersPayload.meta);
     } catch {
-      setError(`Nao foi possivel carregar ${settings.plural_label.toLowerCase()}.`);
+      setError(`Nao foi possivel carregar ${pluralLabel.toLowerCase()}.`);
     } finally {
       setLoading(false);
     }
@@ -120,8 +124,8 @@ export function CustomersListPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-normal">{settings.plural_label}</h1>
-          <p className="text-sm text-muted-foreground">Gestao de {settings.plural_label.toLowerCase()} do tenant.</p>
+          <h1 className="text-2xl font-semibold tracking-normal">{pluralLabel}</h1>
+          <p className="text-sm text-muted-foreground">Gestao de {pluralLabel.toLowerCase()} do tenant.</p>
         </div>
         <div className="flex gap-2">
           <Button asChild variant="outline">

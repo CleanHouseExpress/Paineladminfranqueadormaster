@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 
 import { NAV_MODULES } from '../../services/moduleRegistry';
+import { configuredModuleLabel, moduleDisplayName, moduleIdentity } from '../../services/moduleLabels';
 import { useTenant } from '../../shared/context/TenantContext';
 import { useAuth } from '../../shared/context/AuthContext';
 
@@ -24,7 +25,19 @@ function DynIcon({ name, ...props }: { name: string } & LucideProps) {
 function SidebarNav({ collapsed }: { collapsed: boolean }) {
   const location = useLocation();
   const { isModuleEnabled } = useTenant();
+  const { modules } = useAuth();
   const [expanded, setExpanded] = useState<string[]>(['financial', 'access']);
+
+  const configuredModuleLabels = useMemo(() => {
+    return modules.reduce<Map<string, string>>((labels, module) => {
+      const id = moduleIdentity(module);
+      const name = moduleDisplayName(module);
+
+      if (id && name) labels.set(id, name);
+
+      return labels;
+    }, new Map());
+  }, [modules]);
 
   const toggleExpand = (id: string) =>
     setExpanded(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
@@ -41,7 +54,9 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
     const primaryPath = mod.routes?.[0]?.path ?? '#';
     const active = isActive(primaryPath);
     const isExp = expanded.includes(mod.id);
-    const enabled = isModuleEnabled(mod.routes?.[0]?.moduleId ?? mod.id);
+    const moduleId = mod.routes?.[0]?.moduleId ?? mod.id;
+    const enabled = isModuleEnabled(moduleId);
+    const label = configuredModuleLabels.get(moduleId) ?? configuredModuleLabels.get(mod.id) ?? mod.nav!.label ?? mod.name;
 
     const baseStyle: React.CSSProperties = {
       color: active ? '#F1F5F9' : '#94A3B8',
@@ -63,7 +78,7 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
             <DynIcon name={mod.icon} size={16} style={{ flexShrink: 0 }} />
             {!collapsed && (
               <>
-                <span style={{ fontSize: '13px', fontWeight: 500 }}>{mod.nav!.label ?? mod.name}</span>
+                <span style={{ fontSize: '13px', fontWeight: 500 }}>{label}</span>
                 <ChevronDown
                   size={12}
                   className="ml-auto transition-transform"
@@ -120,7 +135,7 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
         <DynIcon name={mod.icon} size={16} style={{ flexShrink: 0 }} />
         {!collapsed && (
           <>
-            <span style={{ fontSize: '13px', fontWeight: active ? 500 : 400 }}>{mod.nav!.label ?? mod.name}</span>
+            <span style={{ fontSize: '13px', fontWeight: active ? 500 : 400 }}>{label}</span>
             {active && <span className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: '#818CF8' }} />}
           </>
         )}
@@ -145,7 +160,7 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { tenant } = useTenant();
-  const { logout, user } = useAuth();
+  const { logout, modules, user } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -159,6 +174,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
     [tenant.name, tenant.whiteLabel.platformName],
   );
   const brandSubtitle = tenant.name === brandTitle ? 'Painel da rede' : tenant.name;
+  const customersLabel = useMemo(() => {
+    return configuredModuleLabel(modules, 'customers')?.toLowerCase() ?? 'clientes';
+  }, [modules]);
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: '#F8FAFC', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
@@ -232,7 +250,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex-1 max-w-md">
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: '#F8FAFC', border: '1px solid rgba(0,0,0,0.08)' }}>
               <Search size={14} style={{ color: '#94A3B8' }} />
-              <input placeholder="Buscar unidades, clientes, módulos…" className="bg-transparent flex-1 outline-none" style={{ fontSize: '13px', color: '#64748B' }} />
+              <input placeholder={`Buscar unidades, ${customersLabel}, modulos...`} className="bg-transparent flex-1 outline-none" style={{ fontSize: '13px', color: '#64748B' }} />
               <span className="hidden md:block px-1.5 py-0.5 rounded" style={{ background: '#EFF2F7', color: '#94A3B8', fontSize: '10px', fontFamily: 'monospace' }}>⌘K</span>
             </div>
           </div>

@@ -1,10 +1,16 @@
 import { Link, useLocation } from 'react-router';
 import { ChevronRight } from 'lucide-react';
 import { resolveBreadcrumb } from '../../services/moduleRegistry';
+import { useAuth } from '../context/AuthContext';
+import { configuredModuleLabel } from '../../services/moduleLabels';
 
 export function DynamicBreadcrumbs() {
   const { pathname } = useLocation();
-  const crumbs = resolveBreadcrumb(pathname);
+  const { modules } = useAuth();
+  const customerLabel = pathname.startsWith('/customers') ? configuredModuleLabel(modules, 'customers') : null;
+  const crumbs = resolveBreadcrumb(pathname).map(crumb => (
+    crumb.path.startsWith('/customers') && customerLabel ? { ...crumb, label: customerLabel } : crumb
+  ));
 
   if (crumbs.length === 0) return null;
 
