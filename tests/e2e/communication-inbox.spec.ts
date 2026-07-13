@@ -542,6 +542,15 @@ async function getRealtimeTestState(page: Page) {
   }).__ORCHESTRA_REALTIME_TEST_STATE__);
 }
 
+async function openConversationMenu(page: Page) {
+  await page.getByLabel('Abrir acoes da conversa').click();
+}
+
+async function openConversationDetails(page: Page) {
+  await openConversationMenu(page);
+  await page.getByTestId('communication-open-details').click();
+}
+
 test.describe('@smoke @communication Communication Inbox', () => {
   test('renderiza a pagina, carrega resumo, lista conversas e mensagens', async ({ page }) => {
     await mockAuth(page);
@@ -550,7 +559,8 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await page.goto('/communication/inbox');
 
     await expect(page.getByTestId('communication-inbox-page')).toBeVisible();
-    await expect(page.getByTestId('communication-inbox-summary')).toContainText('Total');
+    await page.getByTestId('communication-inbox-summary').click();
+    await expect(page.getByText('Total')).toBeVisible();
     await expect(page.getByText('2').first()).toBeVisible();
     await expect(page.getByTestId('communication-conversation-list')).toContainText('Ana Cliente');
     await expect(page.getByTestId('communication-conversation-list')).toContainText('Bruno Cliente');
@@ -565,7 +575,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await page.goto('/communication/inbox');
 
     await expect(page.getByTestId('communication-inbox-page')).toBeVisible();
-    await expect(page.getByTestId('communication-realtime-status')).toContainText('Offline / tempo real indisponivel');
+    await expect(page.getByTestId('communication-realtime-status')).toContainText('Offline');
   });
 
   test('realtime ativo assina canais de tenant e conversa', async ({ page }) => {
@@ -575,7 +585,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
 
     await page.goto('/communication/inbox');
 
-    await expect(page.getByTestId('communication-realtime-status')).toContainText('Tempo real ativo');
+    await expect(page.getByTestId('communication-realtime-status')).toContainText('Online');
     await expect.poll(async () => {
       const state = await getRealtimeTestState(page);
       return state?.channels.includes('tenant.1.communication') && state.channels.includes('conversation.c-1');
@@ -643,6 +653,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
 
     await page.goto('/communication/inbox');
 
+    await openConversationDetails(page);
     await expect(page.getByTestId('communication-conversation-details')).toBeVisible();
     await expect(page.getByTestId('communication-conversation-details')).toContainText('Ana Cliente');
     await expect(page.getByTestId('communication-conversation-details')).toContainText('+55 11 99999-0000');
@@ -724,6 +735,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
 
     await page.goto('/communication/inbox');
 
+    await openConversationMenu(page);
     await expect(page.getByTestId('communication-tab-timeline')).toBeVisible();
     expect(calls.timeline).toBe(0);
 
@@ -746,6 +758,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
     const calls = await mockInbox(page, { emptyTimeline: true });
 
     await page.goto('/communication/inbox');
+    await openConversationMenu(page);
     await page.getByTestId('communication-tab-timeline').click();
 
     await expect.poll(() => calls.timeline).toBe(1);
@@ -757,6 +770,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
     const calls = await mockInbox(page, { failTimeline: true });
 
     await page.goto('/communication/inbox');
+    await openConversationMenu(page);
     await page.getByTestId('communication-tab-timeline').click();
 
     await expect.poll(() => calls.timeline).toBe(1);
@@ -770,6 +784,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
 
     await page.goto('/communication/inbox');
 
+    await openConversationMenu(page);
     await expect(page.getByTestId('communication-action-assign')).toBeVisible();
     await expect(page.getByTestId('communication-action-handoff')).toBeVisible();
     await expect(page.getByTestId('communication-action-transfer')).toBeVisible();
@@ -782,6 +797,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
     const calls = await mockInbox(page);
 
     await page.goto('/communication/inbox');
+    await openConversationMenu(page);
     await page.getByTestId('communication-action-transfer').click();
 
     await expect(page.getByTestId('communication-transfer-modal')).toBeVisible();
@@ -796,6 +812,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
     const calls = await mockInbox(page);
 
     await page.goto('/communication/inbox');
+    await openConversationMenu(page);
     await page.getByTestId('communication-action-transfer').click();
     await page.getByTestId('communication-assignee-search').fill('Carlos');
 
@@ -808,6 +825,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
     const calls = await mockInbox(page);
 
     await page.goto('/communication/inbox');
+    await openConversationMenu(page);
     await page.getByTestId('communication-action-transfer').click();
     await page.getByTestId('communication-assignee-u-2').click();
     await page.getByTestId('communication-transfer-confirm').click();
@@ -816,6 +834,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await expect.poll(() => calls.summary).toBeGreaterThan(1);
     await expect.poll(() => calls.conversations).toBeGreaterThan(1);
     await expect(page.getByTestId('communication-transfer-modal')).toHaveCount(0);
+    await openConversationDetails(page);
     await expect(page.getByTestId('communication-conversation-details')).toContainText('Carlos Atendimento');
   });
 
@@ -824,6 +843,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
     const calls = await mockInbox(page, { failTransfer: true });
 
     await page.goto('/communication/inbox');
+    await openConversationMenu(page);
     await page.getByTestId('communication-action-transfer').click();
     await page.getByTestId('communication-assignee-u-2').click();
     await page.getByTestId('communication-transfer-confirm').click();
@@ -839,6 +859,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
 
     await page.goto('/communication/inbox');
 
+    await openConversationMenu(page);
     await expect(page.getByTestId('communication-action-transfer')).toHaveCount(0);
     await expect(page.getByTestId('communication-action-reopen')).toBeVisible();
   });
@@ -848,11 +869,13 @@ test.describe('@smoke @communication Communication Inbox', () => {
     const calls = await mockInbox(page);
 
     await page.goto('/communication/inbox');
+    await openConversationMenu(page);
     await page.getByTestId('communication-action-assign').click();
 
     await expect.poll(() => calls.assign).toBe(1);
     await expect.poll(() => calls.summary).toBeGreaterThan(1);
     await expect.poll(() => calls.conversations).toBeGreaterThan(1);
+    await openConversationDetails(page);
     await expect(page.getByTestId('communication-conversation-details')).toContainText('Admin Master');
   });
 
@@ -861,10 +884,12 @@ test.describe('@smoke @communication Communication Inbox', () => {
     const calls = await mockInbox(page);
 
     await page.goto('/communication/inbox');
+    await openConversationMenu(page);
     await page.getByTestId('communication-action-handoff').click();
 
     await expect.poll(() => calls.handoff).toBe(1);
     await expect.poll(() => calls.summary).toBeGreaterThan(1);
+    await openConversationDetails(page);
     await expect(page.getByTestId('communication-conversation-details')).toContainText('Aguardando humano');
   });
 
@@ -874,7 +899,10 @@ test.describe('@smoke @communication Communication Inbox', () => {
 
     await page.goto('/communication/inbox');
 
+    await openConversationDetails(page);
     await expect(page.getByTestId('communication-conversation-details')).toContainText('Humano');
+    await page.getByLabel('Fechar informacoes').click();
+    await openConversationMenu(page);
     await expect(page.getByTestId('communication-action-return-ai')).toBeVisible();
   });
 
@@ -884,12 +912,14 @@ test.describe('@smoke @communication Communication Inbox', () => {
     page.on('dialog', dialog => dialog.accept());
 
     await page.goto('/communication/inbox');
+    await openConversationMenu(page);
     await page.getByTestId('communication-action-return-ai').click();
 
     await expect.poll(() => calls.returnToAi).toBe(1);
     await expect.poll(() => calls.messages).toBeGreaterThan(1);
     await expect.poll(() => calls.summary).toBeGreaterThan(1);
     await expect.poll(() => calls.conversations).toBeGreaterThan(1);
+    await openConversationDetails(page);
     await expect(page.getByTestId('communication-conversation-details')).toContainText('IA');
     await expect(page.getByTestId('communication-composer-ai')).toBeVisible();
     await expect(page.getByTestId('communication-message-input')).toBeDisabled();
@@ -901,10 +931,12 @@ test.describe('@smoke @communication Communication Inbox', () => {
     page.on('dialog', dialog => dialog.accept());
 
     await page.goto('/communication/inbox');
+    await openConversationMenu(page);
     await page.getByTestId('communication-action-return-ai').click();
 
     await expect.poll(() => calls.returnToAi).toBe(1);
     await expect(page.getByTestId('communication-action-error')).toBeVisible();
+    await openConversationMenu(page);
     await expect(page.getByTestId('communication-action-return-ai')).toBeVisible();
   });
 
@@ -914,9 +946,11 @@ test.describe('@smoke @communication Communication Inbox', () => {
     page.on('dialog', dialog => dialog.accept());
 
     await page.goto('/communication/inbox');
+    await openConversationMenu(page);
     await page.getByTestId('communication-action-close').click();
 
     await expect.poll(() => calls.close).toBe(1);
+    await openConversationMenu(page);
     await expect(page.getByTestId('communication-action-reopen')).toBeVisible();
   });
 
@@ -925,9 +959,11 @@ test.describe('@smoke @communication Communication Inbox', () => {
     const calls = await mockInbox(page, { closed: true });
 
     await page.goto('/communication/inbox');
+    await openConversationMenu(page);
     await page.getByTestId('communication-action-reopen').click();
 
     await expect.poll(() => calls.reopen).toBe(1);
+    await openConversationMenu(page);
     await expect(page.getByTestId('communication-action-close')).toBeVisible();
   });
 

@@ -37,9 +37,11 @@ export function CommunicationAreaShell({ children, title, subtitle }: Communicat
               Central de Conversas
             </div>
             <h1 className="mt-1 text-2xl font-semibold text-slate-950">{title ?? 'Central de Conversas'}</h1>
-            <p className="mt-1 text-sm text-slate-600">
-              {subtitle ?? 'Area central para atender, acompanhar e configurar as conversas da operacao.'}
-            </p>
+            {(subtitle ?? 'Area central para atender, acompanhar e configurar as conversas da operacao.') && (
+              <p className="mt-1 text-sm text-slate-600">
+                {subtitle ?? 'Area central para atender, acompanhar e configurar as conversas da operacao.'}
+              </p>
+            )}
           </div>
 
           <nav className="flex flex-wrap gap-2" aria-label="Subnavegação de comunicação">
