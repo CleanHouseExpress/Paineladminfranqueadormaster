@@ -120,6 +120,11 @@ function formatDateTime(value?: string | null) {
   }).format(date);
 }
 
+function getConversationSortTime(conversation: CommunicationConversation) {
+  const timestamp = conversation.lastMessageAt ? new Date(conversation.lastMessageAt).getTime() : 0;
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
 function DetailRow({ label, value }: { label: string; value?: string | number | null }) {
   const displayValue = value === undefined || value === null || value === '' ? 'Nao informado' : value;
 
@@ -348,7 +353,12 @@ export function CommunicationInboxPage() {
   const [transferError, setTransferError] = useState<string | null>(null);
   const assigneesQuery = useCommunicationAssignees(assigneeSearch, transferPanelOpen);
 
-  const conversations = conversationsQuery.data?.data ?? [];
+  const conversations = useMemo(
+    () => [...(conversationsQuery.data?.data ?? [])].sort(
+      (first, second) => getConversationSortTime(second) - getConversationSortTime(first),
+    ),
+    [conversationsQuery.data?.data],
+  );
   const conversationMeta = conversationsQuery.data?.meta;
   const selectedConversation = selectedConversationQuery.data
     ?? conversations.find(conversation => conversation.id === selectedConversationId)

@@ -186,6 +186,7 @@ async function mockInbox(
     failTimeline?: boolean;
     failAssignees?: boolean;
     failTransfer?: boolean;
+    unorderedConversations?: boolean;
     messageStatus?: 'sent' | 'delivered' | 'read' | 'failed' | 'pending';
   } = {},
 ) {
@@ -212,7 +213,12 @@ async function mockInbox(
     ...conversationsPayload.data[0],
     status: options.closed ? 'closed' : conversationsPayload.data[0].status,
   };
-  const secondConversation = conversationsPayload.data[1];
+  const secondConversation = {
+    ...conversationsPayload.data[1],
+    last_message_at: options.unorderedConversations
+      ? '2026-06-25T13:05:00.000Z'
+      : conversationsPayload.data[1].last_message_at,
+  };
   let currentMessages = messagesPayload.data.map(message => message.id === 'm-2' ? {
     ...message,
     status: options.messageStatus ?? 'sent',
@@ -499,7 +505,7 @@ async function mockInbox(
               ? { data: [], meta: { current_page: 1, last_page: 1, per_page: 25, total: 0 } }
               : {
                 ...conversationsPayload,
-                data: [currentConversation, conversationsPayload.data[1]],
+                data: [currentConversation, secondConversation],
                 meta: {
                   ...conversationsPayload.meta,
                   current_page: Number(url.searchParams.get('page') ?? 1),
@@ -566,6 +572,16 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await expect(page.getByTestId('communication-conversation-list')).toContainText('Bruno Cliente');
     await expect(page.getByText('Preciso remarcar meu horario').first()).toBeVisible();
     await expect(page.getByText('Claro, vou verificar as opcoes.')).toBeVisible();
+  });
+
+  test('ordena conversas pela ultima mensagem mais recente', async ({ page }) => {
+    await mockAuth(page);
+    await mockInbox(page, { unorderedConversations: true });
+
+    await page.goto('/communication/inbox');
+
+    const conversationNames = page.getByTestId('communication-conversation-list').locator('p.font-semibold');
+    await expect(conversationNames.first()).toContainText('Bruno Cliente');
   });
 
   test('realtime desligado nao quebra a tela', async ({ page }) => {
