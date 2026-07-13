@@ -125,6 +125,11 @@ function getConversationSortTime(conversation: CommunicationConversation) {
   return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
+function getMessageSortTime(message: { createdAt?: string | null }) {
+  const timestamp = message.createdAt ? new Date(message.createdAt).getTime() : 0;
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
 function DetailRow({ label, value }: { label: string; value?: string | number | null }) {
   const displayValue = value === undefined || value === null || value === '' ? 'Nao informado' : value;
 
@@ -363,6 +368,12 @@ export function CommunicationInboxPage() {
   const selectedConversation = selectedConversationQuery.data
     ?? conversations.find(conversation => conversation.id === selectedConversationId)
     ?? null;
+  const sortedMessages = useMemo(
+    () => [...(messagesQuery.data?.data ?? [])].sort(
+      (first, second) => getMessageSortTime(first) - getMessageSortTime(second),
+    ),
+    [messagesQuery.data?.data],
+  );
   const messageStatusById = useMemo(() => {
     const statuses = new Map<string, { status?: string | null; sentAt?: string | null; deliveredAt?: string | null; readAt?: string | null; failedAt?: string | null }>();
     for (const message of messagesQuery.data?.data ?? []) {
@@ -977,14 +988,14 @@ export function CommunicationInboxPage() {
                   </div>
                 ) : messagesQuery.isError ? (
                   <ErrorState message={messagesQuery.error?.message ?? 'Erro ao carregar mensagens.'} onRetry={messagesQuery.refetch} />
-                ) : (messagesQuery.data?.data.length ?? 0) === 0 ? (
+                ) : sortedMessages.length === 0 ? (
                   <div className="flex h-full min-h-[260px] flex-col items-center justify-center text-center text-slate-500">
                     <MessageCircle className="mb-3 h-10 w-10 text-slate-300" />
                     <p className="text-sm font-medium text-slate-700">Nenhuma mensagem nesta conversa</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {messagesQuery.data?.data.map(message => {
+                    {sortedMessages.map(message => {
                       const outbound = message.direction === 'outbound';
                       const Icon = message.senderType === 'bot' ? Bot : UserRound;
                       const deliveryStatus = messageStatusById.get(message.id);

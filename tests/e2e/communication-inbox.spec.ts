@@ -187,6 +187,7 @@ async function mockInbox(
     failAssignees?: boolean;
     failTransfer?: boolean;
     unorderedConversations?: boolean;
+    unorderedMessages?: boolean;
     messageStatus?: 'sent' | 'delivered' | 'read' | 'failed' | 'pending';
   } = {},
 ) {
@@ -227,6 +228,9 @@ async function mockInbox(
     read_at: options.messageStatus === 'read' ? '2026-06-25T12:31:03.000Z' : null,
     failed_at: options.messageStatus === 'failed' ? '2026-06-25T12:31:04.000Z' : null,
   } : message);
+  if (options.unorderedMessages) {
+    currentMessages = [...currentMessages].reverse();
+  }
   const helpers = {
     pushInboundMessage(body = 'Mensagem nova em tempo real') {
       const nextMessage = {
@@ -743,6 +747,23 @@ test.describe('@smoke @communication Communication Inbox', () => {
 
     await expect(page.getByTestId('communication-message-status-m-1')).toHaveCount(0);
     await expect(page.getByTestId('communication-message-list')).toContainText('Preciso remarcar meu horario');
+  });
+
+  test('ordena mensagens do chat em ordem cronologica', async ({ page }) => {
+    await mockAuth(page);
+    await mockInbox(page, { unorderedMessages: true });
+
+    await page.goto('/communication/inbox');
+
+    const messageList = page.getByTestId('communication-message-list');
+    const firstMessage = messageList.getByText('Preciso remarcar meu horario');
+    const secondMessage = messageList.getByText('Claro, vou verificar as opcoes.');
+    await expect(firstMessage).toBeVisible();
+    await expect(secondMessage).toBeVisible();
+
+    const firstBox = await firstMessage.boundingBox();
+    const secondBox = await secondMessage.boundingBox();
+    expect(firstBox?.y).toBeLessThan(secondBox?.y ?? 0);
   });
 
   test('aba Timeline aparece, chama endpoint e renderiza eventos', async ({ page }) => {
