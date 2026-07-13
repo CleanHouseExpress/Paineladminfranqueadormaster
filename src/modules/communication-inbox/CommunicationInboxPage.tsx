@@ -77,6 +77,7 @@ const realtimeEvents = [
 type CommunicationRealtimeEvent = typeof realtimeEvents[number];
 
 const messageRealtimeEvents: CommunicationRealtimeEvent[] = ['MessageReceived', 'MessageSent'];
+const offlinePollingIntervalMs = 5000;
 
 function readStringField(payload: unknown, keys: string[]): string | null {
   if (!payload || typeof payload !== 'object') return null;
@@ -515,6 +516,37 @@ export function CommunicationInboxPage() {
       registrations.forEach(({ event, handler }) => realtime.stopListening(event, handler));
     };
   }, [handleRealtimeEvent, realtime, realtimeAvailable]);
+
+  useEffect(() => {
+    if (realtimeAvailable) return undefined;
+
+    const pollInbox = () => {
+      void Promise.all([
+        summaryQuery.refetch({ silent: true }),
+        conversationsQuery.refetch({ silent: true }),
+        selectedConversationId ? selectedConversationQuery.refetch({ silent: true }) : Promise.resolve(),
+        selectedConversationId && activeConversationTab === 'messages'
+          ? messagesQuery.refetch({ silent: true })
+          : Promise.resolve(),
+        selectedConversationId && activeConversationTab === 'timeline'
+          ? timelineQuery.refetch({ silent: true })
+          : Promise.resolve(),
+      ]);
+    };
+
+    const intervalId = window.setInterval(pollInbox, offlinePollingIntervalMs);
+
+    return () => window.clearInterval(intervalId);
+  }, [
+    activeConversationTab,
+    conversationsQuery.refetch,
+    messagesQuery.refetch,
+    realtimeAvailable,
+    selectedConversationId,
+    selectedConversationQuery.refetch,
+    summaryQuery.refetch,
+    timelineQuery.refetch,
+  ]);
 
   const runConversationAction = async (
     action: () => Promise<unknown>,

@@ -598,6 +598,20 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await expect(page.getByTestId('communication-realtime-status')).toContainText('Offline');
   });
 
+  test('realtime desligado atualiza mensagens por polling', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page);
+
+    await page.goto('/communication/inbox');
+    await expect(page.getByTestId('communication-message-list')).toContainText('Claro, vou verificar as opcoes.');
+
+    const initialMessages = calls.messages;
+    calls.pushInboundMessage('Mensagem recebida por polling');
+
+    await expect.poll(() => calls.messages, { timeout: 8000 }).toBeGreaterThan(initialMessages);
+    await expect(page.getByTestId('communication-message-list')).toContainText('Mensagem recebida por polling');
+  });
+
   test('realtime ativo assina canais de tenant e conversa', async ({ page }) => {
     await enableRealtimeTestProvider(page);
     await mockAuth(page);

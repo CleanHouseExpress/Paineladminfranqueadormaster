@@ -16,7 +16,7 @@ interface QueryState<T> {
   isLoading: boolean;
   isError: boolean;
   error: Error | null;
-  refetch: () => Promise<void>;
+  refetch: (options?: { silent?: boolean }) => Promise<void>;
 }
 
 interface MutationState<TArgs extends unknown[], TResult> {
@@ -40,10 +40,10 @@ function useAsyncQuery<T>(
   const [isLoading, setIsLoading] = useState(enabled);
   const [error, setError] = useState<Error | null>(null);
 
-  const refetch = useCallback(async () => {
+  const refetch = useCallback(async (options?: { silent?: boolean }) => {
     if (!enabled) return;
 
-    setIsLoading(true);
+    if (!options?.silent) setIsLoading(true);
     setError(null);
     try {
       setData(await load());
