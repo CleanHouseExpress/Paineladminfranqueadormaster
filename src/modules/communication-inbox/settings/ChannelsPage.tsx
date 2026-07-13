@@ -31,6 +31,7 @@ function stateLabel(state: CommunicationWhatsAppState) {
     disconnected: 'Desconectado',
     qrcode_pending: 'QR Code pendente',
     qrcode_available: 'QR Code disponivel',
+    pairing_code_available: 'QR Code disponivel',
     connecting: 'Conectando',
     connected: 'WhatsApp conectado',
     error: 'Erro na conexao',
@@ -47,7 +48,7 @@ function stateClass(state: CommunicationWhatsAppState) {
 }
 
 function shouldShowQrCode(status: CommunicationSettingsStatus) {
-  return Boolean(status.qrCode && ['disconnected', 'qrcode_pending', 'qrcode_available', 'connecting', 'error'].includes(status.state));
+  return Boolean(status.qrCode && ['disconnected', 'qrcode_pending', 'qrcode_available', 'pairing_code_available', 'connecting', 'error'].includes(status.state));
 }
 
 interface CommunicationModuleActivationCardProps {

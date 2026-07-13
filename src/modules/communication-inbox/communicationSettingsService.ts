@@ -6,6 +6,7 @@ export type CommunicationWhatsAppState =
   | 'disconnected'
   | 'qrcode_pending'
   | 'qrcode_available'
+  | 'pairing_code_available'
   | 'connecting'
   | 'connected'
   | 'error';
@@ -53,6 +54,7 @@ function toState(value: unknown, moduleActive: boolean): CommunicationWhatsAppSt
     'disconnected',
     'qrcode_pending',
     'qrcode_available',
+    'pairing_code_available',
     'connecting',
     'connected',
     'error',

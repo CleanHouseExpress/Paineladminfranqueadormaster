@@ -84,6 +84,15 @@ const disconnectedSettingsPayload = {
   },
 };
 
+const pairingCodeSettingsPayload = {
+  data: {
+    ...disconnectedSettingsPayload.data,
+    state: 'pairing_code_available',
+    qr_code: 'data:image/png;base64,iVBORw0KGgo=',
+    pairing_code: 'codigo-sensivel-de-teste',
+  },
+};
+
 const connectedSettingsPayload = {
   data: {
     module_active: true,
@@ -327,6 +336,17 @@ test.describe('@smoke @communication Communication gate and aliases', () => {
     await expect(page.getByTestId('communication-whatsapp-qrcode-panel')).toBeVisible();
     await expect(page.getByText('Abra o WhatsApp no celular, va em Aparelhos conectados e escaneie este QR Code.')).toBeVisible();
     await expect(page.getByTestId('communication-whatsapp-qrcode-text')).toContainText('QR seguro de teste');
+    expect(calls.directServiceCalls()).toBe(0);
+  });
+
+  test('/communication/settings/channels status pairing_code_available mostra QR Code', async ({ page }) => {
+    const calls = await mockCommunicationSettings(page, { settings: pairingCodeSettingsPayload });
+
+    await page.goto('/communication/settings/channels');
+
+    await expect(page.getByText('QR Code disponivel')).toBeVisible();
+    await expect(page.getByTestId('communication-whatsapp-qrcode-panel')).toBeVisible();
+    await expect(page.getByTestId('communication-whatsapp-qrcode-image')).toBeVisible();
     expect(calls.directServiceCalls()).toBe(0);
   });
 
