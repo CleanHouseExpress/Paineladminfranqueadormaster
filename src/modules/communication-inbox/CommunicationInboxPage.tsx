@@ -19,6 +19,7 @@ import {
   X,
 } from 'lucide-react';
 import type { CommunicationAssignee, CommunicationContact, CommunicationConversation, CommunicationMessageMedia, ConversationFilters } from './types';
+import { AUTH_TOKEN_STORAGE_KEY, apiClientConfig } from '../../services/apiClient';
 import { CommunicationAreaShell } from './CommunicationAreaShell';
 import { ConversationTimelinePanel } from './ConversationTimelinePanel';
 import { useAuth } from '../../shared/context/AuthContext';
@@ -135,6 +136,40 @@ function getMessageSortTime(message: { createdAt?: string | null }) {
 
 function mediaProxyUrl(conversationId: string, messageId: string): string {
   return `/api/tenant/communication/inbox/conversations/${conversationId}/messages/${messageId}/media`;
+}
+function isProxyMediaSource(src: string | null): src is string {
+  return typeof src === 'string' && src.startsWith('/api/tenant/communication/inbox/');
+}
+
+function authenticatedMediaUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${apiClientConfig.baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
+function getStoredAuthToken() {
+  try {
+    return localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+async function fetchAuthenticatedMediaObjectUrl(path: string): Promise<string> {
+  const token = getStoredAuthToken();
+  const response = await fetch(authenticatedMediaUrl(path), {
+    credentials: 'omit',
+    headers: {
+      Accept: 'image/*,application/octet-stream',
+      'X-Requested-With': 'XMLHttpRequest',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Media request failed with status ${response.status}`);
+  }
+
+  return URL.createObjectURL(await response.blob());
 }
 
 function mediaImageSrc(conversationId: string, messageId: string, media?: CommunicationMessageMedia | null): string | null {
@@ -402,6 +437,8 @@ export function CommunicationInboxPage() {
   const [readConversationAt, setReadConversationAt] = useState<Record<string, string>>({});
   const [localUnreadCounts, setLocalUnreadCounts] = useState<Record<string, number>>({});
   const [activeConversationTab, setActiveConversationTab] = useState<'messages' | 'timeline'>('messages');
+  const [mediaObjectUrls, setMediaObjectUrls] = useState<Record<string, string>>({});
+  const mediaObjectUrlsRef = useRef<Record<string, string>>({});
   const realtimeDedupeRef = useRef(new Map<string, number>());
   const knownConversationMessagesRef = useRef(new Map<string, string>());
   const tenantId = String(context?.companyId ?? company?.id ?? tenant.id ?? '').trim();
@@ -477,7 +514,64 @@ export function CommunicationInboxPage() {
     }
     return statuses;
   }, [messagesQuery.data]);
+  useEffect(() => {
+    const entries = sortedMessages
+      .map(message => ({
+        id: message.id,
+        src: mediaImageSrc(message.conversationId, message.id, message.media),
+      }))
+      .filter((entry): entry is { id: string; src: string } => isProxyMediaSource(entry.src));
+    const requiredIds = new Set(entries.map(entry => entry.id));
 
+    setMediaObjectUrls(current => {
+      let next = current;
+      for (const [messageId, objectUrl] of Object.entries(current)) {
+        if (requiredIds.has(messageId)) continue;
+        URL.revokeObjectURL(objectUrl);
+        if (next === current) next = { ...current };
+        delete next[messageId];
+      }
+      if (next !== current) mediaObjectUrlsRef.current = next;
+      return next;
+    });
+
+    let cancelled = false;
+
+    for (const entry of entries) {
+      if (mediaObjectUrlsRef.current[entry.id]) continue;
+
+      fetchAuthenticatedMediaObjectUrl(entry.src)
+        .then(objectUrl => {
+          if (cancelled) {
+            URL.revokeObjectURL(objectUrl);
+            return;
+          }
+
+          setMediaObjectUrls(current => {
+            const previous = current[entry.id];
+            if (previous === objectUrl) return current;
+            if (previous) URL.revokeObjectURL(previous);
+            const next = { ...current, [entry.id]: objectUrl };
+            mediaObjectUrlsRef.current = next;
+            return next;
+          });
+        })
+        .catch(() => {
+          // The text fallback remains visible when media is no longer available upstream.
+        });
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sortedMessages]);
+
+  useEffect(() => () => {
+    for (const objectUrl of Object.values(mediaObjectUrlsRef.current)) {
+      URL.revokeObjectURL(objectUrl);
+    }
+    mediaObjectUrlsRef.current = {};
+  }, []);
   const markConversationAsRead = useCallback((conversation: CommunicationConversation | null | undefined) => {
     if (!conversation?.id) return;
 
@@ -1302,8 +1396,13 @@ export function CommunicationInboxPage() {
                       const deliveryStatus = messageStatusById.get(message.id);
                       const statusValue = deliveryStatus?.status ?? message.status;
                       const statusLabel = outbound ? formatDeliveryStatusLabel(statusValue) : '';
-                      const imageSrc = mediaImageSrc(message.conversationId, message.id, message.media);
-                      const mediaUrl = message.media ? mediaProxyUrl(message.conversationId, message.id) : null;
+                      const imageSource = mediaImageSrc(message.conversationId, message.id, message.media);
+                      const imageSrc = imageSource && isProxyMediaSource(imageSource)
+                        ? mediaObjectUrls[message.id] ?? null
+                        : imageSource;
+                      const mediaUrl = imageSource && isProxyMediaSource(imageSource)
+                        ? mediaObjectUrls[message.id] ?? null
+                        : imageSource;
                       return (
                         <article
                           key={message.id}
@@ -1341,7 +1440,7 @@ export function CommunicationInboxPage() {
                                 className={`mt-2 inline-flex text-xs font-semibold underline ${outbound ? 'text-blue-100' : 'text-blue-700'}`}
                                 data-testid={`communication-message-media-link-${message.id}`}
                               >
-                                Abrir / baixar imagem
+                                Abrir imagem
                               </a>
                             ) : null}
                             {outbound && statusLabel && (
