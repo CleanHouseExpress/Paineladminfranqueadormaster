@@ -42,6 +42,16 @@ export async function disableOnboarding(page: Page) {
     contentType: 'application/json',
     body: JSON.stringify({ data: [{ id: 1, email: 'admin@orchestra.test', roles: [{ name: 'Admin Master' }] }, { id: 2, email: 'franqueado@orchestra.test', roles: [{ name: 'Franqueado' }] }], meta: { total: 2 } }),
   }));
+  await page.route('**/api/company/royalties/rules?per_page=1', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ data: [], meta: { total: 0 } }),
+  }));
+  await page.route('**/api/company/royalties/assignments?per_page=1', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ data: [], meta: { total: 0 } }),
+  }));
 }
 
 export async function login(page: Page, credentials: { email: string; password: string }) {

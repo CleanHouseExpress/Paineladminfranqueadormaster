@@ -238,6 +238,18 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   // â”€â”€â”€ OperaÃ§Ã£o â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   {
+    id: 'subscription-policies',
+    name: 'Politicas de Assinaturas',
+    description: 'Configurador versionado de regras comerciais para assinaturas recorrentes.',
+    icon: 'SlidersHorizontal',
+    status: 'active',
+    nav: { show: true, order: 6.2, group: 'main' },
+    routes: [
+      { path: '/subscription-policies', componentId: 'subscription-policies', requiredPermissions: ['tenant.subscription-policies.view'] },
+    ],
+    marketplace: { show: true, category: 'Comercial', price: 'Incluso' },
+  },
+  {
     id: 'loyalty',
     name: 'Fidelidade',
     description: 'Cashback, regras de concessao, carteiras de clientes e indicadores de passivo.',

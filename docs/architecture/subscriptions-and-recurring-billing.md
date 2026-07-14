@@ -408,6 +408,8 @@ Políticas futuras:
 
 Recomendação: criar tabela versionada genérica ou específica como `subscription_policy_versions` e `dunning_policy_versions`, com escopo `company`, `unit`, `contract`, `effective_from`, `effective_until`, `settings_json`, `created_by`, `published_at`. A assinatura deve referenciar a versão aplicada e copiar snapshot.
 
+Status implementado na Fase 3A: a Orchestra usa a tabela tenant `tenant_policy_versions` como policy engine generico para `subscription`, `billing` e `metrics`. O snapshot efetivo e congelado na ativacao da assinatura, incluindo `policy_version_id` e `policy_applied_at`. O simulador e explicativo e nao executa Billing, Payments, creditos, refunds, dunning, gateways ou Entitlements.
+
 Unidade só pode sobrescrever política se a empresa permitir, seguindo o precedente de `CatalogSettingsService`.
 
 ## 16. Franqueadora, unidade e propriedade econômica

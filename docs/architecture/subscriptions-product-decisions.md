@@ -1,5 +1,15 @@
 # Decision log: Subscriptions e Billing recorrente
 
+## Decisao - Fase 3A Policy Engine
+
+- Politicas de recorrencia ficam no schema do tenant em `tenant_policy_versions`.
+- O escopo de aplicacao e `company`, `unit` ou `contract`.
+- A publicacao supersede a politica publicada anterior do mesmo tipo/escopo.
+- Drafts podem ser editados; versoes publicadas/superseded/archived sao imutaveis.
+- A assinatura congela a politica efetiva na ativacao.
+- Billing policy e metrics policy sao registradas como contrato de comportamento, mas nao executam faturamento real nesta fase.
+- O simulador da Fase 3A nao cria invoice, transacao financeira, credito, refund, pagamento ou entitlement.
+
 **Status:** Aberto para rodada de decisões de produto.
 
 **Versão:** 0.1
@@ -231,4 +241,3 @@ Para cada decisão:
 **Impacto no MVP:** baixo se comunicação ficar manual; médio se houver regras.
 
 **Pode mudar no futuro?** Sim.
-

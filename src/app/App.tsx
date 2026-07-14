@@ -90,6 +90,7 @@ const SalesListPage = lazyPage(() => import('../modules/sales'), 'SalesListPage'
 const SalesFormPage = lazyPage(() => import('../modules/sales'), 'SalesFormPage');
 const SalesDetailPage = lazyPage(() => import('../modules/sales'), 'SalesDetailPage');
 const SalesSettingsPage = lazyPage(() => import('../modules/sales'), 'SalesSettingsPage');
+const SubscriptionPoliciesPage = lazyPage(() => import('../modules/subscription-policies'), 'SubscriptionPoliciesPage');
 const LoyaltyDashboardPage = lazyPage(() => import('../modules/loyalty'), 'LoyaltyDashboardPage');
 const LoyaltyRulesPage = lazyPage(() => import('../modules/loyalty'), 'LoyaltyRulesPage');
 const LoyaltyWalletsPage = lazyPage(() => import('../modules/loyalty'), 'LoyaltyWalletsPage');
@@ -152,6 +153,7 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   'sales-form': SalesFormPage,
   'sales-detail': SalesDetailPage,
   'sales-settings': SalesSettingsPage,
+  'subscription-policies': SubscriptionPoliciesPage,
   'loyalty-dashboard': LoyaltyDashboardPage,
   'loyalty-rules': LoyaltyRulesPage,
   'loyalty-wallets': LoyaltyWalletsPage,
