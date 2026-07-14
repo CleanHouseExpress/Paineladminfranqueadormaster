@@ -202,10 +202,12 @@ function ErrorState({ message, onRetry }: { message: string; onRetry?: () => voi
 function ConversationItem({
   conversation,
   selected,
+  unreadCount,
   onSelect,
 }: {
   conversation: CommunicationConversation;
   selected: boolean;
+  unreadCount: number;
   onSelect: () => void;
 }) {
   return (
@@ -247,9 +249,14 @@ function ConversationItem({
         </div>
         <div className="flex flex-col items-end gap-2">
           <span className="whitespace-nowrap text-xs text-slate-500">{formatDateTime(conversation.lastMessageAt)}</span>
-          {conversation.unreadCount > 0 && (
-            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 text-xs font-semibold text-white">
-              {conversation.unreadCount}
+          {unreadCount > 0 && (
+            <span
+              className="relative flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-600 px-1.5 text-xs font-semibold text-white shadow-sm ring-2 ring-blue-100"
+              title={`${unreadCount} mensagens novas`}
+              data-testid={`communication-unread-count-${conversation.id}`}
+            >
+              <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-emerald-400 ring-2 ring-white" />
+              {unreadCount > 99 ? '99+' : unreadCount}
             </span>
           )}
         </div>
@@ -325,6 +332,7 @@ export function CommunicationInboxPage() {
     perPage: 25,
   });
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [readConversationAt, setReadConversationAt] = useState<Record<string, string>>({});
   const [activeConversationTab, setActiveConversationTab] = useState<'messages' | 'timeline'>('messages');
   const realtimeDedupeRef = useRef(new Map<string, number>());
   const tenantId = String(context?.companyId ?? company?.id ?? tenant.id ?? '').trim();
@@ -389,6 +397,36 @@ export function CommunicationInboxPage() {
     return statuses;
   }, [messagesQuery.data]);
 
+  const markConversationAsRead = useCallback((conversation: CommunicationConversation | null | undefined) => {
+    if (!conversation?.id) return;
+
+    const readAt = conversation.lastMessageAt ?? new Date().toISOString();
+    setReadConversationAt(current => {
+      if (current[conversation.id] === readAt) return current;
+      return { ...current, [conversation.id]: readAt };
+    });
+  }, []);
+
+  const getVisibleUnreadCount = useCallback((conversation: CommunicationConversation) => {
+    if (conversation.id === selectedConversationId) return 0;
+
+    const readAt = readConversationAt[conversation.id];
+    if (readAt && conversation.lastMessageAt) {
+      const readTime = new Date(readAt).getTime();
+      const lastMessageTime = new Date(conversation.lastMessageAt).getTime();
+
+      if (
+        Number.isFinite(readTime) &&
+        Number.isFinite(lastMessageTime) &&
+        readTime >= lastMessageTime
+      ) {
+        return 0;
+      }
+    }
+
+    return conversation.unreadCount;
+  }, [readConversationAt, selectedConversationId]);
+
   useEffect(() => {
     if (!selectedConversationId && conversations.length > 0) {
       setSelectedConversationId(conversations[0].id);
@@ -397,6 +435,10 @@ export function CommunicationInboxPage() {
       setSelectedConversationId(conversations[0].id);
     }
   }, [conversations, selectedConversationId]);
+
+  useEffect(() => {
+    markConversationAsRead(selectedConversation);
+  }, [markConversationAsRead, selectedConversation?.id, selectedConversation?.lastMessageAt]);
 
   useEffect(() => {
     setTransferPanelOpen(false);
@@ -772,7 +814,9 @@ export function CommunicationInboxPage() {
                     key={conversation.id}
                     conversation={conversation}
                     selected={conversation.id === selectedConversationId}
+                    unreadCount={getVisibleUnreadCount(conversation)}
                     onSelect={() => {
+                      markConversationAsRead(conversation);
                       setSelectedConversationId(conversation.id);
                       setActiveConversationTab('messages');
                     }}

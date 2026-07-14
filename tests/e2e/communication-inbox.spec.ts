@@ -188,6 +188,7 @@ async function mockInbox(
     failTransfer?: boolean;
     unorderedConversations?: boolean;
     unorderedMessages?: boolean;
+    secondUnreadCount?: number;
     messageStatus?: 'sent' | 'delivered' | 'read' | 'failed' | 'pending';
   } = {},
 ) {
@@ -216,6 +217,7 @@ async function mockInbox(
   };
   const secondConversation = {
     ...conversationsPayload.data[1],
+    unread_count: options.secondUnreadCount ?? conversationsPayload.data[1].unread_count,
     last_message_at: options.unorderedConversations
       ? '2026-06-25T13:05:00.000Z'
       : conversationsPayload.data[1].last_message_at,
@@ -586,6 +588,17 @@ test.describe('@smoke @communication Communication Inbox', () => {
 
     const conversationNames = page.getByTestId('communication-conversation-list').locator('p.font-semibold');
     await expect(conversationNames.first()).toContainText('Bruno Cliente');
+  });
+
+  test('mostra contador de novas mensagens e zera ao abrir conversa', async ({ page }) => {
+    await mockAuth(page);
+    await mockInbox(page, { secondUnreadCount: 3 });
+
+    await page.goto('/communication/inbox');
+
+    await expect(page.getByTestId('communication-unread-count-c-2')).toContainText('3');
+    await page.getByTestId('communication-conversation-list').getByText('Bruno Cliente').click();
+    await expect(page.getByTestId('communication-unread-count-c-2')).toHaveCount(0);
   });
 
   test('realtime desligado nao quebra a tela', async ({ page }) => {
