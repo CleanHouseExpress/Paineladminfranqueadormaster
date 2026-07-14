@@ -55,12 +55,14 @@ const normalizeMedia = (record: Record<string, unknown>): CommunicationMessageMe
   const source = Object.keys(media).length > 0 ? media : record;
   const url = pick(source, ['url', 'media_url', 'mediaUrl']);
   const base64 = pick(source, ['base64', 'media_base64', 'mediaBase64']);
+  const type = pick(source, ['type', 'message_type', 'messageType']) as string | null | undefined;
+  const mimeType = pick(source, ['mime_type', 'mimeType', 'mimetype']) as string | null | undefined;
 
-  if (!url && !base64) return null;
+  if (!url && !base64 && !type && !mimeType) return null;
 
   return {
-    type: pick(source, ['type', 'message_type', 'messageType']) as string | null | undefined,
-    mimeType: pick(source, ['mime_type', 'mimeType', 'mimetype']) as string | null | undefined,
+    type,
+    mimeType,
     fileName: pick(source, ['file_name', 'fileName', 'filename']) as string | null | undefined,
     url: typeof url === 'string' ? url : null,
     base64: typeof base64 === 'string' ? base64 : null,

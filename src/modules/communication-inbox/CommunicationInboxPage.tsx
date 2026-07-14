@@ -153,8 +153,7 @@ function mediaImageSrc(conversationId: string, messageId: string, media?: Commun
   if (url && /^data:image\//i.test(url)) return url;
 
   const base64 = media.base64?.replace(/\s/g, '');
-  if (!base64 && media.url) return mediaProxyUrl(conversationId, messageId);
-  if (!base64) return null;
+  if (!base64) return mediaProxyUrl(conversationId, messageId);
   if (/^data:image\//i.test(base64)) return base64;
   if (!/^[A-Za-z0-9+/]+=*$/.test(base64)) return null;
 

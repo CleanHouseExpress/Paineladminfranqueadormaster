@@ -211,6 +211,7 @@ async function mockInbox(
     latestMessageOnlyForSecond?: boolean;
     imageMessageWithoutText?: boolean;
     imageMessageWithWhatsappUrl?: boolean;
+    imageMessageWithProviderMetadataOnly?: boolean;
     secondUnreadCount?: number;
     messageStatus?: 'sent' | 'delivered' | 'read' | 'failed' | 'pending';
   } = {},
@@ -242,7 +243,7 @@ async function mockInbox(
     ...conversationsPayload.data[0],
     status: options.closed ? 'closed' : conversationsPayload.data[0].status,
   };
-  if (options.imageMessageWithoutText || options.imageMessageWithWhatsappUrl) {
+  if (options.imageMessageWithoutText || options.imageMessageWithWhatsappUrl || options.imageMessageWithProviderMetadataOnly) {
     currentConversation = {
       ...currentConversation,
       last_message: undefined,
@@ -254,9 +255,11 @@ async function mockInbox(
         media: {
           type: 'image',
           mime_type: 'image/png',
-          ...(options.imageMessageWithWhatsappUrl
-            ? { url: 'https://mmg.whatsapp.net/o1/v/t24/example?ccb=9-4' }
-            : { base64: 'iVBORw0KGgo=' }),
+          ...(options.imageMessageWithProviderMetadataOnly
+            ? {}
+            : options.imageMessageWithWhatsappUrl
+              ? { url: 'https://mmg.whatsapp.net/o1/v/t24/example?ccb=9-4' }
+              : { base64: 'iVBORw0KGgo=' }),
         },
         status: 'received',
         occurred_at: currentConversation.last_message_at,
@@ -307,7 +310,7 @@ async function mockInbox(
     read_at: options.messageStatus === 'read' ? '2026-06-25T12:31:03.000Z' : null,
     failed_at: options.messageStatus === 'failed' ? '2026-06-25T12:31:04.000Z' : null,
   } : message);
-  if (options.imageMessageWithoutText || options.imageMessageWithWhatsappUrl) {
+  if (options.imageMessageWithoutText || options.imageMessageWithWhatsappUrl || options.imageMessageWithProviderMetadataOnly) {
     currentMessages = [
       {
         id: 'm-image-1',
@@ -320,9 +323,11 @@ async function mockInbox(
         media: {
           type: 'image',
           mime_type: 'image/png',
-          ...(options.imageMessageWithWhatsappUrl
-            ? { url: 'https://mmg.whatsapp.net/o1/v/t24/example?ccb=9-4' }
-            : { base64: 'iVBORw0KGgo=' }),
+          ...(options.imageMessageWithProviderMetadataOnly
+            ? {}
+            : options.imageMessageWithWhatsappUrl
+              ? { url: 'https://mmg.whatsapp.net/o1/v/t24/example?ccb=9-4' }
+              : { base64: 'iVBORw0KGgo=' }),
         },
         created_at: '2026-06-25T12:30:00.000Z',
       },
@@ -846,7 +851,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
 
   test('renderiza imagem do WhatsApp pela rota proxy de midia', async ({ page }) => {
     await mockAuth(page);
-    await mockInbox(page, { imageMessageWithWhatsappUrl: true });
+    await mockInbox(page, { imageMessageWithProviderMetadataOnly: true });
 
     await page.goto('/communication/inbox');
 
