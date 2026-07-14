@@ -369,12 +369,13 @@ export function CommunicationInboxPage() {
   const [selectedAssigneeId, setSelectedAssigneeId] = useState<string | null>(null);
   const [transferError, setTransferError] = useState<string | null>(null);
   const assigneesQuery = useCommunicationAssignees(assigneeSearch, transferPanelOpen);
+  const selectedStatuses = filters.statuses ?? defaultConversationStatuses;
 
   const conversations = useMemo(
-    () => [...(conversationsQuery.data?.data ?? [])].sort(
-      (first, second) => getConversationSortTime(second) - getConversationSortTime(first),
-    ),
-    [conversationsQuery.data?.data],
+    () => [...(conversationsQuery.data?.data ?? [])]
+      .filter(conversation => selectedStatuses.includes(String(conversation.status ?? '').toLowerCase()))
+      .sort((first, second) => getConversationSortTime(second) - getConversationSortTime(first)),
+    [conversationsQuery.data?.data, selectedStatuses],
   );
   const conversationMeta = conversationsQuery.data?.meta;
   const selectedConversation = selectedConversationQuery.data
@@ -506,7 +507,6 @@ export function CommunicationInboxPage() {
     setActiveConversationTab('messages');
   };
 
-  const selectedStatuses = filters.statuses ?? defaultConversationStatuses;
   const selectedStatusLabels = statusOptions
     .filter(option => selectedStatuses.includes(option.value))
     .map(option => option.label);

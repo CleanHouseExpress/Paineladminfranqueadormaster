@@ -188,6 +188,7 @@ async function mockInbox(
     failTransfer?: boolean;
     unorderedConversations?: boolean;
     unorderedMessages?: boolean;
+    includeClosedConversation?: boolean;
     latestMessageOnlyForSecond?: boolean;
     secondUnreadCount?: number;
     messageStatus?: 'sent' | 'delivered' | 'read' | 'failed' | 'pending';
@@ -238,6 +239,18 @@ async function mockInbox(
       },
     };
   }
+  const closedConversation = {
+    id: 'c-closed',
+    customer_name: 'Cliente Encerrado',
+    channel: 'whatsapp',
+    status: 'closed',
+    assignment_status: 'assigned',
+    service_mode: 'human',
+    handoff_status: 'assigned',
+    last_message: 'Conversa ja encerrada',
+    last_message_at: '2026-06-25T12:15:00.000Z',
+    unread_count: 0,
+  };
   let currentMessages = messagesPayload.data.map(message => message.id === 'm-2' ? {
     ...message,
     status: options.messageStatus ?? 'sent',
@@ -544,7 +557,9 @@ async function mockInbox(
               ? { data: [], meta: { current_page: 1, last_page: 1, per_page: 25, total: 0 } }
               : {
                 ...conversationsPayload,
-                data: [currentConversation, secondConversation],
+                data: options.includeClosedConversation
+                  ? [currentConversation, secondConversation, closedConversation]
+                  : [currentConversation, secondConversation],
                 meta: {
                   ...conversationsPayload.meta,
                   current_page: Number(url.searchParams.get('page') ?? 1),
@@ -596,6 +611,16 @@ async function openConversationDetails(page: Page) {
   await page.getByTestId('communication-open-details').click();
 }
 
+async function showOnlyClosedConversations(page: Page) {
+  await page.getByTestId('communication-filter-status').click();
+  await page.getByTestId('communication-filter-status-closed').check();
+  await page.getByTestId('communication-filter-status-open').uncheck();
+  await page.getByTestId('communication-filter-status-pending').uncheck();
+  await page.getByTestId('communication-filter-status').click();
+  await expect(page.getByTestId('communication-conversation-list')).toContainText('Ana Cliente');
+  await page.getByTestId('communication-conversation-list').getByText('Ana Cliente').click();
+}
+
 test.describe('@smoke @communication Communication Inbox', () => {
   test('renderiza a pagina, carrega resumo, lista conversas e mensagens', async ({ page }) => {
     await mockAuth(page);
@@ -625,7 +650,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
 
   test('filtro de status usa checkboxes e nao busca encerradas por padrao', async ({ page }) => {
     await mockAuth(page);
-    const calls = await mockInbox(page);
+    const calls = await mockInbox(page, { includeClosedConversation: true });
 
     await page.goto('/communication/inbox');
 
@@ -639,8 +664,10 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await expect(page.getByTestId('communication-filter-status-open')).toBeChecked();
     await expect(page.getByTestId('communication-filter-status-pending')).toBeChecked();
     await expect(page.getByTestId('communication-filter-status-closed')).not.toBeChecked();
+    await expect(page.getByTestId('communication-conversation-list')).not.toContainText('Cliente Encerrado');
 
     await page.getByTestId('communication-filter-status-closed').check();
+    await expect(page.getByTestId('communication-conversation-list')).toContainText('Cliente Encerrado');
     await expect.poll(() => calls.conversationQueries.some(query =>
       !query.includes('closed=false') &&
       !query.includes('closed=true') &&
@@ -1011,6 +1038,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await mockInbox(page, { closed: true });
 
     await page.goto('/communication/inbox');
+    await showOnlyClosedConversations(page);
 
     await openConversationMenu(page);
     await expect(page.getByTestId('communication-action-transfer')).toHaveCount(0);
@@ -1103,8 +1131,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await page.getByTestId('communication-action-close').click();
 
     await expect.poll(() => calls.close).toBe(1);
-    await openConversationMenu(page);
-    await expect(page.getByTestId('communication-action-reopen')).toBeVisible();
+    await expect(page.getByTestId('communication-conversation-list')).not.toContainText('Ana Cliente');
   });
 
   test('reopen chama API e volta a exibir fechar', async ({ page }) => {
@@ -1112,10 +1139,16 @@ test.describe('@smoke @communication Communication Inbox', () => {
     const calls = await mockInbox(page, { closed: true });
 
     await page.goto('/communication/inbox');
+    await showOnlyClosedConversations(page);
     await openConversationMenu(page);
     await page.getByTestId('communication-action-reopen').click();
 
     await expect.poll(() => calls.reopen).toBe(1);
+    await page.getByTestId('communication-filter-status').click();
+    await page.getByTestId('communication-filter-status-open').check();
+    await page.getByTestId('communication-filter-status').click();
+    await expect(page.getByTestId('communication-conversation-list')).toContainText('Ana Cliente');
+    await page.getByTestId('communication-conversation-list').getByText('Ana Cliente').click();
     await openConversationMenu(page);
     await expect(page.getByTestId('communication-action-close')).toBeVisible();
   });
@@ -1168,6 +1201,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
     const calls = await mockInbox(page, { closed: true });
 
     await page.goto('/communication/inbox');
+    await showOnlyClosedConversations(page);
 
     await expect(page.getByTestId('communication-composer-closed')).toBeVisible();
     await expect(page.getByTestId('communication-message-input')).toBeDisabled();
