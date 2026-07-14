@@ -36,6 +36,7 @@ export interface CommunicationConversation {
   lastMessage?: string | null;
   lastMessageAt?: string | null;
   lastMessageDirection?: string | null;
+  lastMessageType?: string | null;
   unreadCount: number;
 }
 
@@ -69,6 +70,7 @@ export interface CommunicationMessage {
   direction: 'inbound' | 'outbound' | string;
   senderType: 'client' | 'bot' | 'human' | 'system' | string;
   senderName?: string | null;
+  messageType?: string | null;
   body: string;
   createdAt: string;
   status?: string | null;

@@ -209,6 +209,7 @@ async function mockInbox(
     unorderedMessages?: boolean;
     includeClosedConversation?: boolean;
     latestMessageOnlyForSecond?: boolean;
+    imageMessageWithoutText?: boolean;
     secondUnreadCount?: number;
     messageStatus?: 'sent' | 'delivered' | 'read' | 'failed' | 'pending';
   } = {},
@@ -240,6 +241,21 @@ async function mockInbox(
     ...conversationsPayload.data[0],
     status: options.closed ? 'closed' : conversationsPayload.data[0].status,
   };
+  if (options.imageMessageWithoutText) {
+    currentConversation = {
+      ...currentConversation,
+      last_message: undefined,
+      latest_message: {
+        id: 'm-image-1',
+        direction: 'inbound',
+        message_type: 'image',
+        text: null,
+        status: 'received',
+        occurred_at: currentConversation.last_message_at,
+        created_at: currentConversation.last_message_at,
+      },
+    };
+  }
   let secondConversation = {
     ...conversationsPayload.data[1],
     unread_count: options.secondUnreadCount ?? conversationsPayload.data[1].unread_count,
@@ -283,6 +299,21 @@ async function mockInbox(
     read_at: options.messageStatus === 'read' ? '2026-06-25T12:31:03.000Z' : null,
     failed_at: options.messageStatus === 'failed' ? '2026-06-25T12:31:04.000Z' : null,
   } : message);
+  if (options.imageMessageWithoutText) {
+    currentMessages = [
+      {
+        id: 'm-image-1',
+        conversation_id: 'c-1',
+        direction: 'inbound',
+        sender_type: 'client',
+        sender_name: 'Ana Cliente',
+        message_type: 'image',
+        text: null,
+        created_at: '2026-06-25T12:30:00.000Z',
+      },
+      currentMessages[1],
+    ];
+  }
   if (options.unorderedMessages) {
     currentMessages = [...currentMessages].reverse();
   }
@@ -776,6 +807,17 @@ test.describe('@smoke @communication Communication Inbox', () => {
 
     await expect(page.getByTestId('communication-conversation-list')).toContainText('Preview vindo do latest_message');
     await expect(page.getByTestId('communication-conversation-list')).not.toContainText('Bruno Cliente\nSem mensagens recentes');
+  });
+
+  test('renderiza foto sem legenda como mensagem de imagem', async ({ page }) => {
+    await mockAuth(page);
+    await mockInbox(page, { imageMessageWithoutText: true });
+
+    await page.goto('/communication/inbox');
+
+    await expect(page.getByTestId('communication-conversation-list')).toContainText('Imagem recebida');
+    await expect(page.getByTestId('communication-message-list')).toContainText('Imagem recebida');
+    await expect(page.getByTestId('communication-message-list')).not.toContainText('Mensagem sem texto');
   });
 
   test('mostra contador de novas mensagens e zera ao abrir conversa', async ({ page }) => {

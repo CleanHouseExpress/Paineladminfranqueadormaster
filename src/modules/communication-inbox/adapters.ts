@@ -29,6 +29,26 @@ const toNumberValue = (value: unknown, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const messageTypeLabel = (messageType: unknown) => {
+  const type = typeof messageType === 'string' ? messageType.toLowerCase() : '';
+
+  if (type === 'image') return 'Imagem recebida';
+  if (type === 'audio') return 'Audio recebido';
+  if (type === 'video') return 'Video recebido';
+  if (type === 'document') return 'Documento recebido';
+
+  return null;
+};
+
+const messageBodyFrom = (record: Record<string, unknown>, fallback = 'Mensagem sem texto') => {
+  const text = pick(record, ['body', 'message', 'content', 'text']);
+
+  if (typeof text === 'string' && text.trim() !== '') return text;
+  if (typeof text === 'number') return String(text);
+
+  return messageTypeLabel(pick(record, ['message_type', 'messageType', 'type'])) ?? fallback;
+};
+
 const unwrapData = (payload: unknown): unknown => {
   const record = asRecord(payload);
   return record.data ?? payload;
@@ -56,7 +76,7 @@ export function normalizeConversation(payload: unknown): CommunicationConversati
   const latestMessage = asRecord(pick(conversation, ['latest_message', 'message']) ?? rawLastMessage);
   const lastMessageText = (typeof rawLastMessage === 'string' || typeof rawLastMessage === 'number' ? rawLastMessage : undefined)
     ?? pick(conversation, ['last_message_body', 'preview'])
-    ?? pick(latestMessage, ['text', 'body', 'message', 'content']);
+    ?? messageBodyFrom(latestMessage, '');
 
   return {
     id: toStringValue(pick(conversation, ['id', 'conversation_id'])),
@@ -93,6 +113,7 @@ export function normalizeConversation(payload: unknown): CommunicationConversati
       ?? pick(latestMessage, ['occurred_at', 'created_at', 'timestamp'])
     ) as string | null | undefined,
     lastMessageDirection: pick(latestMessage, ['direction']) as string | null | undefined,
+    lastMessageType: pick(latestMessage, ['message_type', 'messageType', 'type']) as string | null | undefined,
     unreadCount: toNumberValue(pick(conversation, ['unread_count', 'unread'])),
   };
 }
@@ -110,7 +131,8 @@ export function normalizeMessage(payload: unknown): CommunicationMessage {
       pick(message, ['sender_name'])
       ?? pick(sender, ['name'])
     ) as string | null | undefined,
-    body: toStringValue(pick(message, ['body', 'message', 'content', 'text'])),
+    messageType: pick(message, ['message_type', 'messageType', 'type']) as string | null | undefined,
+    body: messageBodyFrom(message),
     createdAt: toStringValue(pick(message, ['created_at', 'createdAt', 'timestamp']), new Date(0).toISOString()),
     status: pick(message, ['status', 'delivery_status', 'deliveryStatus']) as string | null | undefined,
     sentAt: pick(message, ['sent_at', 'sentAt']) as string | null | undefined,
