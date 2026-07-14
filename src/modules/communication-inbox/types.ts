@@ -11,6 +11,7 @@ export interface ConversationFilters {
   search?: string;
   status?: string;
   statuses?: string[];
+  closed?: string;
   handoff?: string;
   assignmentStatus?: string;
   page?: number;

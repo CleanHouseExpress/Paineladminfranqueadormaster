@@ -19,6 +19,32 @@ import type {
 } from '../types';
 
 const INBOX_BASE = '/api/tenant/communication/inbox';
+const conversationStatusValues = ['open', 'pending', 'closed'];
+
+const appendStatuses = (params: URLSearchParams, statuses: string[]) => {
+  const uniqueStatuses = [...new Set(statuses.filter(status => conversationStatusValues.includes(status)))];
+  if (uniqueStatuses.length === 0 || uniqueStatuses.length === conversationStatusValues.length) return;
+
+  const includesClosed = uniqueStatuses.includes('closed');
+  const nonClosedStatuses = uniqueStatuses.filter(status => status !== 'closed');
+
+  if (!includesClosed && nonClosedStatuses.length === 2) {
+    params.set('closed', 'false');
+    return;
+  }
+
+  if (includesClosed && nonClosedStatuses.length === 0) {
+    params.set('closed', 'true');
+    return;
+  }
+
+  if (uniqueStatuses.length === 1) {
+    params.set('status', uniqueStatuses[0]);
+    return;
+  }
+
+  uniqueStatuses.forEach(status => params.append('statuses[]', status));
+};
 
 const buildSearchParams = (filters?: ConversationFilters | MessageFilters) => {
   const params = new URLSearchParams();
@@ -27,12 +53,7 @@ const buildSearchParams = (filters?: ConversationFilters | MessageFilters) => {
   Object.entries(filters).forEach(([key, value]) => {
     if (value === undefined || value === null || value === '' || value === 'all') return;
     if (Array.isArray(value)) {
-      if (value.length === 0) return;
-      value.forEach(item => {
-        if (item !== undefined && item !== null && item !== '' && item !== 'all') {
-          params.append(`${key}[]`, String(item));
-        }
-      });
+      if (key === 'statuses') appendStatuses(params, value.map(String));
       return;
     }
 

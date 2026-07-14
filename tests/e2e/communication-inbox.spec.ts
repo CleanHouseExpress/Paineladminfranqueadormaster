@@ -597,8 +597,8 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await page.goto('/communication/inbox');
 
     await expect.poll(() => calls.conversationQueries.some(query =>
-      query.includes('statuses%5B%5D=open') &&
-      query.includes('statuses%5B%5D=pending') &&
+      query.includes('closed=false') &&
+      !query.includes('status=closed') &&
       !query.includes('statuses%5B%5D=closed')
     )).toBeTruthy();
 
@@ -609,9 +609,10 @@ test.describe('@smoke @communication Communication Inbox', () => {
 
     await page.getByTestId('communication-filter-status-closed').check();
     await expect.poll(() => calls.conversationQueries.some(query =>
-      query.includes('statuses%5B%5D=open') &&
-      query.includes('statuses%5B%5D=pending') &&
-      query.includes('statuses%5B%5D=closed')
+      !query.includes('closed=false') &&
+      !query.includes('closed=true') &&
+      !query.includes('status=') &&
+      !query.includes('statuses%5B%5D=')
     )).toBeTruthy();
   });
 
