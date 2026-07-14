@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   Bot,
@@ -137,7 +137,16 @@ function mediaImageSrc(media?: CommunicationMessageMedia | null): string | null 
   if (!media || String(media.type ?? '').toLowerCase() !== 'image') return null;
 
   const url = media.url?.trim();
-  if (url && (/^https?:\/\//i.test(url) || /^data:image\//i.test(url))) return url;
+  if (url && /^https?:\/\//i.test(url)) {
+    try {
+      if (new URL(url).hostname.toLowerCase() === 'mmg.whatsapp.net') return null;
+    } catch {
+      return null;
+    }
+
+    return url;
+  }
+  if (url && /^data:image\//i.test(url)) return url;
 
   const base64 = media.base64?.replace(/\s/g, '');
   if (!base64) return null;
@@ -179,9 +188,9 @@ function formatHandoffStatusLabel(value?: string | null) {
 function formatDeliveryStatusLabel(value?: string | null) {
   const status = String(value ?? '').toLowerCase();
   if (['pending', 'sending'].includes(status)) return 'Enviando...';
-  if (status === 'sent') return 'Enviada âœ“';
-  if (status === 'delivered') return 'Entregue âœ“âœ“';
-  if (status === 'read') return 'Lida âœ“âœ“';
+  if (status === 'sent') return 'Enviada ✓';
+  if (status === 'delivered') return 'Entregue ✓✓';
+  if (status === 'read') return 'Lida ✓✓';
   if (status === 'failed') return 'Falhou';
   return value ?? '';
 }
@@ -1307,7 +1316,7 @@ export function CommunicationInboxPage() {
                             >
                               <Icon className="h-3.5 w-3.5" />
                               <span>{message.senderName || message.senderType}</span>
-                              <span>Â·</span>
+                              <span>·</span>
                               <span>{formatDateTime(message.createdAt)}</span>
                             </div>
                             {imageSrc ? (

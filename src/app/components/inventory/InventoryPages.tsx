@@ -672,7 +672,7 @@ export function InventoryMovements() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8 }}>
           {(Object.keys(MOVEMENT_TYPE_CONFIG) as MovementType[]).map(type => {
             const cfg = MOVEMENT_TYPE_CONFIG[type];
-            const disabled = type === 'transfer' || (type === 'adjustment' && !hasPermission(INVENTORY_PERMISSIONS.adjust));
+            const disabled = type === 'transfer' || type === 'reversal' || (type === 'adjustment' && !hasPermission(INVENTORY_PERMISSIONS.adjust));
             return <button key={type} disabled={disabled} onClick={() => setForm(current => ({ ...current, type }))} style={{ padding: 11, borderRadius: 10, border: selectedType === type ? `2px solid ${cfg.color}` : '1px solid #E2E8F0', background: selectedType === type ? cfg.bg : '#fff', color: cfg.color, fontWeight: 700, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? .45 : 1 }}>{cfg.sign} {cfg.label}{type === 'transfer' ? ' · Em breve' : disabled ? ' · Sem permissão' : ''}</button>;
           })}
         </div>
@@ -692,7 +692,7 @@ export function InventoryMovements() {
 
 export function InventorySettings() {
   const entities = [
-    ['inventory_items', 'Insumos'], ['inventory_suppliers', 'Fornecedores'], ['inventory_categories', 'Categorias'],
+    ['inventory_items', 'Insumos'], ['stock_locations', 'Locais'], ['stock_movements', 'Movimentos'], ['inventory_suppliers', 'Fornecedores'], ['inventory_categories', 'Categorias'],
   ] as const;
   const [activeEntity, setActiveEntity] = useState<InventoryMetadata['entity_key']>('inventory_items');
   const [metadata, setMetadata] = useState<InventoryMetadata | null>(null);
