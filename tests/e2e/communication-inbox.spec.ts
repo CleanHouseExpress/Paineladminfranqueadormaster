@@ -590,6 +590,31 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await expect(conversationNames.first()).toContainText('Bruno Cliente');
   });
 
+  test('filtro de status usa checkboxes e nao busca encerradas por padrao', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page);
+
+    await page.goto('/communication/inbox');
+
+    await expect.poll(() => calls.conversationQueries.some(query =>
+      query.includes('statuses%5B%5D=open') &&
+      query.includes('statuses%5B%5D=pending') &&
+      !query.includes('statuses%5B%5D=closed')
+    )).toBeTruthy();
+
+    await page.getByTestId('communication-filter-status').click();
+    await expect(page.getByTestId('communication-filter-status-open')).toBeChecked();
+    await expect(page.getByTestId('communication-filter-status-pending')).toBeChecked();
+    await expect(page.getByTestId('communication-filter-status-closed')).not.toBeChecked();
+
+    await page.getByTestId('communication-filter-status-closed').check();
+    await expect.poll(() => calls.conversationQueries.some(query =>
+      query.includes('statuses%5B%5D=open') &&
+      query.includes('statuses%5B%5D=pending') &&
+      query.includes('statuses%5B%5D=closed')
+    )).toBeTruthy();
+  });
+
   test('mostra contador de novas mensagens e zera ao abrir conversa', async ({ page }) => {
     await mockAuth(page);
     await mockInbox(page, { secondUnreadCount: 3 });

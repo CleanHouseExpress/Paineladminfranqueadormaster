@@ -41,12 +41,12 @@ import {
 } from './hooks';
 
 const statusOptions = [
-  { value: 'all', label: 'Todos os status' },
   { value: 'open', label: 'Abertas' },
-  { value: 'waiting_handoff', label: 'Aguardando handoff' },
-  { value: 'in_progress', label: 'Em atendimento' },
+  { value: 'pending', label: 'Pendentes' },
   { value: 'closed', label: 'Encerradas' },
 ];
+
+const defaultConversationStatuses = ['open', 'pending'];
 
 const handoffOptions = [
   { value: 'all', label: 'Todos handoffs' },
@@ -325,7 +325,7 @@ export function CommunicationInboxPage() {
   const { tenant } = useTenant();
   const [filters, setFilters] = useState<ConversationFilters>({
     search: '',
-    status: 'all',
+    statuses: defaultConversationStatuses,
     handoff: 'all',
     assignmentStatus: 'all',
     page: 1,
@@ -360,6 +360,7 @@ export function CommunicationInboxPage() {
   const [sendError, setSendError] = useState<string | null>(null);
   const [transferPanelOpen, setTransferPanelOpen] = useState(false);
   const [summaryPanelOpen, setSummaryPanelOpen] = useState(false);
+  const [statusFilterOpen, setStatusFilterOpen] = useState(false);
   const [conversationMenuOpen, setConversationMenuOpen] = useState(false);
   const [conversationDetailsOpen, setConversationDetailsOpen] = useState(false);
   const [assigneeSearch, setAssigneeSearch] = useState('');
@@ -468,6 +469,38 @@ export function CommunicationInboxPage() {
 
   const updateFilter = (key: keyof ConversationFilters, value: string) => {
     setFilters(current => ({ ...current, [key]: value, page: 1 }));
+    setSelectedConversationId(null);
+    setActiveConversationTab('messages');
+  };
+
+  const selectedStatuses = filters.statuses ?? defaultConversationStatuses;
+  const selectedStatusLabels = statusOptions
+    .filter(option => selectedStatuses.includes(option.value))
+    .map(option => option.label);
+  const statusFilterLabel = selectedStatuses.length === statusOptions.length
+    ? 'Todos os status'
+    : selectedStatusLabels.length > 0
+      ? selectedStatusLabels.join(', ')
+      : 'Nenhum status';
+
+  const updateStatusFilter = (status: string) => {
+    setFilters(current => {
+      const currentStatuses = current.statuses ?? defaultConversationStatuses;
+      if (currentStatuses.length === 1 && currentStatuses.includes(status)) {
+        return current;
+      }
+
+      const nextStatuses = currentStatuses.includes(status)
+        ? currentStatuses.filter(item => item !== status)
+        : [...currentStatuses, status];
+
+      return {
+        ...current,
+        status: undefined,
+        statuses: nextStatuses,
+        page: 1,
+      };
+    });
     setSelectedConversationId(null);
     setActiveConversationTab('messages');
   };
@@ -688,17 +721,38 @@ export function CommunicationInboxPage() {
               />
             </div>
           </label>
-          <label className="text-sm font-medium text-slate-700">
-            Status
-            <select
-              value={filters.status}
-              onChange={event => updateFilter('status', event.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+          <div className="relative text-sm font-medium text-slate-700">
+            <span>Status</span>
+            <button
+              type="button"
+              onClick={() => setStatusFilterOpen(current => !current)}
+              className="mt-1 flex h-10 w-full items-center justify-between gap-2 rounded-md border border-slate-300 bg-white px-3 text-left text-sm text-slate-900 hover:bg-slate-50"
               data-testid="communication-filter-status"
             >
-              {statusOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-          </label>
+              <span className="truncate">{statusFilterLabel}</span>
+              <ChevronRight className={`h-4 w-4 flex-shrink-0 text-slate-400 transition ${statusFilterOpen ? 'rotate-90' : ''}`} />
+            </button>
+            {statusFilterOpen && (
+              <div className="absolute left-0 top-16 z-20 w-56 rounded-lg border border-slate-200 bg-white p-2 shadow-lg" data-testid="communication-filter-status-menu">
+                {statusOptions.map(option => (
+                  <label
+                    key={option.value}
+                    className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedStatuses.includes(option.value)}
+                      disabled={selectedStatuses.length === 1 && selectedStatuses.includes(option.value)}
+                      onChange={() => updateStatusFilter(option.value)}
+                      className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                      data-testid={`communication-filter-status-${option.value}`}
+                    />
+                    {option.label}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
           <label className="text-sm font-medium text-slate-700">
             Handoff
             <select

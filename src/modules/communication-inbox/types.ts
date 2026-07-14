@@ -10,6 +10,7 @@ export interface InboxSummary {
 export interface ConversationFilters {
   search?: string;
   status?: string;
+  statuses?: string[];
   handoff?: string;
   assignmentStatus?: string;
   page?: number;

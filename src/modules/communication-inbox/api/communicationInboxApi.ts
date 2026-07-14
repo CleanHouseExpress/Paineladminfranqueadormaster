@@ -26,6 +26,15 @@ const buildSearchParams = (filters?: ConversationFilters | MessageFilters) => {
 
   Object.entries(filters).forEach(([key, value]) => {
     if (value === undefined || value === null || value === '' || value === 'all') return;
+    if (Array.isArray(value)) {
+      if (value.length === 0) return;
+      value.forEach(item => {
+        if (item !== undefined && item !== null && item !== '' && item !== 'all') {
+          params.append(`${key}[]`, String(item));
+        }
+      });
+      return;
+    }
 
     const apiKey = key === 'perPage'
       ? 'per_page'
