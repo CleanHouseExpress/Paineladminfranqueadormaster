@@ -108,6 +108,25 @@ const timelinePayload = {
   ],
 };
 
+
+const contactsPayload = {
+  data: [
+    {
+      id: 'contact-1',
+      name: 'Carla Paciente',
+      phone: '5541999990000',
+      provider: 'evolution',
+      external_id: '5541999990000',
+    },
+    {
+      id: 'contact-2',
+      name: 'Daniel Cliente',
+      phone: '5541888880000',
+      provider: 'evolution',
+      external_id: '5541888880000',
+    },
+  ],
+};
 const assigneesPayload = {
   data: [
     {
@@ -207,11 +226,15 @@ async function mockInbox(
     returnToAi: 0,
     assignees: 0,
     transfer: 0,
+    contacts: 0,
+    startConversation: 0,
     timeline: 0,
     timelinePaths: [] as string[],
     timelineMethods: [] as string[],
     conversationQueries: [] as string[],
     assigneeQueries: [] as string[],
+    contactQueries: [] as string[],
+    startConversationPayloads: [] as unknown[],
   };
   let currentConversation = {
     ...conversationsPayload.data[0],
@@ -239,6 +262,7 @@ async function mockInbox(
       },
     };
   }
+  let startedConversation: typeof currentConversation | null = null;
   const closedConversation = {
     id: 'c-closed',
     customer_name: 'Cliente Encerrado',
@@ -342,6 +366,71 @@ async function mockInbox(
       });
     }
 
+
+    if (path.endsWith('/contacts')) {
+      calls.contacts += 1;
+      calls.contactQueries.push(url.search);
+      const search = String(url.searchParams.get('search') ?? '').toLowerCase();
+      const data = search
+        ? contactsPayload.data.filter(contact =>
+          contact.name.toLowerCase().includes(search) || contact.phone.includes(search)
+        )
+        : contactsPayload.data;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data }),
+      });
+    }
+
+    if (path.endsWith('/conversations') && method === 'POST') {
+      calls.startConversation += 1;
+      const body = JSON.parse(request.postData() || '{}') as {
+        contact_id?: string;
+        contact?: { name?: string; phone?: string };
+        create_user?: boolean;
+      };
+      calls.startConversationPayloads.push(body);
+      const selectedContact = body.contact_id
+        ? contactsPayload.data.find(contact => contact.id === body.contact_id)
+        : null;
+      startedConversation = {
+        ...currentConversation,
+        id: 'c-start',
+        customer_name: selectedContact?.name ?? body.contact?.name ?? 'Novo contato',
+        customer_phone: selectedContact?.phone ?? body.contact?.phone ?? '',
+        service_mode: 'human',
+        handoff_status: 'assigned',
+        assignment_status: 'assigned',
+        assigned_to_name: 'Admin Master',
+        last_message: null,
+        last_message_at: '2026-06-25T12:50:00.000Z',
+        unread_count: 0,
+      };
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: startedConversation }),
+      });
+    }
+
+    if (path.endsWith('/conversations/c-start/messages')) {
+      calls.messages += 1;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: [], meta: { current_page: 1, last_page: 1, per_page: 50, total: 0 } }),
+      });
+    }
+
+    if (path.endsWith('/conversations/c-start')) {
+      calls.detail += 1;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: startedConversation }),
+      });
+    }
     if (path.endsWith('/conversations/c-1/request-handoff') && method === 'POST') {
       calls.handoff += 1;
       currentConversation = { ...currentConversation, handoff_status: 'requested' };
@@ -557,9 +646,12 @@ async function mockInbox(
               ? { data: [], meta: { current_page: 1, last_page: 1, per_page: 25, total: 0 } }
               : {
                 ...conversationsPayload,
-                data: options.includeClosedConversation
-                  ? [currentConversation, secondConversation, closedConversation]
-                  : [currentConversation, secondConversation],
+                data: [
+                  ...(startedConversation ? [startedConversation] : []),
+                  ...(options.includeClosedConversation
+                    ? [currentConversation, secondConversation, closedConversation]
+                    : [currentConversation, secondConversation]),
+                ],
                 meta: {
                   ...conversationsPayload.meta,
                   current_page: Number(url.searchParams.get('page') ?? 1),
@@ -1233,6 +1325,44 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await expect(page.getByTestId('communication-message-list')).toContainText('Claro, vou verificar as opcoes.');
   });
 
+
+  test('inicia conversa com cliente existente', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page);
+
+    await page.goto('/communication/inbox');
+    await page.getByTestId('communication-start-conversation').click();
+    await expect(page.getByTestId('communication-start-modal')).toBeVisible();
+    await page.getByTestId('communication-contact-search').fill('Carla');
+    await page.getByTestId('communication-contact-contact-1').click();
+    await page.getByTestId('communication-start-confirm').click();
+
+    await expect.poll(() => calls.startConversation).toBe(1);
+    expect(calls.startConversationPayloads[0]).toEqual({ contact_id: 'contact-1' });
+    await expect(page.getByTestId('communication-start-modal')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Carla Paciente' })).toBeVisible();
+  });
+
+  test('cria contato e inicia conversa', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page);
+
+    await page.goto('/communication/inbox');
+    await page.getByTestId('communication-start-conversation').click();
+    await page.getByTestId('communication-start-new-tab').click();
+    await page.getByTestId('communication-new-contact-name').fill('Novo Cliente');
+    await page.getByTestId('communication-new-contact-phone').fill('5541777770000');
+    await page.getByTestId('communication-new-contact-create-user').check();
+    await page.getByTestId('communication-start-confirm').click();
+
+    await expect.poll(() => calls.startConversation).toBe(1);
+    expect(calls.startConversationPayloads[0]).toEqual({
+      contact: { name: 'Novo Cliente', phone: '5541777770000' },
+      create_user: true,
+    });
+    await expect(page.getByTestId('communication-start-modal')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Novo Cliente' })).toBeVisible();
+  });
   test('exibe estado vazio quando nao ha conversas', async ({ page }) => {
     await mockAuth(page);
     await mockInbox(page, { empty: true });
@@ -1253,5 +1383,10 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await expect(page.getByText('Tentar novamente').first()).toBeVisible();
   });
 });
+
+
+
+
+
 
 

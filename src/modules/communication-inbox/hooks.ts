@@ -2,6 +2,7 @@
 import { communicationInboxApi } from './api/communicationInboxApi';
 import type {
   CommunicationAssignee,
+  CommunicationContact,
   CommunicationConversation,
   CommunicationMessage,
   ConversationTimelineEvent,
@@ -9,6 +10,7 @@ import type {
   InboxSummary,
   MessageFilters,
   PaginatedResult,
+  StartConversationPayload,
 } from './types';
 
 interface QueryState<T> {
@@ -171,6 +173,21 @@ export function useConversationTimeline(conversationId?: string | null) {
   );
 }
 
+export function useCommunicationContacts(search = '', enabled = true) {
+  const stableSearch = useMemo(() => search.trim(), [search]);
+  return useAsyncQuery<CommunicationContact[]>(
+    () => communicationInboxApi.listContacts(stableSearch),
+    [stableSearch, enabled],
+    enabled,
+  );
+}
+
+export function useStartConversation() {
+  return useAsyncMutation((payload: StartConversationPayload) =>
+    communicationInboxApi.startConversation(payload)
+  );
+}
+
 export function useCommunicationAssignees(search = '', enabled = true) {
   const stableSearch = useMemo(() => search.trim(), [search]);
   return useAsyncQuery<CommunicationAssignee[]>(
@@ -221,4 +238,6 @@ export function useTransferConversation() {
     communicationInboxApi.transferConversation(conversationId, assigneeId)
   );
 }
+
+
 

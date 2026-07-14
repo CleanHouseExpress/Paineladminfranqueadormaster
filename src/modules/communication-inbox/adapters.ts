@@ -1,5 +1,6 @@
-import type {
+﻿import type {
   CommunicationAssignee,
+  CommunicationContact,
   CommunicationConversation,
   CommunicationMessage,
   ConversationTimelineEvent,
@@ -136,6 +137,17 @@ export function normalizeMessageDeliveryStatus(payload: unknown): MessageDeliver
   };
 }
 
+export function normalizeContact(payload: unknown): CommunicationContact {
+  const contact = asRecord(payload);
+
+  return {
+    id: toStringValue(pick(contact, ['id', 'contact_id'])),
+    name: toStringValue(pick(contact, ['name', 'full_name', 'display_name']), 'Cliente sem nome'),
+    phone: pick(contact, ['phone', 'mobile', 'external_id']) as string | null | undefined,
+    provider: pick(contact, ['provider']) as string | null | undefined,
+    externalId: pick(contact, ['external_id', 'externalId']) as string | null | undefined,
+  };
+}
 export function normalizeAssignee(payload: unknown): CommunicationAssignee {
   const assignee = asRecord(payload);
   const user = asRecord(pick(assignee, ['user', 'assignee', 'attendant']));
@@ -211,3 +223,5 @@ export function normalizePaginated<T>(
     },
   };
 }
+
+

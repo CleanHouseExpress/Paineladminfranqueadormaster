@@ -1,6 +1,7 @@
 ﻿import { apiClient } from '../../../services/apiClient';
 import {
   normalizeAssignee,
+  normalizeContact,
   normalizeConversation,
   normalizeMessage,
   normalizePaginated,
@@ -9,6 +10,7 @@ import {
 } from '../adapters';
 import type {
   CommunicationAssignee,
+  CommunicationContact,
   CommunicationConversation,
   CommunicationMessage,
   ConversationTimelineEvent,
@@ -16,6 +18,7 @@ import type {
   InboxSummary,
   MessageFilters,
   PaginatedResult,
+  StartConversationPayload,
 } from '../types';
 
 const INBOX_BASE = '/api/tenant/communication/inbox';
@@ -128,6 +131,22 @@ export const communicationInboxApi = {
     return normalizePaginated(payload, normalizeTimelineEvent).data;
   },
 
+  async listContacts(search?: string): Promise<CommunicationContact[]> {
+    const params = new URLSearchParams();
+    if (search?.trim()) params.set('search', search.trim());
+    params.set('per_page', '20');
+    const payload = await apiClient.get<unknown>(`${INBOX_BASE}/contacts?${params.toString()}`);
+    return normalizePaginated(payload, normalizeContact).data;
+  },
+
+  async startConversation(payload: StartConversationPayload): Promise<CommunicationConversation> {
+    const apiPayload = payload.contactId
+      ? { contact_id: payload.contactId, create_user: payload.createUser }
+      : { contact: payload.contact, create_user: payload.createUser };
+    const response = await apiClient.post<unknown>(`${INBOX_BASE}/conversations`, apiPayload);
+    return normalizeConversationPayload(response);
+  },
+
   async listAssignees(search?: string): Promise<CommunicationAssignee[]> {
     const params = new URLSearchParams();
     if (search?.trim()) params.set('search', search.trim());
@@ -197,4 +216,7 @@ export const communicationInboxApi = {
     return normalizeMessagePayload(payload);
   },
 };
+
+
+
 

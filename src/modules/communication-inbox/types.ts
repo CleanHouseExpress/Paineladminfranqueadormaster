@@ -1,4 +1,4 @@
-export interface InboxSummary {
+﻿export interface InboxSummary {
   total: number;
   open: number;
   waitingHandoff: number;
@@ -37,6 +37,23 @@ export interface CommunicationConversation {
   lastMessageAt?: string | null;
   lastMessageDirection?: string | null;
   unreadCount: number;
+}
+
+export interface CommunicationContact {
+  id: string;
+  name: string;
+  phone?: string | null;
+  provider?: string | null;
+  externalId?: string | null;
+}
+
+export interface StartConversationPayload {
+  contactId?: string;
+  contact?: {
+    name: string;
+    phone: string;
+  };
+  createUser?: boolean;
 }
 
 export interface CommunicationAssignee {
@@ -89,3 +106,4 @@ export interface PaginatedResult<T> {
     total: number;
   };
 }
+
