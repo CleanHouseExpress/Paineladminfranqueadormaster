@@ -413,6 +413,14 @@ async function mockInbox(
     }
 
 
+    if (path.endsWith('/conversations/c-1/messages/m-image-1/media')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'image/png',
+        body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=', 'base64'),
+      });
+    }
+
     if (path.endsWith('/contacts')) {
       calls.contacts += 1;
       calls.contactQueries.push(url.search);
@@ -836,14 +844,15 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await expect(page.getByTestId('communication-message-list')).not.toContainText('Mensagem sem texto');
   });
 
-  test('nao renderiza url direta do WhatsApp como imagem quebrada', async ({ page }) => {
+  test('renderiza imagem do WhatsApp pela rota proxy de midia', async ({ page }) => {
     await mockAuth(page);
     await mockInbox(page, { imageMessageWithWhatsappUrl: true });
 
     await page.goto('/communication/inbox');
 
     await expect(page.getByTestId('communication-message-list')).toContainText('Imagem recebida');
-    await expect(page.getByTestId('communication-message-image-m-image-1')).toHaveCount(0);
+    await expect(page.getByTestId('communication-message-image-m-image-1')).toBeVisible();
+    await expect(page.getByTestId('communication-message-media-link-m-image-1')).toHaveAttribute('href', '/api/tenant/communication/inbox/conversations/c-1/messages/m-image-1/media');
   });
   test('mostra contador de novas mensagens e zera ao abrir conversa', async ({ page }) => {
     await mockAuth(page);

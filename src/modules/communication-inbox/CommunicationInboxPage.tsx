@@ -133,13 +133,17 @@ function getMessageSortTime(message: { createdAt?: string | null }) {
   return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
-function mediaImageSrc(media?: CommunicationMessageMedia | null): string | null {
+function mediaProxyUrl(conversationId: string, messageId: string): string {
+  return `/api/tenant/communication/inbox/conversations/${conversationId}/messages/${messageId}/media`;
+}
+
+function mediaImageSrc(conversationId: string, messageId: string, media?: CommunicationMessageMedia | null): string | null {
   if (!media || String(media.type ?? '').toLowerCase() !== 'image') return null;
 
   const url = media.url?.trim();
   if (url && /^https?:\/\//i.test(url)) {
     try {
-      if (new URL(url).hostname.toLowerCase() === 'mmg.whatsapp.net') return null;
+      if (new URL(url).hostname.toLowerCase() === 'mmg.whatsapp.net') return mediaProxyUrl(conversationId, messageId);
     } catch {
       return null;
     }
@@ -149,6 +153,7 @@ function mediaImageSrc(media?: CommunicationMessageMedia | null): string | null 
   if (url && /^data:image\//i.test(url)) return url;
 
   const base64 = media.base64?.replace(/\s/g, '');
+  if (!base64 && media.url) return mediaProxyUrl(conversationId, messageId);
   if (!base64) return null;
   if (/^data:image\//i.test(base64)) return base64;
   if (!/^[A-Za-z0-9+/]+=*$/.test(base64)) return null;
@@ -1298,7 +1303,8 @@ export function CommunicationInboxPage() {
                       const deliveryStatus = messageStatusById.get(message.id);
                       const statusValue = deliveryStatus?.status ?? message.status;
                       const statusLabel = outbound ? formatDeliveryStatusLabel(statusValue) : '';
-                      const imageSrc = mediaImageSrc(message.media);
+                      const imageSrc = mediaImageSrc(message.conversationId, message.id, message.media);
+                      const mediaUrl = message.media ? mediaProxyUrl(message.conversationId, message.id) : null;
                       return (
                         <article
                           key={message.id}
@@ -1328,6 +1334,17 @@ export function CommunicationInboxPage() {
                               />
                             ) : null}
                             <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.body || 'Mensagem sem texto'}</p>
+                            {mediaUrl ? (
+                              <a
+                                href={mediaUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className={`mt-2 inline-flex text-xs font-semibold underline ${outbound ? 'text-blue-100' : 'text-blue-700'}`}
+                                data-testid={`communication-message-media-link-${message.id}`}
+                              >
+                                Abrir / baixar imagem
+                              </a>
+                            ) : null}
                             {outbound && statusLabel && (
                               <div className="mt-2 flex justify-end">
                                 <span
