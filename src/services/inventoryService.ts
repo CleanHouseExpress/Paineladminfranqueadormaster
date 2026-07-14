@@ -12,7 +12,7 @@ import type {
   StockBalance,
   StockLocation,
   MovementType,
-  InventorySettings, InventoryTransfer, InventoryCount,
+  InventorySettings, InventoryTransfer, InventoryCount, InventoryCapabilities,
 } from '../types/inventory';
 
 interface DataResponse<T> { data: T }
@@ -163,9 +163,22 @@ export interface InventoryItemFilters {
 export interface InventoryMovementFilters {
   itemId?: string;
   unitId?: string;
+  locationId?: string;
   type?: MovementType | '';
   dateFrom?: string;
   dateTo?: string;
+}
+
+export interface StockLocationFilters {
+  unitId?: string;
+  active?: boolean | '';
+}
+
+export interface StockBalanceFilters {
+  itemId?: string;
+  unitId?: string;
+  locationId?: string;
+  stockStatus?: 'low' | 'out' | 'available' | '';
 }
 
 function queryString(values: Record<string, unknown>) {
@@ -178,7 +191,7 @@ function queryString(values: Record<string, unknown>) {
 }
 
 function toItem(item: ApiItem): InventoryItem {
-  const currentStock = Number(item.current_stock ?? 0);
+  const currentStock = Number(item.current_stock ?? item.stock_balances?.reduce((total, balance) => total + Number(balance.on_hand ?? 0), 0) ?? 0);
   const averageCost = Number(item.average_cost ?? 0);
   return {
     id: String(item.id),
@@ -303,6 +316,9 @@ function toMovement(movement: ApiMovement): InventoryMovement {
     originReference: movement.origin_reference,
     sourceType: movement.source_type,
     reason: movement.reason ?? movement.notes,
+    operationId: (movement as ApiMovement & { operation_id?: string | null }).operation_id ?? null,
+    idempotencyKey: (movement as ApiMovement & { idempotency_key?: string | null }).idempotency_key ?? null,
+    metadata: (movement as ApiMovement & { metadata?: Record<string, unknown> | null }).metadata ?? {},
     items: (movement.items ?? []).map(item => ({
       itemId: String(item.inventory_item_id),
       itemName: item.item?.name ?? `Insumo ${item.inventory_item_id}`,
@@ -313,6 +329,28 @@ function toMovement(movement: ApiMovement): InventoryMovement {
     })),
     createdAt: movement.confirmed_at ?? movement.created_at,
   };
+}
+
+function normalizeSettings(settings: InventorySettings): InventorySettings {
+  const terminology = settings.terminology_json ?? settings.terminology ?? (settings.settings_json?.terminology as Record<string, unknown> | undefined) ?? {};
+  const capabilities: InventoryCapabilities = settings.capabilities ?? {
+    enabled: Boolean(settings.inventory_enabled),
+    mode: settings.inventory_mode ?? 'simple',
+    locations: true,
+    balances: true,
+    movements: true,
+    costs: Boolean(settings.enable_cost_tracking),
+    transfers: Boolean(settings.enable_transfers),
+    counts: Boolean(settings.enable_inventory_counts),
+    automation: false,
+  };
+
+  return { ...settings, terminology_json: terminology, terminology, capabilities };
+}
+
+function newClientKey() {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
+  return `inventory-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function toLocation(location: ApiLocation): StockLocation {
@@ -384,6 +422,7 @@ export const inventoryService = {
     const response = await apiClient.get<ListResponse<ApiMovement>>(`/api/company/inventory/movements${queryString({
       inventory_item_id: filters.itemId,
       unit_id: filters.unitId,
+      stock_location_id: filters.locationId,
       movement_type: filters.type,
       date_from: filters.dateFrom,
       date_to: filters.dateTo,
@@ -391,31 +430,73 @@ export const inventoryService = {
     })}`);
     return response.data.map(toMovement);
   },
-  createMovement: async (payload: InventoryPayload) => toMovement((await apiClient.post<DataResponse<ApiMovement>>('/api/company/inventory/movements', {
-    inventory_item_id: payload.itemId ?? payload.inventory_item_id,
+  getMovement: async (id: string) => toMovement((await apiClient.get<DataResponse<ApiMovement>>(`/api/company/inventory/movements/${id}`)).data),
+  createMovement: async (payload: InventoryPayload) => {
+    const idempotencyKey = String(payload.idempotencyKey ?? payload.idempotency_key ?? newClientKey());
+    const rawItems = Array.isArray(payload.items) ? payload.items : [{
+      inventory_item_id: payload.itemId ?? payload.inventory_item_id,
+      quantity: payload.quantity,
+      unit_cost: payload.unitCost ?? payload.unit_cost ?? null,
+      metadata: {},
+    }];
+    return toMovement((await apiClient.post<DataResponse<ApiMovement>>('/api/company/inventory/movements', {
+    operation_id: payload.operationId ?? payload.operation_id ?? undefined,
     unit_id: payload.unitId ?? payload.unit_id ?? null,
     movement_type: payload.type ?? payload.movement_type,
-    quantity: Number(payload.quantity),
     source_location_id: payload.sourceLocationId ?? payload.source_location_id ?? null,
     destination_location_id: payload.destinationLocationId ?? payload.destination_location_id ?? null,
-    unit_cost: payload.unitCost === '' ? null : payload.unitCost ?? payload.unit_cost ?? null,
+    items: rawItems.map(item => {
+      const row = item as Record<string, unknown>;
+      return {
+        inventory_item_id: row.itemId ?? row.inventory_item_id,
+        quantity: Number(row.quantity),
+        unit_cost: row.unitCost === '' ? null : row.unitCost ?? row.unit_cost ?? null,
+        metadata: row.metadata ?? {},
+      };
+    }),
     reference: payload.reference || null,
+    source_type: payload.sourceType ?? payload.source_type ?? 'manual',
+    source_reference: payload.sourceReference ?? payload.source_reference ?? null,
     reason: payload.reason || payload.notes || null,
     notes: payload.notes || null,
-    idempotency_key: payload.idempotencyKey ?? payload.idempotency_key ?? null,
-  })).data),
-  reverseMovement: async (id: string, reason: string) => toMovement((await apiClient.post<DataResponse<ApiMovement>>(`/api/company/inventory/movements/${id}/reverse`, { reason })).data),
-  listLocations: async () => (await apiClient.get<ListResponse<ApiLocation>>('/api/company/inventory/locations?per_page=100')).data.map(toLocation),
+    idempotency_key: idempotencyKey,
+    metadata: payload.metadata ?? {},
+  }, { headers: { 'Idempotency-Key': idempotencyKey } })).data);
+  },
+  reverseMovement: async (id: string, reason: string) => {
+    const idempotencyKey = newClientKey();
+    return toMovement((await apiClient.post<DataResponse<ApiMovement>>(`/api/company/inventory/movements/${id}/reverse`, { reason, idempotency_key: idempotencyKey }, { headers: { 'Idempotency-Key': idempotencyKey } })).data);
+  },
+  listLocations: async (filters: StockLocationFilters = {}) => (await apiClient.get<ListResponse<ApiLocation>>(`/api/company/inventory/locations${queryString({
+    unit_id: filters.unitId,
+    active: filters.active,
+    per_page: 100,
+  })}`)).data.map(toLocation),
   createLocation: async (payload: InventoryPayload) => toLocation((await apiClient.post<DataResponse<ApiLocation>>('/api/company/inventory/locations', {
     unit_id: payload.unitId ?? payload.unit_id,
     name: payload.name,
     code: payload.code,
-    type: payload.type ?? 'main',
+    type: payload.type ?? 'warehouse',
     is_default: payload.isDefault ?? payload.is_default ?? false,
     active: payload.active ?? true,
     metadata: payload.metadata ?? {},
   })).data),
-  listBalances: async () => (await apiClient.get<ListResponse<ApiBalance>>('/api/company/inventory/balances?per_page=100')).data.map(toBalance),
+  updateLocation: async (id: string, payload: InventoryPayload) => toLocation((await apiClient.put<DataResponse<ApiLocation>>(`/api/company/inventory/locations/${id}`, {
+    unit_id: payload.unitId ?? payload.unit_id,
+    name: payload.name,
+    code: payload.code,
+    type: payload.type ?? 'warehouse',
+    is_default: payload.isDefault ?? payload.is_default ?? false,
+    active: payload.active ?? true,
+    metadata: payload.metadata ?? {},
+  })).data),
+  listBalances: async (filters: StockBalanceFilters = {}) => (await apiClient.get<ListResponse<ApiBalance>>(`/api/company/inventory/balances${queryString({
+    inventory_item_id: filters.itemId,
+    unit_id: filters.unitId,
+    stock_location_id: filters.locationId,
+    stock_status: filters.stockStatus,
+    per_page: 100,
+  })}`)).data.map(toBalance),
 
   getMetrics: async (): Promise<InventoryMetrics> => {
     const metrics = await apiClient.get<ApiMetrics>('/api/company/inventory/metrics');
@@ -438,8 +519,8 @@ export const inventoryService = {
     table_schema: payload.table_columns ?? payload.table_schema,
   }) as Promise<InventoryMetadata>,
 
-  getSettings: async () => (await apiClient.get<DataResponse<InventorySettings>>('/api/company/inventory/settings')).data,
-  updateSettings: async (payload: Partial<InventorySettings>) => (await apiClient.put<DataResponse<InventorySettings>>('/api/company/inventory/settings', payload)).data,
+  getSettings: async () => normalizeSettings((await apiClient.get<DataResponse<InventorySettings>>('/api/company/inventory/settings')).data),
+  updateSettings: async (payload: Partial<InventorySettings>) => normalizeSettings((await apiClient.put<DataResponse<InventorySettings>>('/api/company/inventory/settings', payload)).data),
   listTransfers: async () => (await apiClient.get<DataResponse<InventoryTransfer[]>>('/api/company/inventory/transfers')).data,
   getTransfer: async (id: string) => (await apiClient.get<DataResponse<InventoryTransfer>>(`/api/company/inventory/transfers/${id}`)).data,
   createTransfer: async (payload: Record<string, unknown>) => (await apiClient.post<DataResponse<InventoryTransfer>>('/api/company/inventory/transfers', payload)).data,

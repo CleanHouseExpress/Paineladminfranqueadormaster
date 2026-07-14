@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import {
   AlertTriangle, ArrowLeftRight, Boxes, Building2, CheckCircle, ChevronLeft,
-  ChevronRight, DollarSign, Edit, Package, Plus, Save, Settings, Trash2,
+  ChevronRight, DollarSign, Edit, Eye, MapPin, Package, Plus, RotateCcw, Save, Settings, Trash2,
   Truck, X, XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -13,11 +13,13 @@ import { ModuleStateView } from '../../../shared/components/ModuleStateView';
 import { usePermission } from '../../../shared/hooks/usePermission';
 import { unitManagementService } from '../../../services/unitManagementService';
 import { inventoryService } from '../../../services/inventoryService';
+import { getApiErrorMessage } from '../../../services/apiClient';
 import {
   INVENTORY_PERMISSIONS, MOVEMENT_TYPE_CONFIG, UNITS_OF_MEASURE,
   type InventoryCategory, type InventoryItem, type InventoryMetadata,
   type InventoryMetrics, type InventoryMovement, type InventoryPayload,
-  type InventorySupplier, type MovementType,
+  type InventorySettings, type InventorySupplier, type MovementType,
+  type StockBalance, type StockLocation,
 } from '../../../types/inventory';
 import type { UnitOption } from '../../../types/unitManagement';
 import type { DynamicFieldSchema } from '../../../types/userManagement';
@@ -39,6 +41,92 @@ function money(value: number) {
 
 function dateTime(value?: string | null) {
   return value ? new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+}
+
+const DEFAULT_TERMS = {
+  module: 'Estoque',
+  modulePlural: 'Estoque',
+  item: 'Item',
+  itemPlural: 'Itens',
+  location: 'Local',
+  locationPlural: 'Locais',
+  balance: 'Saldo',
+  balancePlural: 'Saldos',
+  movement: 'Movimento',
+  movementPlural: 'Movimentacoes',
+  entry: 'Entrada',
+  exit: 'Saida',
+  adjustment: 'Ajuste',
+};
+
+type InventoryTerms = typeof DEFAULT_TERMS;
+
+function term(settings: InventorySettings | null, key: keyof InventoryTerms) {
+  const terminology = (settings?.terminology_json ?? settings?.terminology ?? {}) as Record<string, unknown>;
+  const dotted: Record<keyof InventoryTerms, string> = {
+    module: 'inventory.module.singular',
+    modulePlural: 'inventory.module.plural',
+    item: 'inventory.item.singular',
+    itemPlural: 'inventory.item.plural',
+    location: 'inventory.location.singular',
+    locationPlural: 'inventory.location.plural',
+    balance: 'inventory.balance.singular',
+    balancePlural: 'inventory.balance.plural',
+    movement: 'inventory.movement.singular',
+    movementPlural: 'inventory.movement.plural',
+    entry: 'inventory.entry.singular',
+    exit: 'inventory.exit.singular',
+    adjustment: 'inventory.adjustment.singular',
+  };
+  const configured = terminology[key] ?? terminology[dotted[key]];
+  return typeof configured === 'string' && configured.trim() ? configured : DEFAULT_TERMS[key];
+}
+
+function useInventorySettings() {
+  const [settings, setSettings] = useState<InventorySettings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const reload = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      setSettings(await inventoryService.getSettings());
+    } catch {
+      setError('Nao foi possivel carregar as configuracoes de estoque.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { void reload(); }, []);
+
+  return { settings, loading, error, reload };
+}
+
+function InventoryCapabilityState({ settings, loading, error, children }: {
+  settings: InventorySettings | null;
+  loading: boolean;
+  error: string;
+  children: React.ReactNode;
+}) {
+  if (loading) return <ModuleStateView state="loading" />;
+  if (error) return <ModuleStateView state="error" errorMessage={error} />;
+  if (!settings?.inventory_enabled) {
+    return (
+      <div style={pageStyle}>
+        <PageHeader title={term(settings, 'module')} description="Capability desabilitada para este tenant." icon={<Boxes size={22} />} />
+        <div style={{ ...cardStyle, padding: 24 }}>
+          <h2 style={{ margin: '0 0 8px', fontSize: 18 }}>Estoque desabilitado</h2>
+          <p style={{ margin: 0, color: '#64748B', fontSize: 13, lineHeight: 1.6 }}>
+            O modulo esta oculto para operacao enquanto a capability nao for ativada nas configuracoes do tenant.
+          </p>
+          <Link to="/inventory/settings" style={{ display: 'inline-flex', marginTop: 14, color: '#4F46E5', fontSize: 13, fontWeight: 700 }}>Abrir configuracoes</Link>
+        </div>
+      </div>
+    );
+  }
+  return <>{children}</>;
 }
 
 function stockState(item: InventoryItem) {
@@ -121,107 +209,133 @@ function useInventoryData() {
 export function InventoryDashboard() {
   const navigate = useNavigate();
   const { hasPermission } = usePermission();
+  const settingsState = useInventorySettings();
   const [metrics, setMetrics] = useState<InventoryMetrics | null>(null);
   const [items, setItems] = useState<InventoryItem[]>([]);
+  const [balances, setBalances] = useState<StockBalance[]>([]);
+  const [locations, setLocations] = useState<StockLocation[]>([]);
   const [movements, setMovements] = useState<InventoryMovement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (!settingsState.settings?.inventory_enabled) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     void Promise.all([
-      inventoryService.getMetrics(), inventoryService.listItems(), inventoryService.listMovements(),
-    ]).then(([nextMetrics, nextItems, nextMovements]) => {
-      setMetrics(nextMetrics); setItems(nextItems); setMovements(nextMovements);
-    }).catch(() => setError('Não foi possível carregar o painel de estoque.'))
+      inventoryService.getMetrics(),
+      inventoryService.listItems(),
+      inventoryService.listBalances(),
+      inventoryService.listLocations(),
+      inventoryService.listMovements(),
+    ]).then(([nextMetrics, nextItems, nextBalances, nextLocations, nextMovements]) => {
+      setMetrics(nextMetrics);
+      setItems(nextItems);
+      setBalances(nextBalances);
+      setLocations(nextLocations);
+      setMovements(nextMovements);
+    }).catch(() => setError('Nao foi possivel carregar o painel de estoque.'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [settingsState.settings?.inventory_enabled]);
 
-  if (loading) return <ModuleStateView state="loading" />;
-  if (error || !metrics) return <ModuleStateView state="error" errorMessage={error} />;
+  if (settingsState.loading || loading) return <ModuleStateView state="loading" />;
+  if (settingsState.error || error || !metrics) {
+    return <InventoryCapabilityState {...settingsState}><ModuleStateView state="error" errorMessage={settingsState.error || error} /></InventoryCapabilityState>;
+  }
 
+  const totalOnHand = balances.reduce((total, balance) => total + balance.onHand, 0);
+  const totalAvailable = balances.reduce((total, balance) => total + balance.available, 0);
+  const inventoryValue = balances.reduce((total, balance) => total + balance.onHand * balance.averageCost, 0);
   const critical = items.filter(item => item.trackInventory && item.currentStock <= item.minimumStock).slice(0, 6);
+  const showCosts = hasPermission(INVENTORY_PERMISSIONS.costView);
   const kpis = [
-    ['Total de Insumos', metrics.items, Boxes, '#6366F1', '#EEF2FF'],
+    [`Total de ${term(settingsState.settings, 'itemPlural')}`, metrics.items, Boxes, '#6366F1', '#EEF2FF'],
     ['Ativos', metrics.activeItems, CheckCircle, '#10B981', '#ECFDF5'],
-    ['Estoque Baixo', metrics.lowStock, AlertTriangle, '#F59E0B', '#FFFBEB'],
-    ['Sem Estoque', metrics.outOfStock, XCircle, '#EF4444', '#FEF2F2'],
-    ['Fornecedores', metrics.suppliers, Truck, '#3B82F6', '#EFF6FF'],
-    ['Movim. Hoje', metrics.movementsToday, ArrowLeftRight, '#8B5CF6', '#F5F3FF'],
-    ['Valor em Estoque', money(metrics.inventoryValue), DollarSign, '#10B981', '#ECFDF5'],
+    ['Estoque baixo', metrics.lowStock, AlertTriangle, '#F59E0B', '#FFFBEB'],
+    ['Sem estoque', metrics.outOfStock, XCircle, '#EF4444', '#FEF2F2'],
+    [term(settingsState.settings, 'locationPlural'), locations.length, MapPin, '#3B82F6', '#EFF6FF'],
+    ['On hand', totalOnHand, Boxes, '#0F766E', '#ECFDF5'],
+    ['Disponivel', totalAvailable, CheckCircle, '#10B981', '#ECFDF5'],
+    ['Movim. hoje', metrics.movementsToday, ArrowLeftRight, '#8B5CF6', '#F5F3FF'],
+    ...(showCosts ? [['Valor em estoque', money(inventoryValue || metrics.inventoryValue), DollarSign, '#10B981', '#ECFDF5'] as const] : []),
   ] as const;
 
   const valueByUnit = new Map<string, number>();
-  items.forEach(item => item.unitBalances.forEach(balance => {
-    const name = balance.unitName ?? `Unidade ${balance.unitId}`;
-    valueByUnit.set(name, (valueByUnit.get(name) ?? 0) + balance.currentStock * balance.averageCost);
-  }));
+  balances.forEach(balance => {
+    const name = balance.unitName ?? `Unidade ${balance.unitId ?? 'geral'}`;
+    valueByUnit.set(name, (valueByUnit.get(name) ?? 0) + balance.onHand * balance.averageCost);
+  });
 
   return (
-    <div style={pageStyle}>
-      <PageHeader
-        title="Estoque & Suprimentos"
-        description="Controle de insumos, fornecedores, movimentações e estoque por unidade."
-        actions={<>
-          {hasPermission(INVENTORY_PERMISSIONS.move) && <SecondaryButton onClick={() => navigate('/inventory/movements?new=1')}><ArrowLeftRight size={14} /> Nova Movimentação</SecondaryButton>}
-          {hasPermission(INVENTORY_PERMISSIONS.create) && <PrimaryButton onClick={() => navigate('/inventory/items/new')}><Plus size={14} /> Novo Insumo</PrimaryButton>}
-        </>}
-      />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 12, marginBottom: 18 }}>
-        {kpis.map(([label, value, Icon, color, bg]) => (
-          <div key={label} style={{ ...cardStyle, padding: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: '#64748B', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>
-              {label}<span style={{ width: 30, height: 30, borderRadius: 8, background: bg, color, display: 'grid', placeItems: 'center' }}><Icon size={15} /></span>
-            </div>
-            <div style={{ marginTop: 7, fontSize: 20, fontWeight: 800, color: '#0F172A' }}>{value}</div>
-          </div>
-        ))}
-      </div>
-      {critical.length > 0 && (
-        <div style={{ ...cardStyle, borderColor: '#FCD34D', background: '#FFFBEB', padding: '12px 16px', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 9 }}>
-          <AlertTriangle size={17} color="#D97706" />
-          <span style={{ flex: 1, color: '#92400E', fontSize: 13, fontWeight: 650 }}>{critical.length} insumo(s) precisam de atenção.</span>
-          <Link to="/inventory/items?critical=1" style={{ color: '#D97706', fontSize: 12, fontWeight: 700 }}>Ver críticos</Link>
-        </div>
-      )}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.5fr) minmax(280px,1fr)', gap: 16 }}>
-        <div style={{ display: 'grid', gap: 16 }}>
-          <div style={{ ...cardStyle, padding: 18 }}>
-            <h2 style={{ margin: '0 0 13px', fontSize: 14 }}>Estoque crítico</h2>
-            {critical.length === 0 ? <p style={{ color: '#10B981', fontSize: 13 }}>Todos os insumos estão em níveis adequados.</p> : critical.map(item => {
-              const state = stockState(item);
-              return <Link key={item.id} to={`/inventory/items/${item.id}`} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 12, padding: '10px 6px', borderTop: '1px solid #F1F5F9', textDecoration: 'none', alignItems: 'center' }}>
-                <div><strong style={{ color: '#0F172A', fontSize: 13 }}>{item.name}</strong><div style={{ color: '#94A3B8', fontSize: 11 }}>{item.categoryName ?? 'Sem categoria'}</div></div>
-                <strong style={{ color: state.color, fontSize: 13 }}>{item.currentStock} {item.unitOfMeasure}</strong>
-                <span style={{ color: state.color, background: state.bg, borderRadius: 99, padding: '3px 9px', fontSize: 10, fontWeight: 700 }}>{state.label}</span>
-              </Link>;
-            })}
-          </div>
-          <div style={{ ...cardStyle, padding: 18 }}>
-            <h2 style={{ margin: '0 0 13px', fontSize: 14 }}>Últimas movimentações</h2>
-            {movements.slice(0, 6).map(movement => {
-              const cfg = MOVEMENT_TYPE_CONFIG[movement.type];
-              return <div key={movement.id} style={{ display: 'grid', gridTemplateColumns: '95px 1fr auto', gap: 10, padding: '9px 6px', borderTop: '1px solid #F1F5F9', alignItems: 'center' }}>
-                <span style={{ color: cfg.color, background: cfg.bg, borderRadius: 99, padding: '3px 8px', fontSize: 10, fontWeight: 700, textAlign: 'center' }}>{cfg.label}</span>
-                <div><strong style={{ fontSize: 12 }}>{movement.itemName}</strong><div style={{ color: '#94A3B8', fontSize: 10 }}>{movement.unitName ?? 'Estoque geral'} · {dateTime(movement.createdAt)}</div></div>
-                <strong style={{ color: cfg.color, fontSize: 12 }}>{cfg.sign}{Math.abs(movement.quantity)} {movement.itemUnit}</strong>
-              </div>;
-            })}
-          </div>
-        </div>
-        <div style={{ ...cardStyle, padding: 18 }}>
-          <h2 style={{ margin: '0 0 13px', fontSize: 14, display: 'flex', gap: 7, alignItems: 'center' }}><Building2 size={15} color="#3B82F6" /> Valor por unidade</h2>
-          {valueByUnit.size === 0 ? <p style={{ color: '#94A3B8', fontSize: 12 }}>Sem saldos por unidade.</p> : [...valueByUnit].map(([name, value]) => (
-            <div key={name} style={{ padding: '12px 0', borderTop: '1px solid #F1F5F9' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}><span>{name}</span><strong>{money(value)}</strong></div>
-              <div style={{ height: 5, background: '#E2E8F0', borderRadius: 99, marginTop: 7 }}><div style={{ width: `${Math.min(100, (value / Math.max(metrics.inventoryValue, 1)) * 100)}%`, height: '100%', background: '#3B82F6', borderRadius: 99 }} /></div>
+    <InventoryCapabilityState {...settingsState}>
+      <div style={pageStyle}>
+        <PageHeader
+          title={`${term(settingsState.settings, 'module')} & Suprimentos`}
+          description={`Controle de ${term(settingsState.settings, 'itemPlural').toLowerCase()}, ${term(settingsState.settings, 'locationPlural').toLowerCase()}, ${term(settingsState.settings, 'movementPlural').toLowerCase()} e saldo por unidade.`}
+          actions={<>
+            <SecondaryButton onClick={() => navigate('/inventory/balances')}><Boxes size={14} /> {term(settingsState.settings, 'balancePlural')}</SecondaryButton>
+            {hasPermission(INVENTORY_PERMISSIONS.entryCreate) && <SecondaryButton onClick={() => navigate('/inventory/movements?new=1')}><ArrowLeftRight size={14} /> Novo {term(settingsState.settings, 'movement')}</SecondaryButton>}
+            {hasPermission(INVENTORY_PERMISSIONS.itemsManage) && <PrimaryButton onClick={() => navigate('/inventory/items/new')}><Plus size={14} /> Novo {term(settingsState.settings, 'item')}</PrimaryButton>}
+          </>}
+        />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 12, marginBottom: 18 }}>
+          {kpis.map(([label, value, Icon, color, bg]) => (
+            <div key={label} style={{ ...cardStyle, padding: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: '#64748B', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>
+                {label}<span style={{ width: 30, height: 30, borderRadius: 8, background: bg, color, display: 'grid', placeItems: 'center' }}><Icon size={15} /></span>
+              </div>
+              <div style={{ marginTop: 7, fontSize: 20, fontWeight: 800, color: '#0F172A' }}>{value}</div>
             </div>
           ))}
         </div>
+        {critical.length > 0 && (
+          <div style={{ ...cardStyle, borderColor: '#FCD34D', background: '#FFFBEB', padding: '12px 16px', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 9 }}>
+            <AlertTriangle size={17} color="#D97706" />
+            <span style={{ flex: 1, color: '#92400E', fontSize: 13, fontWeight: 650 }}>{critical.length} {term(settingsState.settings, 'itemPlural').toLowerCase()} precisam de atencao.</span>
+            <Link to="/inventory/items?critical=1" style={{ color: '#D97706', fontSize: 12, fontWeight: 700 }}>Ver criticos</Link>
+          </div>
+        )}
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.5fr) minmax(280px,1fr)', gap: 16 }}>
+          <div style={{ display: 'grid', gap: 16 }}>
+            <div style={{ ...cardStyle, padding: 18 }}>
+              <h2 style={{ margin: '0 0 13px', fontSize: 14 }}>Estoque critico</h2>
+              {critical.length === 0 ? <p style={{ color: '#10B981', fontSize: 13 }}>Todos os itens estao em niveis adequados.</p> : critical.map(item => {
+                const state = stockState(item);
+                return <Link key={item.id} to={`/inventory/items/${item.id}`} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 12, padding: '10px 6px', borderTop: '1px solid #F1F5F9', textDecoration: 'none', alignItems: 'center' }}>
+                  <div><strong style={{ color: '#0F172A', fontSize: 13 }}>{item.name}</strong><div style={{ color: '#94A3B8', fontSize: 11 }}>{item.categoryName ?? 'Sem categoria'}</div></div>
+                  <strong style={{ color: state.color, fontSize: 13 }}>{item.currentStock} {item.unitOfMeasure}</strong>
+                  <span style={{ color: state.color, background: state.bg, borderRadius: 99, padding: '3px 9px', fontSize: 10, fontWeight: 700 }}>{state.label}</span>
+                </Link>;
+              })}
+            </div>
+            <div style={{ ...cardStyle, padding: 18 }}>
+              <h2 style={{ margin: '0 0 13px', fontSize: 14 }}>Ultimas movimentacoes</h2>
+              {movements.length === 0 ? <p style={{ color: '#94A3B8', fontSize: 12 }}>Nenhum movimento confirmado.</p> : movements.slice(0, 6).map(movement => {
+                const cfg = MOVEMENT_TYPE_CONFIG[movement.type];
+                return <button key={movement.id} type="button" onClick={() => navigate('/inventory/movements')} style={{ width: '100%', border: 0, background: 'transparent', display: 'grid', gridTemplateColumns: '110px 1fr auto', gap: 10, padding: '9px 6px', borderTop: '1px solid #F1F5F9', alignItems: 'center', textAlign: 'left', cursor: 'pointer' }}>
+                  <span style={{ color: cfg.color, background: cfg.bg, borderRadius: 99, padding: '3px 8px', fontSize: 10, fontWeight: 700, textAlign: 'center' }}>{cfg.label}</span>
+                  <div><strong style={{ fontSize: 12 }}>{movement.items?.map(item => item.itemName).join(', ') || movement.itemName}</strong><div style={{ color: '#94A3B8', fontSize: 10 }}>{movement.unitName ?? 'Estoque geral'} - {dateTime(movement.createdAt)}</div></div>
+                  <strong style={{ color: cfg.color, fontSize: 12 }}>{cfg.sign}{Math.abs(movement.quantity)} {movement.itemUnit}</strong>
+                </button>;
+              })}
+            </div>
+          </div>
+          <div style={{ ...cardStyle, padding: 18 }}>
+            <h2 style={{ margin: '0 0 13px', fontSize: 14, display: 'flex', gap: 7, alignItems: 'center' }}><Building2 size={15} color="#3B82F6" /> Valor por unidade</h2>
+            {!showCosts ? <p style={{ color: '#94A3B8', fontSize: 12 }}>Custos ocultos pela permissao do usuario.</p> : valueByUnit.size === 0 ? <p style={{ color: '#94A3B8', fontSize: 12 }}>Sem saldos por unidade.</p> : [...valueByUnit].map(([name, value]) => (
+              <div key={name} style={{ padding: '12px 0', borderTop: '1px solid #F1F5F9' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}><span>{name}</span><strong>{money(value)}</strong></div>
+                <div style={{ height: 5, background: '#E2E8F0', borderRadius: 99, marginTop: 7 }}><div style={{ width: `${Math.min(100, (value / Math.max(inventoryValue || metrics.inventoryValue, 1)) * 100)}%`, height: '100%', background: '#3B82F6', borderRadius: 99 }} /></div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
-    </div>
+    </InventoryCapabilityState>
   );
 }
-
 export function InventoryItems() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -742,3 +856,4 @@ export function InventorySettings() {
     </div>
   </div>;
 }
+

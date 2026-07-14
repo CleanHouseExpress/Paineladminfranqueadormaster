@@ -1,7 +1,8 @@
 import type { CustomerFormSettings, CustomerTableColumn } from './customerManagement';
 import type { DynamicFieldSchema } from './userManagement';
 
-export type InventoryItemStatus = 'active' | 'inactive';
+export type InventoryItemStatus = 'active' | 'inactive' | 'archived';
+export type InventoryMode = 'simple' | 'intermediate' | 'advanced' | string;
 export type MovementType = 'entry' | 'exit' | 'adjustment' | 'positive_adjustment' | 'negative_adjustment' | 'loss' | 'transfer' | 'reversal';
 
 export const MOVEMENT_TYPE_CONFIG: Record<MovementType, { label: string; color: string; bg: string; sign: string }> = {
@@ -109,6 +110,16 @@ export interface InventoryItem {
   updatedAt?: string | null;
 }
 
+export interface StockMovementItem {
+  itemId: string;
+  itemName: string;
+  quantity: number;
+  unitCost?: number | null;
+  totalCost?: number | null;
+  unitOfMeasure?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
 export interface InventoryMovement {
   id: string;
   number?: string;
@@ -136,7 +147,10 @@ export interface InventoryMovement {
   originReference?: string | null;
   sourceType?: string | null;
   reason?: string | null;
-  items?: Array<{ itemId: string; itemName: string; quantity: number; unitCost?: number | null; totalCost?: number | null; unitOfMeasure?: string | null }>;
+  idempotencyKey?: string | null;
+  operationId?: string | null;
+  items?: StockMovementItem[];
+  metadata?: Record<string, unknown>;
   createdAt?: string | null;
 }
 
@@ -150,14 +164,28 @@ export interface InventoryMetrics {
   inventoryValue: number;
 }
 
+export interface InventoryCapabilities {
+  enabled: boolean;
+  mode: InventoryMode;
+  locations: boolean;
+  balances: boolean;
+  movements: boolean;
+  costs: boolean;
+  transfers: boolean;
+  counts: boolean;
+  automation: boolean;
+}
+
 export interface InventorySettings {
-  inventory_enabled: boolean; inventory_mode: 'simple' | 'intermediate' | 'advanced' | string;
+  inventory_enabled: boolean; inventory_mode: InventoryMode;
   enable_transfers: boolean; enable_inventory_counts: boolean; enable_stock_minimum: boolean;
   enable_stock_ideal: boolean; enable_reorder_point: boolean; enable_coverage: boolean;
   enable_inventory_alerts: boolean; enable_purchase_flow: boolean; enable_recipes: boolean;
   enable_supplier_management: boolean; enable_cost_tracking: boolean; enable_multi_unit_inventory: boolean;
   settings_json: Record<string, unknown>;
   terminology_json?: Record<string, unknown>;
+  terminology?: Record<string, unknown>;
+  capabilities?: InventoryCapabilities;
 }
 
 export interface InventoryTransfer {
