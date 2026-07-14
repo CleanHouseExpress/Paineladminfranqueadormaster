@@ -51,6 +51,11 @@ export function normalizeConversation(payload: unknown): CommunicationConversati
   const customer = asRecord(pick(conversation, ['customer', 'client', 'contact']));
   const assignee = asRecord(pick(conversation, ['assigned_to', 'assignee', 'attendant']));
   const assignment = asRecord(pick(conversation, ['assignment']));
+  const rawLastMessage = pick(conversation, ['last_message']);
+  const latestMessage = asRecord(pick(conversation, ['latest_message', 'message']) ?? rawLastMessage);
+  const lastMessageText = (typeof rawLastMessage === 'string' || typeof rawLastMessage === 'number' ? rawLastMessage : undefined)
+    ?? pick(conversation, ['last_message_body', 'preview'])
+    ?? pick(latestMessage, ['text', 'body', 'message', 'content']);
 
   return {
     id: toStringValue(pick(conversation, ['id', 'conversation_id'])),
@@ -79,8 +84,14 @@ export function normalizeConversation(payload: unknown): CommunicationConversati
       ?? pick(assignee, ['name'])
       ?? pick(assignment, ['assignee_name'])
     ) as string | null | undefined,
-    lastMessage: pick(conversation, ['last_message', 'last_message_body', 'preview']) as string | null | undefined,
-    lastMessageAt: pick(conversation, ['last_message_at', 'updated_at', 'created_at']) as string | null | undefined,
+    lastMessage: typeof lastMessageText === 'string' || typeof lastMessageText === 'number'
+      ? String(lastMessageText)
+      : null,
+    lastMessageAt: (
+      pick(conversation, ['last_message_at', 'updated_at', 'created_at'])
+      ?? pick(latestMessage, ['occurred_at', 'created_at', 'timestamp'])
+    ) as string | null | undefined,
+    lastMessageDirection: pick(latestMessage, ['direction']) as string | null | undefined,
     unreadCount: toNumberValue(pick(conversation, ['unread_count', 'unread'])),
   };
 }

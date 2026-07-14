@@ -35,6 +35,7 @@ export interface CommunicationConversation {
   assignedToName?: string | null;
   lastMessage?: string | null;
   lastMessageAt?: string | null;
+  lastMessageDirection?: string | null;
   unreadCount: number;
 }
 

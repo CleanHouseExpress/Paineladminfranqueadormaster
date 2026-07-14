@@ -333,8 +333,10 @@ export function CommunicationInboxPage() {
   });
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [readConversationAt, setReadConversationAt] = useState<Record<string, string>>({});
+  const [localUnreadCounts, setLocalUnreadCounts] = useState<Record<string, number>>({});
   const [activeConversationTab, setActiveConversationTab] = useState<'messages' | 'timeline'>('messages');
   const realtimeDedupeRef = useRef(new Map<string, number>());
+  const knownConversationMessagesRef = useRef(new Map<string, string>());
   const tenantId = String(context?.companyId ?? company?.id ?? tenant.id ?? '').trim();
   const tenantRealtimeChannel = tenantId ? `tenant.${tenantId}.communication` : null;
   const conversationRealtimeChannel = selectedConversationId ? `conversation.${selectedConversationId}` : null;
@@ -402,6 +404,12 @@ export function CommunicationInboxPage() {
     if (!conversation?.id) return;
 
     const readAt = conversation.lastMessageAt ?? new Date().toISOString();
+    setLocalUnreadCounts(current => {
+      if (!current[conversation.id]) return current;
+      const next = { ...current };
+      delete next[conversation.id];
+      return next;
+    });
     setReadConversationAt(current => {
       if (current[conversation.id] === readAt) return current;
       return { ...current, [conversation.id]: readAt };
@@ -425,8 +433,33 @@ export function CommunicationInboxPage() {
       }
     }
 
-    return conversation.unreadCount;
-  }, [readConversationAt, selectedConversationId]);
+    return Math.max(conversation.unreadCount, localUnreadCounts[conversation.id] ?? 0);
+  }, [localUnreadCounts, readConversationAt, selectedConversationId]);
+
+  useEffect(() => {
+    setLocalUnreadCounts(current => {
+      let next = current;
+
+      for (const conversation of conversations) {
+        if (!conversation.lastMessageAt) continue;
+
+        const previousLastMessageAt = knownConversationMessagesRef.current.get(conversation.id);
+        knownConversationMessagesRef.current.set(conversation.id, conversation.lastMessageAt);
+
+        if (!previousLastMessageAt || previousLastMessageAt === conversation.lastMessageAt) continue;
+        if (conversation.id === selectedConversationId) continue;
+
+        const previousTime = new Date(previousLastMessageAt).getTime();
+        const nextTime = new Date(conversation.lastMessageAt).getTime();
+        if (!Number.isFinite(previousTime) || !Number.isFinite(nextTime) || nextTime <= previousTime) continue;
+
+        if (next === current) next = { ...current };
+        next[conversation.id] = (next[conversation.id] ?? 0) + 1;
+      }
+
+      return next;
+    });
+  }, [conversations, selectedConversationId]);
 
   useEffect(() => {
     if (!selectedConversationId && conversations.length > 0) {

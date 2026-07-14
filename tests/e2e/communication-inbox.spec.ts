@@ -188,6 +188,7 @@ async function mockInbox(
     failTransfer?: boolean;
     unorderedConversations?: boolean;
     unorderedMessages?: boolean;
+    latestMessageOnlyForSecond?: boolean;
     secondUnreadCount?: number;
     messageStatus?: 'sent' | 'delivered' | 'read' | 'failed' | 'pending';
   } = {},
@@ -215,13 +216,28 @@ async function mockInbox(
     ...conversationsPayload.data[0],
     status: options.closed ? 'closed' : conversationsPayload.data[0].status,
   };
-  const secondConversation = {
+  let secondConversation = {
     ...conversationsPayload.data[1],
     unread_count: options.secondUnreadCount ?? conversationsPayload.data[1].unread_count,
     last_message_at: options.unorderedConversations
       ? '2026-06-25T13:05:00.000Z'
       : conversationsPayload.data[1].last_message_at,
   };
+  if (options.latestMessageOnlyForSecond) {
+    secondConversation = {
+      ...secondConversation,
+      last_message: undefined,
+      latest_message: {
+        id: 'm-c2-latest',
+        direction: 'inbound',
+        message_type: 'text',
+        text: 'Preview vindo do latest_message',
+        status: 'received',
+        occurred_at: secondConversation.last_message_at,
+        created_at: secondConversation.last_message_at,
+      },
+    };
+  }
   let currentMessages = messagesPayload.data.map(message => message.id === 'm-2' ? {
     ...message,
     status: options.messageStatus ?? 'sent',
@@ -251,6 +267,23 @@ async function mockInbox(
         last_message_at: nextMessage.created_at,
       };
       return nextMessage;
+    },
+    pushSecondInboundMessage(body = 'Mensagem nova do Bruno') {
+      const createdAt = '2026-06-25T12:45:00.000Z';
+      secondConversation = {
+        ...secondConversation,
+        last_message: undefined,
+        latest_message: {
+          id: 'm-c2-new',
+          direction: 'inbound',
+          message_type: 'text',
+          text: body,
+          status: 'received',
+          occurred_at: createdAt,
+          created_at: createdAt,
+        },
+        last_message_at: createdAt,
+      };
     },
     setMessageStatus(status: 'sent' | 'delivered' | 'read' | 'failed' | 'pending') {
       currentMessages = currentMessages.map(message => message.id === 'm-2'
@@ -616,6 +649,16 @@ test.describe('@smoke @communication Communication Inbox', () => {
     )).toBeTruthy();
   });
 
+  test('renderiza preview da conversa a partir de latest_message', async ({ page }) => {
+    await mockAuth(page);
+    await mockInbox(page, { latestMessageOnlyForSecond: true });
+
+    await page.goto('/communication/inbox');
+
+    await expect(page.getByTestId('communication-conversation-list')).toContainText('Preview vindo do latest_message');
+    await expect(page.getByTestId('communication-conversation-list')).not.toContainText('Bruno Cliente\nSem mensagens recentes');
+  });
+
   test('mostra contador de novas mensagens e zera ao abrir conversa', async ({ page }) => {
     await mockAuth(page);
     await mockInbox(page, { secondUnreadCount: 3 });
@@ -623,6 +666,26 @@ test.describe('@smoke @communication Communication Inbox', () => {
     await page.goto('/communication/inbox');
 
     await expect(page.getByTestId('communication-unread-count-c-2')).toContainText('3');
+    await page.getByTestId('communication-conversation-list').getByText('Bruno Cliente').click();
+    await expect(page.getByTestId('communication-unread-count-c-2')).toHaveCount(0);
+  });
+
+  test('sinaliza mensagem nova em conversa nao aberta por polling', async ({ page }) => {
+    await mockAuth(page);
+    const calls = await mockInbox(page, { latestMessageOnlyForSecond: true });
+
+    await page.goto('/communication/inbox');
+    await page.getByTestId('communication-conversation-list').getByText('Ana Cliente').click();
+    await expect(page.getByTestId('communication-message-list')).toContainText('Preciso remarcar meu horario');
+    await expect(page.getByTestId('communication-unread-count-c-2')).toHaveCount(0);
+
+    const initialConversationCalls = calls.conversations;
+    calls.pushSecondInboundMessage('Nova mensagem nao aberta');
+
+    await expect.poll(() => calls.conversations, { timeout: 8000 }).toBeGreaterThan(initialConversationCalls);
+    await expect(page.getByTestId('communication-conversation-list')).toContainText('Nova mensagem nao aberta');
+    await expect(page.getByTestId('communication-unread-count-c-2')).toContainText('1');
+
     await page.getByTestId('communication-conversation-list').getByText('Bruno Cliente').click();
     await expect(page.getByTestId('communication-unread-count-c-2')).toHaveCount(0);
   });
