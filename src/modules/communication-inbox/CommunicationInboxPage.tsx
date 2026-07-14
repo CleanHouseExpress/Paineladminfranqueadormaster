@@ -18,7 +18,7 @@ import {
   UserRound,
   X,
 } from 'lucide-react';
-import type { CommunicationAssignee, CommunicationContact, CommunicationConversation, ConversationFilters } from './types';
+import type { CommunicationAssignee, CommunicationContact, CommunicationConversation, CommunicationMessageMedia, ConversationFilters } from './types';
 import { CommunicationAreaShell } from './CommunicationAreaShell';
 import { ConversationTimelinePanel } from './ConversationTimelinePanel';
 import { useAuth } from '../../shared/context/AuthContext';
@@ -131,6 +131,24 @@ function getConversationSortTime(conversation: CommunicationConversation) {
 function getMessageSortTime(message: { createdAt?: string | null }) {
   const timestamp = message.createdAt ? new Date(message.createdAt).getTime() : 0;
   return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function mediaImageSrc(media?: CommunicationMessageMedia | null): string | null {
+  if (!media || String(media.type ?? '').toLowerCase() !== 'image') return null;
+
+  const url = media.url?.trim();
+  if (url && (/^https?:\/\//i.test(url) || /^data:image\//i.test(url))) return url;
+
+  const base64 = media.base64?.replace(/\s/g, '');
+  if (!base64) return null;
+  if (/^data:image\//i.test(base64)) return base64;
+  if (!/^[A-Za-z0-9+/]+=*$/.test(base64)) return null;
+
+  const mimeType = media.mimeType && /^image\/[a-z0-9.+-]+$/i.test(media.mimeType)
+    ? media.mimeType
+    : 'image/jpeg';
+
+  return `data:${mimeType};base64,${base64}`;
 }
 
 function DetailRow({ label, value }: { label: string; value?: string | number | null }) {
@@ -1271,6 +1289,7 @@ export function CommunicationInboxPage() {
                       const deliveryStatus = messageStatusById.get(message.id);
                       const statusValue = deliveryStatus?.status ?? message.status;
                       const statusLabel = outbound ? formatDeliveryStatusLabel(statusValue) : '';
+                      const imageSrc = mediaImageSrc(message.media);
                       return (
                         <article
                           key={message.id}
@@ -1291,6 +1310,14 @@ export function CommunicationInboxPage() {
                               <span>Â·</span>
                               <span>{formatDateTime(message.createdAt)}</span>
                             </div>
+                            {imageSrc ? (
+                              <img
+                                src={imageSrc}
+                                alt={message.body || 'Imagem recebida'}
+                                className="mb-2 max-h-72 max-w-full rounded-md object-contain"
+                                data-testid={`communication-message-image-${message.id}`}
+                              />
+                            ) : null}
                             <p className="whitespace-pre-wrap text-sm leading-relaxed">{message.body || 'Mensagem sem texto'}</p>
                             {outbound && statusLabel && (
                               <div className="mt-2 flex justify-end">

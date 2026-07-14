@@ -3,6 +3,7 @@
   CommunicationContact,
   CommunicationConversation,
   CommunicationMessage,
+  CommunicationMessageMedia,
   ConversationTimelineEvent,
   InboxSummary,
   MessageDeliveryStatus,
@@ -47,6 +48,23 @@ const messageBodyFrom = (record: Record<string, unknown>, fallback = 'Mensagem s
   if (typeof text === 'number') return String(text);
 
   return messageTypeLabel(pick(record, ['message_type', 'messageType', 'type'])) ?? fallback;
+};
+
+const normalizeMedia = (record: Record<string, unknown>): CommunicationMessageMedia | null => {
+  const media = asRecord(pick(record, ['media', 'attachment', 'file']));
+  const source = Object.keys(media).length > 0 ? media : record;
+  const url = pick(source, ['url', 'media_url', 'mediaUrl']);
+  const base64 = pick(source, ['base64', 'media_base64', 'mediaBase64']);
+
+  if (!url && !base64) return null;
+
+  return {
+    type: pick(source, ['type', 'message_type', 'messageType']) as string | null | undefined,
+    mimeType: pick(source, ['mime_type', 'mimeType', 'mimetype']) as string | null | undefined,
+    fileName: pick(source, ['file_name', 'fileName', 'filename']) as string | null | undefined,
+    url: typeof url === 'string' ? url : null,
+    base64: typeof base64 === 'string' ? base64 : null,
+  };
 };
 
 const unwrapData = (payload: unknown): unknown => {
@@ -132,6 +150,7 @@ export function normalizeMessage(payload: unknown): CommunicationMessage {
       ?? pick(sender, ['name'])
     ) as string | null | undefined,
     messageType: pick(message, ['message_type', 'messageType', 'type']) as string | null | undefined,
+    media: normalizeMedia(message),
     body: messageBodyFrom(message),
     createdAt: toStringValue(pick(message, ['created_at', 'createdAt', 'timestamp']), new Date(0).toISOString()),
     status: pick(message, ['status', 'delivery_status', 'deliveryStatus']) as string | null | undefined,

@@ -64,6 +64,14 @@ export interface CommunicationAssignee {
   role?: string | null;
 }
 
+export interface CommunicationMessageMedia {
+  type?: string | null;
+  mimeType?: string | null;
+  fileName?: string | null;
+  url?: string | null;
+  base64?: string | null;
+}
+
 export interface CommunicationMessage {
   id: string;
   conversationId: string;
@@ -71,6 +79,7 @@ export interface CommunicationMessage {
   senderType: 'client' | 'bot' | 'human' | 'system' | string;
   senderName?: string | null;
   messageType?: string | null;
+  media?: CommunicationMessageMedia | null;
   body: string;
   createdAt: string;
   status?: string | null;

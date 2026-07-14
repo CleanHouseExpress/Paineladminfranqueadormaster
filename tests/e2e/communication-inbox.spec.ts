@@ -250,6 +250,11 @@ async function mockInbox(
         direction: 'inbound',
         message_type: 'image',
         text: null,
+        media: {
+          type: 'image',
+          mime_type: 'image/png',
+          base64: 'iVBORw0KGgo=',
+        },
         status: 'received',
         occurred_at: currentConversation.last_message_at,
         created_at: currentConversation.last_message_at,
@@ -309,6 +314,11 @@ async function mockInbox(
         sender_name: 'Ana Cliente',
         message_type: 'image',
         text: null,
+        media: {
+          type: 'image',
+          mime_type: 'image/png',
+          base64: 'iVBORw0KGgo=',
+        },
         created_at: '2026-06-25T12:30:00.000Z',
       },
       currentMessages[1],
@@ -817,6 +827,7 @@ test.describe('@smoke @communication Communication Inbox', () => {
 
     await expect(page.getByTestId('communication-conversation-list')).toContainText('Imagem recebida');
     await expect(page.getByTestId('communication-message-list')).toContainText('Imagem recebida');
+    await expect(page.getByTestId('communication-message-image-m-image-1')).toBeVisible();
     await expect(page.getByTestId('communication-message-list')).not.toContainText('Mensagem sem texto');
   });
 
