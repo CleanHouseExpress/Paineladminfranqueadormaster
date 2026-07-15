@@ -55,8 +55,10 @@ const InventoryItemFormPage = lazyPage(() => import('../modules/inventory'), 'In
 const InventoryItemDetailPage = lazyPage(() => import('../modules/inventory'), 'InventoryItemDetail');
 const InventoryCategoriesPage = lazyPage(() => import('../modules/inventory'), 'InventoryCategories');
 const InventorySuppliersPage = lazyPage(() => import('../modules/inventory'), 'InventorySuppliers');
+const InventoryLocationsPage = lazyPage(() => import('../modules/inventory'), 'InventoryLocations');
+const InventoryBalancesPage = lazyPage(() => import('../modules/inventory'), 'InventoryBalances');
 const InventoryMovementsPage = lazyPage(() => import('../modules/inventory'), 'InventoryMovements');
-const InventorySettingsPage = lazyPage(() => import('./components/inventory/InventorySupplyChainPages'), 'InventorySettingsPage');
+const InventorySettingsPage = lazyPage(() => import('../modules/inventory'), 'InventorySettings');
 const InventoryTransfersPage = lazyPage(() => import('./components/inventory/InventorySupplyChainPages'), 'InventoryTransfersPage');
 const InventoryTransferDetailPage = lazyPage(() => import('./components/inventory/InventorySupplyChainPages'), 'InventoryTransferDetailPage');
 const InventoryCountsPage = lazyPage(() => import('./components/inventory/InventorySupplyChainPages'), 'InventoryCountsPage');
@@ -183,6 +185,8 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   'inventory-item-detail': InventoryItemDetailPage,
   'inventory-categories': InventoryCategoriesPage,
   'inventory-suppliers': InventorySuppliersPage,
+  'inventory-locations': InventoryLocationsPage,
+  'inventory-balances': InventoryBalancesPage,
   'inventory-movements': InventoryMovementsPage,
   'inventory-settings': InventorySettingsPage,
   'inventory-transfers': InventoryTransfersPage,

@@ -695,164 +695,399 @@ export function InventorySuppliers() {
   return <CrudPage kind="supplier" title="Fornecedores" description="Cadastre os parceiros que abastecem a operação." records={suppliers} loading={loading} reload={reload} />;
 }
 
+export function InventoryLocations() {
+  const { hasPermission } = usePermission();
+  const settingsState = useInventorySettings();
+  const [locations, setLocations] = useState<StockLocation[]>([]);
+  const [units, setUnits] = useState<UnitOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<StockLocation | null>(null);
+  const [form, setForm] = useState<Record<string, unknown>>({ active: true, type: 'warehouse', metadata: {} });
+
+  const reload = async () => {
+    setLoading(true);
+    try {
+      const [nextLocations, nextUnits] = await Promise.all([
+        inventoryService.listLocations(),
+        unitManagementService.getUnitOptions(),
+      ]);
+      setLocations(nextLocations);
+      setUnits(nextUnits);
+    } catch {
+      toast.error('Nao foi possivel carregar os locais.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { if (settingsState.settings?.inventory_enabled) void reload(); }, [settingsState.settings?.inventory_enabled]);
+
+  const showModal = (location?: StockLocation) => {
+    setEditing(location ?? null);
+    setForm(location ? {
+      unitId: location.unitId,
+      name: location.name,
+      code: location.code,
+      type: location.type,
+      isDefault: location.isDefault,
+      active: location.active,
+      metadata: location.metadata,
+    } : { active: true, type: 'warehouse', isDefault: false, metadata: {} });
+    setOpen(true);
+  };
+
+  const save = async () => {
+    if (!form.unitId || !form.name || !form.code) {
+      toast.error('Informe unidade, nome e codigo.');
+      return;
+    }
+    try {
+      if (editing) await inventoryService.updateLocation(editing.id, form);
+      else await inventoryService.createLocation(form);
+      toast.success('Local salvo.');
+      setOpen(false);
+      await reload();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Nao foi possivel salvar o local.'));
+    }
+  };
+
+  const archive = async (location: StockLocation) => {
+    try {
+      await inventoryService.updateLocation(location.id, { ...location, active: false });
+      toast.success('Local arquivado.');
+      await reload();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Nao foi possivel arquivar o local.'));
+    }
+  };
+
+  const columns: ColumnDef[] = [
+    { key: 'name', label: term(settingsState.settings, 'location'), sortable: true, width: '180px', render: (_, row) => <div><strong>{String(row.name)}</strong><div style={{ color: '#94A3B8', fontSize: 10, fontFamily: 'monospace' }}>{String(row.code)}</div></div> },
+    { key: 'unitName', label: 'Unidade', width: '150px' },
+    { key: 'type', label: 'Tipo', width: '110px' },
+    { key: 'isDefault', label: 'Default', width: '90px', render: value => value ? 'Sim' : 'Nao' },
+    { key: 'active', label: 'Status', width: '90px', render: value => <span style={{ color: value ? '#10B981' : '#64748B', background: value ? '#ECFDF5' : '#F1F5F9', borderRadius: 99, padding: '3px 9px', fontSize: 10, fontWeight: 700 }}>{value ? 'Ativo' : 'Arquivado'}</span> },
+  ];
+
+  return <InventoryCapabilityState {...settingsState}>
+    <div style={pageStyle}>
+      <PageHeader title={term(settingsState.settings, 'locationPlural')} description="Locais fisicos ou logicos usados pela Inventory Foundation." back="/inventory" icon={<MapPin size={21} />} actions={
+        hasPermission(INVENTORY_PERMISSIONS.locationsManage) ? <PrimaryButton onClick={() => showModal()}><Plus size={14} /> Novo {term(settingsState.settings, 'location')}</PrimaryButton> : undefined
+      } />
+      <DynamicTableRenderer columns={columns} data={locations as unknown as Record<string, unknown>[]} loading={loading} emptyMessage="Nenhum local cadastrado." actions={[
+        { label: 'Editar', icon: <Edit size={13} />, onClick: row => showModal(row as unknown as StockLocation), showCondition: () => hasPermission(INVENTORY_PERMISSIONS.locationsManage) },
+        { label: 'Arquivar', icon: <Trash2 size={13} />, variant: 'danger', onClick: row => void archive(row as unknown as StockLocation), showCondition: row => hasPermission(INVENTORY_PERMISSIONS.locationsManage) && Boolean(row.active) },
+      ]} />
+      <Modal title={`${editing ? 'Editar' : 'Novo'} ${term(settingsState.settings, 'location')}`} open={open} onClose={() => setOpen(false)}>
+        <div style={{ display: 'grid', gap: 13 }}>
+          <label style={{ fontSize: 12, fontWeight: 650 }}>Unidade<select value={String(form.unitId ?? '')} onChange={e => setForm(current => ({ ...current, unitId: e.target.value }))} style={{ ...inputStyle, marginTop: 5 }}><option value="">Selecione...</option>{units.map(unit => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</select></label>
+          <label style={{ fontSize: 12, fontWeight: 650 }}>Nome<input value={String(form.name ?? '')} onChange={e => setForm(current => ({ ...current, name: e.target.value }))} style={{ ...inputStyle, marginTop: 5 }} /></label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <label style={{ fontSize: 12, fontWeight: 650 }}>Codigo<input value={String(form.code ?? '')} onChange={e => setForm(current => ({ ...current, code: e.target.value }))} style={{ ...inputStyle, marginTop: 5 }} /></label>
+            <label style={{ fontSize: 12, fontWeight: 650 }}>Tipo<select value={String(form.type ?? 'warehouse')} onChange={e => setForm(current => ({ ...current, type: e.target.value }))} style={{ ...inputStyle, marginTop: 5 }}><option value="default">Default</option><option value="warehouse">Deposito</option><option value="shelf">Prateleira</option><option value="vehicle">Veiculo</option><option value="virtual">Virtual</option></select></label>
+          </div>
+          <label style={{ display: 'flex', gap: 8, fontSize: 12 }}><input type="checkbox" checked={Boolean(form.isDefault)} onChange={e => setForm(current => ({ ...current, isDefault: e.target.checked }))} /> Local default da unidade</label>
+          <label style={{ display: 'flex', gap: 8, fontSize: 12 }}><input type="checkbox" checked={Boolean(form.active)} onChange={e => setForm(current => ({ ...current, active: e.target.checked }))} /> Ativo</label>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}><SecondaryButton onClick={() => setOpen(false)}>Cancelar</SecondaryButton><PrimaryButton onClick={() => void save()}><Save size={13} /> Salvar</PrimaryButton></div>
+        </div>
+      </Modal>
+    </div>
+  </InventoryCapabilityState>;
+}
+
+export function InventoryBalances() {
+  const { hasPermission } = usePermission();
+  const settingsState = useInventorySettings();
+  const [balances, setBalances] = useState<StockBalance[]>([]);
+  const [items, setItems] = useState<InventoryItem[]>([]);
+  const [locations, setLocations] = useState<StockLocation[]>([]);
+  const [units, setUnits] = useState<UnitOption[]>([]);
+  const [filters, setFilters] = useState({ itemId: '', unitId: '', locationId: '', stockStatus: '' as '' | 'low' | 'out' | 'available' });
+  const [loading, setLoading] = useState(true);
+
+  const reload = async () => {
+    setLoading(true);
+    try {
+      const [nextBalances, nextItems, nextLocations, nextUnits] = await Promise.all([
+        inventoryService.listBalances(filters),
+        inventoryService.listItems(),
+        inventoryService.listLocations(),
+        unitManagementService.getUnitOptions(),
+      ]);
+      setBalances(nextBalances);
+      setItems(nextItems);
+      setLocations(nextLocations);
+      setUnits(nextUnits);
+    } catch {
+      toast.error('Nao foi possivel carregar os saldos.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { if (settingsState.settings?.inventory_enabled) void reload(); }, [settingsState.settings?.inventory_enabled, filters.itemId, filters.unitId, filters.locationId, filters.stockStatus]);
+
+  const columns: ColumnDef[] = [
+    { key: 'itemName', label: term(settingsState.settings, 'item'), width: '190px' },
+    { key: 'unitName', label: 'Unidade', width: '140px' },
+    { key: 'locationName', label: term(settingsState.settings, 'location'), width: '150px' },
+    { key: 'onHand', label: 'On hand', type: 'number', width: '95px' },
+    { key: 'reserved', label: 'Reserved', type: 'number', width: '95px' },
+    { key: 'blocked', label: 'Blocked', type: 'number', width: '95px' },
+    { key: 'available', label: 'Available', type: 'number', width: '95px', render: value => <strong style={{ color: Number(value) <= 0 ? '#EF4444' : '#10B981' }}>{Number(value)}</strong> },
+    ...(hasPermission(INVENTORY_PERMISSIONS.costView) ? [{ key: 'averageCost', label: 'Custo medio', width: '110px', render: (value: unknown) => money(Number(value ?? 0)) }] : []),
+  ];
+
+  return <InventoryCapabilityState {...settingsState}>
+    <div style={pageStyle}>
+      <PageHeader title={term(settingsState.settings, 'balancePlural')} description="Projecao atual derivada do ledger. Esta tela e somente leitura." back="/inventory" icon={<Boxes size={21} />} />
+      <div style={{ ...cardStyle, padding: 13, marginBottom: 14, display: 'grid', gridTemplateColumns: 'repeat(4,minmax(130px,1fr))', gap: 9 }}>
+        <select value={filters.itemId} onChange={e => setFilters(current => ({ ...current, itemId: e.target.value }))} style={inputStyle}><option value="">Todos os itens</option>{items.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+        <select value={filters.unitId} onChange={e => setFilters(current => ({ ...current, unitId: e.target.value }))} style={inputStyle}><option value="">Todas as unidades</option>{units.map(unit => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</select>
+        <select value={filters.locationId} onChange={e => setFilters(current => ({ ...current, locationId: e.target.value }))} style={inputStyle}><option value="">Todos os locais</option>{locations.map(location => <option key={location.id} value={location.id}>{location.name}</option>)}</select>
+        <select value={filters.stockStatus} onChange={e => setFilters(current => ({ ...current, stockStatus: e.target.value as typeof filters.stockStatus }))} style={inputStyle}><option value="">Todos os status</option><option value="available">Disponivel</option><option value="low">Baixo</option><option value="out">Zerado</option></select>
+      </div>
+      <DynamicTableRenderer columns={columns} data={balances as unknown as Record<string, unknown>[]} loading={loading} emptyMessage="Nenhum saldo projetado." />
+    </div>
+  </InventoryCapabilityState>;
+}
 export function InventoryMovements() {
   const { hasPermission } = usePermission();
+  const settingsState = useInventorySettings();
   const [searchParams, setSearchParams] = useSearchParams();
   const [movements, setMovements] = useState<InventoryMovement[]>([]);
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [units, setUnits] = useState<UnitOption[]>([]);
+  const [locations, setLocations] = useState<StockLocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(searchParams.get('new') === '1');
-  const [filters, setFilters] = useState({ itemId: '', unitId: '', type: '' as MovementType | '', dateFrom: '', dateTo: '' });
+  const [detail, setDetail] = useState<InventoryMovement | null>(null);
+  const [reverseReason, setReverseReason] = useState('');
+  const [filters, setFilters] = useState({ itemId: '', unitId: '', locationId: '', type: '' as MovementType | '', dateFrom: '', dateTo: '' });
   const [form, setForm] = useState<Record<string, unknown>>({
     itemId: searchParams.get('item') ?? '', type: searchParams.get('type') ?? 'entry',
-    unitId: '', quantity: '', unitCost: '', reference: '', notes: '',
+    unitId: '', locationId: '', quantity: '', unitCost: '', reference: '', reason: '',
   });
 
   const reload = async () => {
     setLoading(true);
     try {
-      const [nextMovements, nextItems, nextUnits] = await Promise.all([
-        inventoryService.listMovements(filters), inventoryService.listItems(), unitManagementService.getUnitOptions(),
+      const [nextMovements, nextItems, nextUnits, nextLocations] = await Promise.all([
+        inventoryService.listMovements(filters), inventoryService.listItems(), unitManagementService.getUnitOptions(), inventoryService.listLocations(),
       ]);
-      setMovements(nextMovements); setItems(nextItems); setUnits(nextUnits);
-    } catch { toast.error('Não foi possível carregar as movimentações.'); }
+      setMovements(nextMovements); setItems(nextItems); setUnits(nextUnits); setLocations(nextLocations);
+    } catch { toast.error('Nao foi possivel carregar as movimentacoes.'); }
     finally { setLoading(false); }
   };
-  useEffect(() => { void reload(); }, [filters.itemId, filters.unitId, filters.type, filters.dateFrom, filters.dateTo]);
+  useEffect(() => { if (settingsState.settings?.inventory_enabled) void reload(); }, [settingsState.settings?.inventory_enabled, filters.itemId, filters.unitId, filters.locationId, filters.type, filters.dateFrom, filters.dateTo]);
 
   const selectedType = form.type as MovementType;
   const selectedItem = items.find(item => item.id === String(form.itemId));
+  const selectedLocation = locations.find(location => location.id === String(form.locationId));
+  const visibleMovementTypes: MovementType[] = ['entry', 'exit', 'positive_adjustment', 'negative_adjustment', 'loss'];
+  const commandPermission = selectedType === 'entry' || selectedType === 'positive_adjustment'
+    ? INVENTORY_PERMISSIONS.entryCreate
+    : selectedType === 'exit' || selectedType === 'loss'
+      ? INVENTORY_PERMISSIONS.exitCreate
+      : INVENTORY_PERMISSIONS.adjustCreate;
+
   const save = async () => {
-    if (!form.itemId || !form.quantity) { toast.error('Selecione o insumo e informe a quantidade.'); return; }
-    if (selectedType === 'adjustment' && !hasPermission(INVENTORY_PERMISSIONS.adjust)) { toast.error('Você não tem permissão para realizar ajustes.'); return; }
-    if (['adjustment', 'loss'].includes(selectedType) && !form.notes) { toast.error('Informe o motivo em observações.'); return; }
+    if (!form.itemId || !form.quantity) { toast.error(`Selecione o ${term(settingsState.settings, 'item').toLowerCase()} e informe a quantidade.`); return; }
+    if (!hasPermission(commandPermission)) { toast.error('Voce nao tem permissao para registrar este movimento.'); return; }
+    if (['positive_adjustment', 'negative_adjustment', 'loss'].includes(selectedType) && !form.reason) { toast.error('Informe o motivo.'); return; }
+    if (selectedLocation && !selectedLocation.active) { toast.error('Local inativo nao pode receber movimento.'); return; }
+    if (selectedItem && !selectedItem.trackInventory) { toast.error('Item nao estocavel nao pode gerar movimento fisico.'); return; }
+    const locationField = selectedType === 'entry' || selectedType === 'positive_adjustment' ? 'destinationLocationId' : 'sourceLocationId';
     try {
-      await inventoryService.createMovement(form);
-      toast.success('Movimentação registrada.');
+      await inventoryService.createMovement({
+        type: selectedType,
+        unitId: form.unitId || null,
+        [locationField]: form.locationId || null,
+        reference: form.reference,
+        reason: form.reason,
+        sourceType: 'manual',
+        items: [{ itemId: form.itemId, quantity: form.quantity, unitCost: form.unitCost, metadata: {} }],
+      });
+      toast.success('Movimento registrado.');
       setOpen(false); setSearchParams({}); await reload();
-    } catch { toast.error('Não foi possível registrar. Verifique o saldo e os dados informados.'); }
+    } catch (error) { toast.error(getApiErrorMessage(error, 'Nao foi possivel registrar. Verifique capability, saldo e dados informados.')); }
+  };
+
+  const reverse = async () => {
+    if (!detail || !reverseReason) { toast.error('Informe o motivo do estorno.'); return; }
+    try {
+      await inventoryService.reverseMovement(detail.id, reverseReason);
+      toast.success('Movimento estornado.');
+      setDetail(null); setReverseReason(''); await reload();
+    } catch (error) { toast.error(getApiErrorMessage(error, 'Nao foi possivel estornar o movimento.')); }
   };
 
   const columns: ColumnDef[] = [
     { key: 'createdAt', label: 'Data/Hora', width: '130px', render: value => dateTime(String(value)) },
-    { key: 'type', label: 'Tipo', width: '100px', render: value => { const cfg = MOVEMENT_TYPE_CONFIG[value as MovementType]; return <span style={{ color: cfg.color, background: cfg.bg, padding: '3px 9px', borderRadius: 99, fontSize: 10, fontWeight: 700 }}>{cfg.label}</span>; } },
-    { key: 'itemName', label: 'Insumo', sortable: true, width: '170px' },
+    { key: 'type', label: 'Tipo', width: '120px', render: value => { const cfg = MOVEMENT_TYPE_CONFIG[value as MovementType]; return <span style={{ color: cfg.color, background: cfg.bg, padding: '3px 9px', borderRadius: 99, fontSize: 10, fontWeight: 700 }}>{cfg.label}</span>; } },
+    { key: 'number', label: 'Numero', width: '125px' },
+    { key: 'itemName', label: term(settingsState.settings, 'item'), sortable: true, width: '190px', render: (_, row) => {
+      const movement = row as unknown as InventoryMovement;
+      return <div><strong>{movement.items?.map(item => item.itemName).join(', ') || movement.itemName}</strong><div style={{ color: '#94A3B8', fontSize: 10 }}>{movement.items?.length ?? 1} linha(s)</div></div>;
+    } },
     { key: 'unitName', label: 'Unidade', width: '130px' },
     { key: 'quantity', label: 'Quantidade', width: '110px', render: (_, row) => { const movement = row as unknown as InventoryMovement; const cfg = MOVEMENT_TYPE_CONFIG[movement.type]; return <strong style={{ color: cfg.color }}>{cfg.sign}{Math.abs(movement.quantity)} {movement.itemUnit}</strong>; } },
-    { key: 'unitCost', label: 'Custo Unit.', width: '100px', render: value => money(Number(value ?? 0)) },
-    { key: 'totalCost', label: 'Total', width: '100px', render: value => money(Number(value ?? 0)) },
-    { key: 'performedByName', label: 'Responsável', width: '120px' },
-    {
-      key: 'originType',
-      label: 'Origem',
-      width: '150px',
-      render: (_, row) => {
-        const movement = row as unknown as InventoryMovement;
-        if (movement.originType !== 'checklist_execution') {
-          return <span style={{ color: '#94A3B8' }}>Manual</span>;
-        }
-        return (
-          <div>
-            <span style={{ color: '#4F46E5', background: '#EEF2FF', padding: '3px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700 }}>
-              Checklist #{movement.originId}
-            </span>
-            {movement.originFieldKey && (
-              <div style={{ marginTop: 3, color: '#94A3B8', fontSize: 10, fontFamily: 'monospace' }}>
-                {movement.originFieldKey}
-              </div>
-            )}
-          </div>
-        );
-      },
-    },
-    { key: 'reference', label: 'Referência', width: '110px' },
+    ...(hasPermission(INVENTORY_PERMISSIONS.costView) ? [
+      { key: 'unitCost', label: 'Custo Unit.', width: '100px', render: (value: unknown) => money(Number(value ?? 0)) },
+      { key: 'totalCost', label: 'Total', width: '100px', render: (value: unknown) => money(Number(value ?? 0)) },
+    ] : []),
+    { key: 'sourceType', label: 'Origem', width: '120px', render: value => String(value ?? 'manual') },
+    { key: 'reference', label: 'Referencia', width: '110px' },
   ];
 
-  return <div style={pageStyle}>
-    <PageHeader title="Movimentações" description="Entradas, saídas, ajustes e perdas com atualização automática de saldo e custo médio." back="/inventory" actions={
-      hasPermission(INVENTORY_PERMISSIONS.move) ? <PrimaryButton onClick={() => setOpen(true)}><Plus size={14} /> Nova Movimentação</PrimaryButton> : undefined
-    } />
-    <div style={{ ...cardStyle, padding: 13, marginBottom: 14, display: 'grid', gridTemplateColumns: 'repeat(5,minmax(130px,1fr))', gap: 9 }}>
-      <select value={filters.itemId} onChange={e => setFilters(current => ({ ...current, itemId: e.target.value }))} style={inputStyle}><option value="">Todos os insumos</option>{items.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
-      <select value={filters.unitId} onChange={e => setFilters(current => ({ ...current, unitId: e.target.value }))} style={inputStyle}><option value="">Todas as unidades</option>{units.map(unit => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</select>
-      <select value={filters.type} onChange={e => setFilters(current => ({ ...current, type: e.target.value as MovementType | '' }))} style={inputStyle}><option value="">Todos os tipos</option>{Object.entries(MOVEMENT_TYPE_CONFIG).map(([key, cfg]) => <option key={key} value={key}>{cfg.label}</option>)}</select>
-      <input type="date" value={filters.dateFrom} onChange={e => setFilters(current => ({ ...current, dateFrom: e.target.value }))} style={inputStyle} />
-      <input type="date" value={filters.dateTo} onChange={e => setFilters(current => ({ ...current, dateTo: e.target.value }))} style={inputStyle} />
-    </div>
-    <DynamicTableRenderer columns={columns} data={movements as unknown as Record<string, unknown>[]} loading={loading} emptyMessage="Nenhuma movimentação encontrada." />
-    <Modal title="Nova Movimentação" open={open} onClose={() => { setOpen(false); setSearchParams({}); }}>
-      <div style={{ display: 'grid', gap: 14 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8 }}>
-          {(Object.keys(MOVEMENT_TYPE_CONFIG) as MovementType[]).map(type => {
-            const cfg = MOVEMENT_TYPE_CONFIG[type];
-            const disabled = type === 'transfer' || type === 'reversal' || (type === 'adjustment' && !hasPermission(INVENTORY_PERMISSIONS.adjust));
-            return <button key={type} disabled={disabled} onClick={() => setForm(current => ({ ...current, type }))} style={{ padding: 11, borderRadius: 10, border: selectedType === type ? `2px solid ${cfg.color}` : '1px solid #E2E8F0', background: selectedType === type ? cfg.bg : '#fff', color: cfg.color, fontWeight: 700, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? .45 : 1 }}>{cfg.sign} {cfg.label}{type === 'transfer' ? ' · Em breve' : disabled ? ' · Sem permissão' : ''}</button>;
-          })}
-        </div>
-        <label style={{ fontSize: 12, fontWeight: 650 }}>Insumo<select value={String(form.itemId)} onChange={e => setForm(current => ({ ...current, itemId: e.target.value }))} style={{ ...inputStyle, marginTop: 5 }}><option value="">Selecione...</option>{items.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <label style={{ fontSize: 12, fontWeight: 650 }}>Unidade<select value={String(form.unitId)} onChange={e => setForm(current => ({ ...current, unitId: e.target.value }))} style={{ ...inputStyle, marginTop: 5 }}><option value="">Estoque geral</option>{units.map(unit => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</select></label>
-        <div style={{ display: 'grid', gridTemplateColumns: selectedType === 'exit' || selectedType === 'loss' ? '1fr' : '1fr 1fr', gap: 10 }}>
-          <label style={{ fontSize: 12, fontWeight: 650 }}>Quantidade ({selectedItem?.unitOfMeasure ?? 'un'})<input type="number" step=".0001" value={String(form.quantity)} onChange={e => setForm(current => ({ ...current, quantity: e.target.value }))} style={{ ...inputStyle, marginTop: 5 }} /></label>
-          {selectedType !== 'exit' && selectedType !== 'loss' && <label style={{ fontSize: 12, fontWeight: 650 }}>Custo unitário<input type="number" step=".0001" value={String(form.unitCost)} onChange={e => setForm(current => ({ ...current, unitCost: e.target.value }))} placeholder={String(selectedItem?.averageCost ?? 0)} style={{ ...inputStyle, marginTop: 5 }} /></label>}
-        </div>
-        <label style={{ fontSize: 12, fontWeight: 650 }}>Referência<input value={String(form.reference)} onChange={e => setForm(current => ({ ...current, reference: e.target.value }))} style={{ ...inputStyle, marginTop: 5 }} /></label>
-        <label style={{ fontSize: 12, fontWeight: 650 }}>Observações {['adjustment', 'loss'].includes(selectedType) && '*'}<textarea value={String(form.notes)} onChange={e => setForm(current => ({ ...current, notes: e.target.value }))} style={{ ...inputStyle, marginTop: 5, minHeight: 80 }} /></label>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}><SecondaryButton onClick={() => setOpen(false)}>Cancelar</SecondaryButton><PrimaryButton onClick={() => void save()}><CheckCircle size={14} /> Registrar</PrimaryButton></div>
+  return <InventoryCapabilityState {...settingsState}>
+    <div style={pageStyle}>
+      <PageHeader title={term(settingsState.settings, 'movementPlural')} description="Ledger confirmado de entradas, saidas, ajustes, perdas e reversoes." back="/inventory" actions={
+        hasPermission(INVENTORY_PERMISSIONS.entryCreate) ? <PrimaryButton onClick={() => setOpen(true)}><Plus size={14} /> Novo {term(settingsState.settings, 'movement')}</PrimaryButton> : undefined
+      } />
+      <div style={{ ...cardStyle, padding: 13, marginBottom: 14, display: 'grid', gridTemplateColumns: 'repeat(6,minmax(120px,1fr))', gap: 9 }}>
+        <select value={filters.itemId} onChange={e => setFilters(current => ({ ...current, itemId: e.target.value }))} style={inputStyle}><option value="">Todos os itens</option>{items.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+        <select value={filters.unitId} onChange={e => setFilters(current => ({ ...current, unitId: e.target.value }))} style={inputStyle}><option value="">Todas as unidades</option>{units.map(unit => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</select>
+        <select value={filters.locationId} onChange={e => setFilters(current => ({ ...current, locationId: e.target.value }))} style={inputStyle}><option value="">Todos os locais</option>{locations.map(location => <option key={location.id} value={location.id}>{location.name}</option>)}</select>
+        <select value={filters.type} onChange={e => setFilters(current => ({ ...current, type: e.target.value as MovementType | '' }))} style={inputStyle}><option value="">Todos os tipos</option>{visibleMovementTypes.concat('reversal').map(type => <option key={type} value={type}>{MOVEMENT_TYPE_CONFIG[type].label}</option>)}</select>
+        <input type="date" value={filters.dateFrom} onChange={e => setFilters(current => ({ ...current, dateFrom: e.target.value }))} style={inputStyle} />
+        <input type="date" value={filters.dateTo} onChange={e => setFilters(current => ({ ...current, dateTo: e.target.value }))} style={inputStyle} />
       </div>
-    </Modal>
-  </div>;
+      <DynamicTableRenderer columns={columns} data={movements as unknown as Record<string, unknown>[]} loading={loading} emptyMessage="Nenhum movimento encontrado." onRowClick={row => setDetail(row as unknown as InventoryMovement)} actions={[
+        { label: 'Detalhe', icon: <Eye size={13} />, onClick: row => setDetail(row as unknown as InventoryMovement) },
+      ]} />
+      <Modal title={`Novo ${term(settingsState.settings, 'movement')}`} open={open} onClose={() => { setOpen(false); setSearchParams({}); }}>
+        <div style={{ display: 'grid', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8 }}>
+            {visibleMovementTypes.map(type => {
+              const cfg = MOVEMENT_TYPE_CONFIG[type];
+              const permission = type === 'entry' || type === 'positive_adjustment' ? INVENTORY_PERMISSIONS.entryCreate : type === 'exit' || type === 'loss' ? INVENTORY_PERMISSIONS.exitCreate : INVENTORY_PERMISSIONS.adjustCreate;
+              const disabled = !hasPermission(permission);
+              return <button key={type} disabled={disabled} onClick={() => setForm(current => ({ ...current, type }))} style={{ padding: 11, borderRadius: 10, border: selectedType === type ? `2px solid ${cfg.color}` : '1px solid #E2E8F0', background: selectedType === type ? cfg.bg : '#fff', color: cfg.color, fontWeight: 700, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? .45 : 1 }}>{cfg.sign} {cfg.label}{disabled ? ' - Sem permissao' : ''}</button>;
+            })}
+          </div>
+          <label style={{ fontSize: 12, fontWeight: 650 }}>{term(settingsState.settings, 'item')}<select value={String(form.itemId)} onChange={e => setForm(current => ({ ...current, itemId: e.target.value }))} style={{ ...inputStyle, marginTop: 5 }}><option value="">Selecione...</option>{items.map(item => <option key={item.id} value={item.id}>{item.name}{item.catalogItemId ? ' - Catalog' : ' - Interno'}</option>)}</select></label>
+          <label style={{ fontSize: 12, fontWeight: 650 }}>Unidade<select value={String(form.unitId)} onChange={e => setForm(current => ({ ...current, unitId: e.target.value, locationId: '' }))} style={{ ...inputStyle, marginTop: 5 }}><option value="">Resolver automaticamente</option>{units.map(unit => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</select></label>
+          {settingsState.settings?.inventory_mode !== 'simple' && <label style={{ fontSize: 12, fontWeight: 650 }}>{term(settingsState.settings, 'location')}<select value={String(form.locationId)} onChange={e => setForm(current => ({ ...current, locationId: e.target.value }))} style={{ ...inputStyle, marginTop: 5 }}><option value="">Local default</option>{locations.filter(location => !form.unitId || location.unitId === String(form.unitId)).map(location => <option key={location.id} value={location.id}>{location.name}</option>)}</select></label>}
+          <div style={{ display: 'grid', gridTemplateColumns: selectedType === 'exit' || selectedType === 'loss' || selectedType === 'negative_adjustment' ? '1fr' : '1fr 1fr', gap: 10 }}>
+            <label style={{ fontSize: 12, fontWeight: 650 }}>Quantidade ({selectedItem?.unitOfMeasure ?? 'un'})<input type="number" step=".0001" value={String(form.quantity)} onChange={e => setForm(current => ({ ...current, quantity: e.target.value }))} style={{ ...inputStyle, marginTop: 5 }} /></label>
+            {selectedType !== 'exit' && selectedType !== 'loss' && selectedType !== 'negative_adjustment' && <label style={{ fontSize: 12, fontWeight: 650 }}>Custo unitario<input type="number" step=".0001" value={String(form.unitCost)} onChange={e => setForm(current => ({ ...current, unitCost: e.target.value }))} placeholder={String(selectedItem?.averageCost ?? 0)} style={{ ...inputStyle, marginTop: 5 }} /></label>}
+          </div>
+          <label style={{ fontSize: 12, fontWeight: 650 }}>Referencia<input value={String(form.reference)} onChange={e => setForm(current => ({ ...current, reference: e.target.value }))} style={{ ...inputStyle, marginTop: 5 }} /></label>
+          <label style={{ fontSize: 12, fontWeight: 650 }}>Motivo {['positive_adjustment', 'negative_adjustment', 'loss'].includes(selectedType) && '*'}<textarea value={String(form.reason)} onChange={e => setForm(current => ({ ...current, reason: e.target.value }))} style={{ ...inputStyle, marginTop: 5, minHeight: 80 }} /></label>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}><SecondaryButton onClick={() => setOpen(false)}>Cancelar</SecondaryButton><PrimaryButton onClick={() => void save()}><CheckCircle size={14} /> Registrar</PrimaryButton></div>
+        </div>
+      </Modal>
+      <Modal title={detail?.number ? `Movimento ${detail.number}` : 'Detalhe do movimento'} open={Boolean(detail)} onClose={() => { setDetail(null); setReverseReason(''); }}>
+        {detail && <div style={{ display: 'grid', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 12 }}>
+            <div><strong>Tipo</strong><br />{MOVEMENT_TYPE_CONFIG[detail.type].label}</div>
+            <div><strong>Status</strong><br />{detail.status ?? 'confirmed'}</div>
+            <div><strong>Unidade</strong><br />{detail.unitName ?? '-'}</div>
+            <div><strong>Origem</strong><br />{detail.sourceType ?? 'manual'}</div>
+            <div><strong>Referencia</strong><br />{detail.reference ?? '-'}</div>
+            <div><strong>Horario</strong><br />{dateTime(detail.createdAt)}</div>
+          </div>
+          <div style={{ ...cardStyle, padding: 12 }}>
+            {(detail.items?.length ? detail.items : [{ itemId: detail.itemId, itemName: detail.itemName, quantity: detail.quantity, unitCost: detail.unitCost, totalCost: detail.totalCost, unitOfMeasure: detail.itemUnit }]).map(item => <div key={item.itemId} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderTop: '1px solid #F1F5F9' }}><span>{item.itemName}</span><strong>{item.quantity} {item.unitOfMeasure ?? ''}</strong></div>)}
+          </div>
+          {hasPermission(INVENTORY_PERMISSIONS.reverse) && detail.status !== 'reversed' && detail.type !== 'reversal' && <div style={{ display: 'grid', gap: 8 }}>
+            <label style={{ fontSize: 12, fontWeight: 650 }}>Motivo do estorno<textarea value={reverseReason} onChange={e => setReverseReason(e.target.value)} style={{ ...inputStyle, marginTop: 5, minHeight: 70 }} /></label>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}><SecondaryButton onClick={() => void reverse()}><RotateCcw size={13} /> Estornar</SecondaryButton></div>
+          </div>}
+        </div>}
+      </Modal>
+    </div>
+  </InventoryCapabilityState>;
 }
-
 export function InventorySettings() {
   const entities = [
-    ['inventory_items', 'Insumos'], ['stock_locations', 'Locais'], ['stock_movements', 'Movimentos'], ['inventory_suppliers', 'Fornecedores'], ['inventory_categories', 'Categorias'],
+    ['inventory_items', 'Itens'], ['stock_locations', 'Locais'], ['stock_movements', 'Movimentos'], ['inventory_suppliers', 'Fornecedores'], ['inventory_categories', 'Categorias'],
   ] as const;
+  const settingsState = useInventorySettings();
   const [activeEntity, setActiveEntity] = useState<InventoryMetadata['entity_key']>('inventory_items');
   const [metadata, setMetadata] = useState<InventoryMetadata | null>(null);
+  const [settingsForm, setSettingsForm] = useState<Partial<InventorySettings>>({});
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setSettingsForm(settingsState.settings ?? {});
+  }, [settingsState.settings]);
 
   useEffect(() => {
     setLoading(true);
     void inventoryService.getMetadata(activeEntity).then(value => setMetadata(normalizedMetadata(value)))
-      .catch(() => toast.error('Não foi possível carregar as configurações.')).finally(() => setLoading(false));
+      .catch(() => toast.error('Nao foi possivel carregar as configuracoes.')).finally(() => setLoading(false));
   }, [activeEntity]);
 
+  const terminology = (settingsForm.terminology_json ?? settingsForm.terminology ?? {}) as Record<string, unknown>;
+  const patchTerm = (key: string, value: string) => setSettingsForm(current => ({
+    ...current,
+    terminology_json: { ...((current.terminology_json ?? current.terminology ?? {}) as Record<string, unknown>), [key]: value },
+  }));
   const patchField = (key: string, patch: Partial<DynamicFieldSchema>) => setMetadata(current => current ? ({
     ...current, fields: current.fields.map(field => String(field.key) === key ? { ...field, ...patch } : field),
   }) : current);
   const save = async () => {
     if (!metadata) return;
-    try { setMetadata(normalizedMetadata(await inventoryService.updateMetadata(activeEntity, metadata))); toast.success('Configurações salvas.'); }
-    catch { toast.error('Não foi possível salvar as configurações.'); }
+    try {
+      await inventoryService.updateSettings(settingsForm);
+      setMetadata(normalizedMetadata(await inventoryService.updateMetadata(activeEntity, metadata)));
+      await settingsState.reload();
+      toast.success('Configuracoes salvas.');
+    }
+    catch (error) { toast.error(getApiErrorMessage(error, 'Nao foi possivel salvar as configuracoes.')); }
   };
 
+  if (settingsState.loading) return <ModuleStateView state="loading" />;
+  if (settingsState.error) return <ModuleStateView state="error" errorMessage={settingsState.error} />;
+
   return <div style={pageStyle}>
-    <PageHeader title="Configurações do Estoque" description="Labels, campos e colunas controlados pelo Metadata Engine." back="/inventory" icon={<Settings size={21} />} actions={<PrimaryButton onClick={() => void save()} disabled={!metadata}><Save size={14} /> Salvar</PrimaryButton>} />
-    <div style={{ display: 'grid', gridTemplateColumns: '220px minmax(0,1fr)', gap: 16 }}>
-      <div style={{ ...cardStyle, padding: 10, alignSelf: 'start' }}>{entities.map(([key, label]) => <button key={key} onClick={() => setActiveEntity(key)} style={{ display: 'block', width: '100%', border: 0, borderRadius: 9, padding: '10px 12px', textAlign: 'left', background: activeEntity === key ? '#EEF2FF' : 'transparent', color: activeEntity === key ? '#4F46E5' : '#64748B', fontWeight: 700, cursor: 'pointer' }}>{label}</button>)}</div>
-      {loading ? <ModuleStateView state="loading" /> : metadata && <div style={{ display: 'grid', gap: 16 }}>
+    <PageHeader title={`Configuracoes de ${term(settingsState.settings, 'module')}`} description="Capability, terminologia e campos controlados pelo tenant." back="/inventory" icon={<Settings size={21} />} actions={<PrimaryButton onClick={() => void save()} disabled={!metadata}><Save size={14} /> Salvar</PrimaryButton>} />
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px,.7fr) minmax(0,1.3fr)', gap: 16, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gap: 16 }}>
         <div style={{ ...cardStyle, padding: 18 }}>
-          <h2 style={{ margin: '0 0 14px', fontSize: 14 }}>Labels</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <label style={{ fontSize: 12, fontWeight: 650 }}>Singular<input value={metadata.singular_label} onChange={e => setMetadata(current => current ? ({ ...current, singular_label: e.target.value }) : current)} style={{ ...inputStyle, marginTop: 5 }} /></label>
-            <label style={{ fontSize: 12, fontWeight: 650 }}>Plural<input value={metadata.plural_label} onChange={e => setMetadata(current => current ? ({ ...current, plural_label: e.target.value }) : current)} style={{ ...inputStyle, marginTop: 5 }} /></label>
+          <h2 style={{ margin: '0 0 14px', fontSize: 14 }}>Capability</h2>
+          <label style={{ display: 'flex', gap: 8, fontSize: 12, marginBottom: 12 }}><input type="checkbox" checked={Boolean(settingsForm.inventory_enabled)} onChange={e => setSettingsForm(current => ({ ...current, inventory_enabled: e.target.checked }))} /> Inventory habilitado</label>
+          <label style={{ fontSize: 12, fontWeight: 650 }}>Modo<select value={String(settingsForm.inventory_mode ?? 'simple')} onChange={e => setSettingsForm(current => ({ ...current, inventory_mode: e.target.value }))} style={{ ...inputStyle, marginTop: 5 }}><option value="simple">Simples</option><option value="intermediate">Intermediario</option><option value="advanced">Avancado</option></select></label>
+          <p style={{ color: '#64748B', fontSize: 11, lineHeight: 1.5 }}>Transferencias, contagens, reservas e automacoes permanecem fora da Fase 1B.</p>
+        </div>
+        <div style={{ ...cardStyle, padding: 18 }}>
+          <h2 style={{ margin: '0 0 14px', fontSize: 14 }}>Terminologia</h2>
+          {[
+            ['inventory.module.singular', 'Modulo'], ['inventory.item.singular', 'Item'], ['inventory.item.plural', 'Itens'],
+            ['inventory.location.singular', 'Local'], ['inventory.balance.singular', 'Saldo'], ['inventory.movement.singular', 'Movimento'],
+            ['inventory.entry.singular', 'Entrada'], ['inventory.exit.singular', 'Saida'], ['inventory.adjustment.singular', 'Ajuste'],
+          ].map(([key, label]) => <label key={key} style={{ display: 'block', fontSize: 12, fontWeight: 650, marginTop: 9 }}>{label}<input value={String(terminology[key] ?? '')} placeholder={label} onChange={e => patchTerm(key, e.target.value)} style={{ ...inputStyle, marginTop: 5 }} /></label>)}
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '220px minmax(0,1fr)', gap: 16 }}>
+        <div style={{ ...cardStyle, padding: 10, alignSelf: 'start' }}>{entities.map(([key, label]) => <button key={key} onClick={() => setActiveEntity(key)} style={{ display: 'block', width: '100%', border: 0, borderRadius: 9, padding: '10px 12px', textAlign: 'left', background: activeEntity === key ? '#EEF2FF' : 'transparent', color: activeEntity === key ? '#4F46E5' : '#64748B', fontWeight: 700, cursor: 'pointer' }}>{label}</button>)}</div>
+        {loading ? <ModuleStateView state="loading" /> : metadata && <div style={{ display: 'grid', gap: 16 }}>
+          <div style={{ ...cardStyle, padding: 18 }}>
+            <h2 style={{ margin: '0 0 14px', fontSize: 14 }}>Labels da entidade</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <label style={{ fontSize: 12, fontWeight: 650 }}>Singular<input value={metadata.singular_label} onChange={e => setMetadata(current => current ? ({ ...current, singular_label: e.target.value }) : current)} style={{ ...inputStyle, marginTop: 5 }} /></label>
+              <label style={{ fontSize: 12, fontWeight: 650 }}>Plural<input value={metadata.plural_label} onChange={e => setMetadata(current => current ? ({ ...current, plural_label: e.target.value }) : current)} style={{ ...inputStyle, marginTop: 5 }} /></label>
+            </div>
           </div>
-        </div>
-        <div style={{ ...cardStyle, padding: 18 }}>
-          <h2 style={{ margin: '0 0 14px', fontSize: 14 }}>Campos do formulário</h2>
-          {[...metadata.fields].sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0)).map(field => <div key={String(field.key)} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 90px 80px', gap: 10, alignItems: 'center', padding: '9px 0', borderTop: '1px solid #F1F5F9' }}>
-            <input value={field.label} onChange={e => patchField(String(field.key), { label: e.target.value })} style={inputStyle} />
-            <label style={{ fontSize: 11 }}><input type="checkbox" checked={field.visible !== false} onChange={e => patchField(String(field.key), { visible: e.target.checked })} /> Visível</label>
-            <label style={{ fontSize: 11 }}><input type="checkbox" checked={Boolean(field.required)} onChange={e => patchField(String(field.key), { required: e.target.checked })} /> Obrigatório</label>
-            <input type="number" value={Number(field.order ?? 0)} onChange={e => patchField(String(field.key), { order: Number(e.target.value) })} style={inputStyle} />
-          </div>)}
-        </div>
-        <div style={{ ...cardStyle, padding: 18 }}>
-          <h2 style={{ margin: '0 0 14px', fontSize: 14 }}>Colunas da tabela</h2>
-          {metadata.table_columns.map(column => <label key={column.key} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderTop: '1px solid #F1F5F9', fontSize: 12 }}><span>{column.label}</span><input type="checkbox" checked={column.visible !== false} onChange={e => setMetadata(current => current ? ({ ...current, table_columns: current.table_columns.map(item => item.key === column.key ? { ...item, visible: e.target.checked } : item) }) : current)} /></label>)}
-        </div>
-      </div>}
+          <div style={{ ...cardStyle, padding: 18 }}>
+            <h2 style={{ margin: '0 0 14px', fontSize: 14 }}>Campos customizados</h2>
+            {[...metadata.fields].sort((a, b) => Number(a.order ?? 0) - Number(b.order ?? 0)).map(field => <div key={String(field.key)} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 90px 80px', gap: 10, alignItems: 'center', padding: '9px 0', borderTop: '1px solid #F1F5F9' }}>
+              <input value={field.label} onChange={e => patchField(String(field.key), { label: e.target.value })} style={inputStyle} />
+              <label style={{ fontSize: 11 }}><input type="checkbox" checked={field.visible !== false} onChange={e => patchField(String(field.key), { visible: e.target.checked })} /> Visivel</label>
+              <label style={{ fontSize: 11 }}><input type="checkbox" checked={Boolean(field.required)} onChange={e => patchField(String(field.key), { required: e.target.checked })} /> Obrigatorio</label>
+              <input type="number" value={Number(field.order ?? 0)} onChange={e => patchField(String(field.key), { order: Number(e.target.value) })} style={inputStyle} />
+            </div>)}
+          </div>
+          <div style={{ ...cardStyle, padding: 18 }}>
+            <h2 style={{ margin: '0 0 14px', fontSize: 14 }}>Colunas da tabela</h2>
+            {metadata.table_columns.map(column => <label key={column.key} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderTop: '1px solid #F1F5F9', fontSize: 12 }}><span>{column.label}</span><input type="checkbox" checked={column.visible !== false} onChange={e => setMetadata(current => current ? ({ ...current, table_columns: current.table_columns.map(item => item.key === column.key ? { ...item, visible: e.target.checked } : item) }) : current)} /></label>)}
+          </div>
+        </div>}
+      </div>
     </div>
   </div>;
 }

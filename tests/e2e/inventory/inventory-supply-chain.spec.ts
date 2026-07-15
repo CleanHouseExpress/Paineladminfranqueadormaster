@@ -1,11 +1,14 @@
 import { test, expect } from '../support/fixtures';
 import { openHealthy } from '../support/page-health';
 
-test('@release @inventory inventory supply chain cobre settings transferencias contagens e alertas', async ({ masterPage: page }) => {
-  for (const path of ['/inventory/settings', '/inventory/transfers', '/inventory/counts', '/inventory']) {
+test('@release @inventory inventory foundation expoe settings locais saldos movimentos e capability', async ({ masterPage: page }) => {
+  for (const path of ['/inventory/settings', '/inventory/locations', '/inventory/balances', '/inventory/movements', '/inventory']) {
     await openHealthy(page, path, { allowBlockedState: true });
   }
 
-  await expect(page.getByText(/Transfer.ncias|Invent.rio|Estoque|Cobertura|M.nimo|Alerta/i).first()).toBeVisible();
-});
+  await page.goto('/inventory/settings');
+  await expect(page.getByText(/Capability|Terminologia|Campos customizados/i).first()).toBeVisible();
 
+  await page.goto('/inventory');
+  await expect(page.getByText(/Estoque desabilitado|On hand|Disponivel|Movim/i).first()).toBeVisible();
+});
