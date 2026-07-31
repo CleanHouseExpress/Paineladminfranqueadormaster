@@ -50,13 +50,6 @@ export interface InventorySupplier {
   updatedAt?: string | null;
 }
 
-export interface InventoryUnitBalance {
-  unitId: string;
-  unitName?: string | null;
-  currentStock: number;
-  averageCost: number;
-}
-
 export interface StockBalance {
   id: string;
   itemId: string;
@@ -69,7 +62,7 @@ export interface StockBalance {
   reserved: number;
   blocked: number;
   available: number;
-  averageCost: number;
+  projectedAverageCost: number;
 }
 
 export interface StockLocation {
@@ -141,11 +134,10 @@ export interface InventoryItem {
   active: boolean;
   trackInventory: boolean;
   minimumStock: number;
-  currentStock: number;
-  averageCost: number;
+  totalOnHand: number;
+  projectedAverageCost: number;
   totalValue: number;
   metadata: Record<string, unknown>;
-  unitBalances: InventoryUnitBalance[];
   stockBalances: StockBalance[];
   unitSettings: InventoryItemUnitSetting[];
   createdAt?: string | null;

@@ -349,3 +349,29 @@ Rotas frontend:
 - `/inventory/unit-items`: unidade visualiza itens associados e altera configuracao local quando possui `tenant.inventory.unit_items.update`.
 
 Fora desta fase: Portal Franqueado, CMV, DRE, Forms/Checklists, producao, transferencias novas, contagens novas, reservas, Purchasing e Sales/PDV.
+
+## Inventory Foundation - Fase 1B.2
+
+O frontend passa a tratar a Inventory Foundation nova como fonte definitiva, sem fallback para estruturas pre-producao.
+
+Fonte oficial consumida:
+
+```text
+inventory_items
+inventory_item_unit_settings
+stock_locations
+stock_movements
+stock_movement_items
+stock_balances
+```
+
+Decisoes de UI e contrato:
+
+- `InventoryItem` exibe saldo agregado calculado a partir de `stockBalances`.
+- `StockBalance` representa saldo por local/unidade e custo medio projetado local.
+- `InventoryMovements` registra e lista movimentos pelo ledger novo.
+- Portal Franqueado consome diretamente itens habilitados, saldos por local, disponibilidade, bloqueios e minimos locais.
+- Transferencias e contagens antigas ficam ocultas/bloqueadas ate reimplementacao propria.
+- Forms/Checklists nao executam baixa/entrada de estoque nesta fase.
+
+Fora desta fase: transferencias novas, contagens novas, automacoes de estoque sobre ledger, producao/ficha tecnica e integracao financeira completa.

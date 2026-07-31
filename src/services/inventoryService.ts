@@ -35,16 +35,10 @@ interface ApiItem {
   active: boolean;
   track_inventory: boolean;
   minimum_stock: number | string;
-  current_stock: number | string;
-  average_cost: number | string;
   metadata?: Record<string, unknown> | null;
-  unit_balances?: Array<{
-    unit_id: number | string;
-    unit_name?: string | null;
-    current_stock: number | string;
-    average_cost: number | string;
-  }>;
   stock_balances?: Array<{
+    unit_id?: number | string | null;
+    unit_name?: string | null;
     stock_location_id?: number | string | null;
     location_name?: string | null;
     on_hand: number | string;
@@ -232,8 +226,10 @@ function queryString(values: Record<string, unknown>) {
 }
 
 function toItem(item: ApiItem): InventoryItem {
-  const currentStock = Number(item.current_stock ?? item.stock_balances?.reduce((total, balance) => total + Number(balance.on_hand ?? 0), 0) ?? 0);
-  const averageCost = Number(item.average_cost ?? 0);
+  const stockBalances = item.stock_balances ?? [];
+  const totalOnHand = stockBalances.reduce((total, balance) => total + Number(balance.on_hand ?? 0), 0);
+  const totalValue = stockBalances.reduce((total, balance) => total + Number(balance.on_hand ?? 0) * Number(balance.average_cost ?? 0), 0);
+  const projectedAverageCost = totalOnHand > 0 ? totalValue / totalOnHand : 0;
   return {
     id: String(item.id),
     catalogItemId: item.catalog_item_id ? String(item.catalog_item_id) : null,
@@ -250,27 +246,23 @@ function toItem(item: ApiItem): InventoryItem {
     active: item.active,
     trackInventory: item.track_inventory,
     minimumStock: Number(item.minimum_stock ?? 0),
-    currentStock,
-    averageCost,
-    totalValue: currentStock * averageCost,
+    totalOnHand,
+    projectedAverageCost,
+    totalValue: totalOnHand * projectedAverageCost,
     metadata: item.metadata ?? {},
-    unitBalances: (item.unit_balances ?? []).map(balance => ({
-      unitId: String(balance.unit_id),
-      unitName: balance.unit_name,
-      currentStock: Number(balance.current_stock ?? 0),
-      averageCost: Number(balance.average_cost ?? 0),
-    })),
-    stockBalances: (item.stock_balances ?? []).map(balance => ({
+    stockBalances: stockBalances.map(balance => ({
       id: `${item.id}-${balance.stock_location_id ?? 'general'}`,
       itemId: String(item.id),
       itemName: item.name,
+      unitId: balance.unit_id ? String(balance.unit_id) : null,
+      unitName: balance.unit_name,
       locationId: balance.stock_location_id ? String(balance.stock_location_id) : null,
       locationName: balance.location_name,
       onHand: Number(balance.on_hand ?? 0),
       reserved: Number(balance.reserved ?? 0),
       blocked: Number(balance.blocked ?? 0),
       available: Number(balance.available ?? 0),
-      averageCost: Number(balance.average_cost ?? 0),
+      projectedAverageCost: Number(balance.average_cost ?? 0),
     })),
     unitSettings: (item.unit_settings ?? []).map(toUnitSetting),
     createdAt: item.created_at,
@@ -422,7 +414,7 @@ function toBalance(balance: ApiBalance): StockBalance {
     reserved: Number(balance.reserved ?? 0),
     blocked: Number(balance.blocked ?? 0),
     available: Number(balance.available ?? 0),
-    averageCost: Number(balance.average_cost ?? 0),
+    projectedAverageCost: Number(balance.average_cost ?? 0),
   };
 }
 

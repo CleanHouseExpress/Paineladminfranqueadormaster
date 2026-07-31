@@ -41,7 +41,7 @@ function money(value: number) {
 }
 
 function dateTime(value?: string | null) {
-  return value ? new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+  return value ? new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'Ã¢â‚¬â€';
 }
 
 const DEFAULT_TERMS = {
@@ -131,9 +131,9 @@ function InventoryCapabilityState({ settings, loading, error, children }: {
 }
 
 function stockState(item: InventoryItem) {
-  if (!item.trackInventory) return { label: 'Não controlado', color: '#64748B', bg: '#F1F5F9' };
-  if (item.currentStock <= 0) return { label: 'Sem estoque', color: '#EF4444', bg: '#FEF2F2' };
-  if (item.currentStock <= item.minimumStock) return { label: 'Estoque baixo', color: '#D97706', bg: '#FFFBEB' };
+  if (!item.trackInventory) return { label: 'NÃƒÂ£o controlado', color: '#64748B', bg: '#F1F5F9' };
+  if (item.totalOnHand <= 0) return { label: 'Sem estoque', color: '#EF4444', bg: '#FEF2F2' };
+  if (item.totalOnHand <= item.minimumStock) return { label: 'Estoque baixo', color: '#D97706', bg: '#FFFBEB' };
   return { label: 'Normal', color: '#10B981', bg: '#ECFDF5' };
 }
 
@@ -197,7 +197,7 @@ function useInventoryData() {
       setCategories(nextCategories);
       setSuppliers(nextSuppliers);
     } catch {
-      setError('Não foi possível carregar os dados de estoque.');
+      setError('NÃƒÂ£o foi possÃƒÂ­vel carregar os dados de estoque.');
     } finally {
       setLoading(false);
     }
@@ -248,8 +248,8 @@ export function InventoryDashboard() {
 
   const totalOnHand = balances.reduce((total, balance) => total + balance.onHand, 0);
   const totalAvailable = balances.reduce((total, balance) => total + balance.available, 0);
-  const inventoryValue = balances.reduce((total, balance) => total + balance.onHand * balance.averageCost, 0);
-  const critical = items.filter(item => item.trackInventory && item.currentStock <= item.minimumStock).slice(0, 6);
+  const inventoryValue = balances.reduce((total, balance) => total + balance.onHand * balance.projectedAverageCost, 0);
+  const critical = items.filter(item => item.trackInventory && item.totalOnHand <= item.minimumStock).slice(0, 6);
   const showCosts = hasPermission(INVENTORY_PERMISSIONS.costView);
   const kpis = [
     [`Total de ${term(settingsState.settings, 'itemPlural')}`, metrics.items, Boxes, '#6366F1', '#EEF2FF'],
@@ -266,7 +266,7 @@ export function InventoryDashboard() {
   const valueByUnit = new Map<string, number>();
   balances.forEach(balance => {
     const name = balance.unitName ?? `Unidade ${balance.unitId ?? 'geral'}`;
-    valueByUnit.set(name, (valueByUnit.get(name) ?? 0) + balance.onHand * balance.averageCost);
+    valueByUnit.set(name, (valueByUnit.get(name) ?? 0) + balance.onHand * balance.projectedAverageCost);
   });
 
   return (
@@ -306,7 +306,7 @@ export function InventoryDashboard() {
                 const state = stockState(item);
                 return <Link key={item.id} to={`/inventory/items/${item.id}`} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 12, padding: '10px 6px', borderTop: '1px solid #F1F5F9', textDecoration: 'none', alignItems: 'center' }}>
                   <div><strong style={{ color: '#0F172A', fontSize: 13 }}>{item.name}</strong><div style={{ color: '#94A3B8', fontSize: 11 }}>{item.categoryName ?? 'Sem categoria'}</div></div>
-                  <strong style={{ color: state.color, fontSize: 13 }}>{item.currentStock} {item.unitOfMeasure}</strong>
+                  <strong style={{ color: state.color, fontSize: 13 }}>{item.totalOnHand} {item.unitOfMeasure}</strong>
                   <span style={{ color: state.color, background: state.bg, borderRadius: 99, padding: '3px 9px', fontSize: 10, fontWeight: 700 }}>{state.label}</span>
                 </Link>;
               })}
@@ -350,7 +350,7 @@ export function InventoryItems() {
   const [critical, setCritical] = useState(searchParams.get('critical') === '1');
   const unitOptions = useMemo(() => {
     const options = new Map<string, string>();
-    items.forEach(item => item.unitBalances.forEach(balance => options.set(balance.unitId, balance.unitName ?? `Unidade ${balance.unitId}`)));
+    items.forEach(item => item.stockBalances.forEach(balance => { if (balance.unitId) options.set(balance.unitId, balance.unitName ?? `Unidade ${balance.unitId}`); }));
     return [...options];
   }, [items]);
 
@@ -359,8 +359,8 @@ export function InventoryItems() {
     if (category && item.categoryId !== category) return false;
     if (supplier && item.supplierId !== supplier) return false;
     if (status && String(item.active) !== status) return false;
-    if (unit && !item.unitBalances.some(balance => balance.unitId === unit)) return false;
-    if (critical && (!item.trackInventory || item.currentStock > item.minimumStock)) return false;
+    if (unit && !item.stockBalances.some(balance => balance.unitId === unit)) return false;
+    if (critical && (!item.trackInventory || item.totalOnHand > item.minimumStock)) return false;
     return true;
   });
 
@@ -369,25 +369,25 @@ export function InventoryItems() {
     { key: 'categoryName', label: 'Categoria', width: '120px' },
     { key: 'supplierName', label: 'Fornecedor', width: '150px' },
     { key: 'unitOfMeasure', label: 'Un.', width: '55px' },
-    { key: 'currentStock', label: 'Estoque', sortable: true, width: '100px', render: (_, row) => {
+    { key: 'totalOnHand', label: 'Estoque', sortable: true, width: '100px', render: (_, row) => {
       const item = row as unknown as InventoryItem; const state = stockState(item);
-      return <strong style={{ color: state.color }}>{item.currentStock} {item.unitOfMeasure}</strong>;
+      return <strong style={{ color: state.color }}>{item.totalOnHand} {item.unitOfMeasure}</strong>;
     } },
-    { key: 'minimumStock', label: 'Mínimo', type: 'number', width: '80px' },
-    { key: 'averageCost', label: 'Custo médio', width: '110px', render: value => money(Number(value)) },
+    { key: 'minimumStock', label: 'MÃƒÂ­nimo', type: 'number', width: '80px' },
+    { key: 'projectedAverageCost', label: 'Custo mÃƒÂ©dio', width: '110px', render: value => money(Number(value)) },
     { key: 'active', label: 'Status', width: '90px', render: value => <span style={{ color: value ? '#10B981' : '#64748B', background: value ? '#ECFDF5' : '#F1F5F9', borderRadius: 99, padding: '3px 9px', fontSize: 10, fontWeight: 700 }}>{value ? 'Ativo' : 'Inativo'}</span> },
   ];
 
   const remove = async (id: string) => {
-    if (!window.confirm('Excluir este insumo? O histórico de movimentações também será removido.')) return;
-    try { await inventoryService.deleteItem(id); toast.success('Insumo excluído.'); await reload(); }
-    catch { toast.error('Não foi possível excluir o insumo.'); }
+    if (!window.confirm('Excluir este insumo? O histÃƒÂ³rico de movimentaÃƒÂ§ÃƒÂµes tambÃƒÂ©m serÃƒÂ¡ removido.')) return;
+    try { await inventoryService.deleteItem(id); toast.success('Insumo excluÃƒÂ­do.'); await reload(); }
+    catch { toast.error('NÃƒÂ£o foi possÃƒÂ­vel excluir o insumo.'); }
   };
 
   if (error) return <ModuleStateView state="error" errorMessage={error} />;
   return (
     <div style={pageStyle}>
-      <PageHeader title="Insumos" description="Materiais, matérias-primas, embalagens e itens de consumo interno." back="/inventory" actions={
+      <PageHeader title="Insumos" description="Materiais, matÃƒÂ©rias-primas, embalagens e itens de consumo interno." back="/inventory" actions={
         hasPermission(INVENTORY_PERMISSIONS.create) ? <PrimaryButton onClick={() => navigate('/inventory/items/new')}><Plus size={14} /> Novo Insumo</PrimaryButton> : undefined
       } />
       <div style={{ ...cardStyle, padding: 13, marginBottom: 14, display: 'grid', gridTemplateColumns: 'minmax(180px,1fr) repeat(4,minmax(115px,.55fr)) auto', gap: 9 }}>
@@ -396,7 +396,7 @@ export function InventoryItems() {
         <select value={supplier} onChange={e => setSupplier(e.target.value)} style={inputStyle}><option value="">Todos os fornecedores</option>{suppliers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
         <select value={status} onChange={e => setStatus(e.target.value)} style={inputStyle}><option value="">Todos os status</option><option value="true">Ativos</option><option value="false">Inativos</option></select>
         <select value={unit} onChange={e => setUnit(e.target.value)} style={inputStyle}><option value="">Todas as unidades</option>{unitOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select>
-        <button onClick={() => setCritical(value => !value)} style={{ border: `1px solid ${critical ? '#F59E0B' : '#CBD5E1'}`, background: critical ? '#FFFBEB' : '#fff', color: critical ? '#D97706' : '#64748B', borderRadius: 9, padding: '0 12px', fontWeight: 700, cursor: 'pointer' }}>Estoque crítico</button>
+        <button onClick={() => setCritical(value => !value)} style={{ border: `1px solid ${critical ? '#F59E0B' : '#CBD5E1'}`, background: critical ? '#FFFBEB' : '#fff', color: critical ? '#D97706' : '#64748B', borderRadius: 9, padding: '0 12px', fontWeight: 700, cursor: 'pointer' }}>Estoque crÃƒÂ­tico</button>
       </div>
       <DynamicTableRenderer
         columns={columns}
@@ -448,11 +448,10 @@ export function InventoryItemForm() {
         barcode: item.barcode ?? '', unit_of_measure: item.unitOfMeasure,
         category_id: item.categoryId ?? '', supplier_id: item.supplierId ?? '',
         active: item.active, track_inventory: item.trackInventory,
-        minimum_stock: item.minimumStock, current_stock: item.currentStock,
-        average_cost: item.averageCost, metadata: item.metadata,
+        minimum_stock: item.minimumStock, metadata: item.metadata,
         ...item.metadata,
       });
-    }).catch(() => setError('Não foi possível carregar o formulário.')).finally(() => setLoading(false));
+    }).catch(() => setError('NÃƒÂ£o foi possÃƒÂ­vel carregar o formulÃƒÂ¡rio.')).finally(() => setLoading(false));
   }, [editing, id]);
 
   const schema = useMemo(() => {
@@ -464,14 +463,14 @@ export function InventoryItemForm() {
       if (field.key === 'supplier_id') return { ...field, options: supplierOptions, options_source: undefined };
       if (field.key === 'unit_of_measure') return { ...field, type: 'select', field_type: 'select', options: [...UNITS_OF_MEASURE] };
       return field;
-    }).filter(field => field.visible !== false && !['current_stock', 'average_cost', 'metadata'].includes(String(field.key)));
+    }).filter(field => field.visible !== false && !['metadata'].includes(String(field.key)));
   }, [categories, editing, metadata, suppliers]);
 
   const save = async () => {
     if (!values.name || !values.unit_of_measure) { toast.error('Preencha nome e unidade de medida.'); return; }
     const customKeys = new Set(schema.filter(field => ![
       'name', 'description', 'sku', 'barcode', 'unit_of_measure', 'category_id', 'supplier_id',
-      'active', 'track_inventory', 'minimum_stock', 'current_stock', 'average_cost', 'metadata',
+      'active', 'track_inventory', 'minimum_stock', 'metadata',
     ].includes(String(field.key))).map(field => String(field.key)));
     const payload: InventoryPayload = {
       ...values,
@@ -482,7 +481,7 @@ export function InventoryItemForm() {
       const item = editing && id ? await inventoryService.updateItem(id, payload) : await inventoryService.createItem(payload);
       toast.success(editing ? 'Insumo atualizado.' : 'Insumo criado.');
       navigate(`/inventory/items/${item.id}`);
-    } catch { toast.error('Não foi possível salvar o insumo.'); }
+    } catch { toast.error('NÃƒÂ£o foi possÃƒÂ­vel salvar o insumo.'); }
     finally { setSaving(false); }
   };
 
@@ -490,7 +489,7 @@ export function InventoryItemForm() {
   if (error || !metadata) return <ModuleStateView state="error" errorMessage={error} />;
   return (
     <div style={pageStyle}>
-      <PageHeader title={editing ? 'Editar Insumo' : 'Novo Insumo'} description="Cadastro separado do catálogo comercial: aqui ficam os itens comprados, armazenados e consumidos." back="/inventory/items" actions={<>
+      <PageHeader title={editing ? 'Editar Insumo' : 'Novo Insumo'} description="Cadastro separado do catÃƒÂ¡logo comercial: aqui ficam os itens comprados, armazenados e consumidos." back="/inventory/items" actions={<>
         <SecondaryButton onClick={() => navigate(-1)}>Cancelar</SecondaryButton>
         <PrimaryButton onClick={() => void save()} disabled={saving}><Save size={14} /> {saving ? 'Salvando...' : 'Salvar Insumo'}</PrimaryButton>
       </>} />
@@ -499,15 +498,13 @@ export function InventoryItemForm() {
           <DynamicFormRenderer schema={schema as DynamicFieldSchema[]} values={values} onChange={(key, value) => setValues(current => ({ ...current, [key]: value }))} showProgress highlightRequired />
         </div>
         <div style={{ ...cardStyle, padding: 18, position: 'sticky', top: 18 }}>
-          <div style={{ fontSize: 11, color: '#64748B', textTransform: 'uppercase', fontWeight: 700 }}>Prévia</div>
+          <div style={{ fontSize: 11, color: '#64748B', textTransform: 'uppercase', fontWeight: 700 }}>PrÃƒÂ©via</div>
           <h2 style={{ margin: '8px 0 2px', fontSize: 19 }}>{String(values.name || 'Nome do insumo')}</h2>
           <p style={{ margin: 0, color: '#94A3B8', fontSize: 12 }}>{String(values.sku || 'Sem SKU')}</p>
           <div style={{ marginTop: 16, padding: 13, borderRadius: 10, background: '#F8FAFC' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}><span>Estoque atual</span><strong>{editing ? Number(values.current_stock ?? 0) : 0} {String(values.unit_of_measure)}</strong></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginTop: 8 }}><span>Estoque mínimo</span><strong>{Number(values.minimum_stock ?? 0)} {String(values.unit_of_measure)}</strong></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginTop: 8 }}><span>Custo médio</span><strong>{money(Number(values.average_cost ?? 0))}</strong></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginTop: 8 }}><span>Estoque mÃƒÂ­nimo</span><strong>{Number(values.minimum_stock ?? 0)} {String(values.unit_of_measure)}</strong></div>
           </div>
-          {!editing && <p style={{ color: '#64748B', fontSize: 11, lineHeight: 1.6 }}>Estoque atual e custo médio são atualizados exclusivamente pelas movimentações, preservando a rastreabilidade.</p>}
+          <p style={{ color: '#64748B', fontSize: 11, lineHeight: 1.6 }}>Saldo e custo operacional sao exibidos nas projecoes por local e atualizados exclusivamente pelo ledger.</p>
         </div>
       </div>
     </div>
@@ -588,7 +585,7 @@ export function InventoryItemDetail() {
 
   return (
     <div style={pageStyle}>
-      <PageHeader title={item.name} description={item.description ?? 'Detalhes e posição de estoque do insumo.'} back="/inventory/items" actions={<>
+      <PageHeader title={item.name} description={item.description ?? 'Detalhes e posiÃƒÂ§ÃƒÂ£o de estoque do insumo.'} back="/inventory/items" actions={<>
         {hasPermission(INVENTORY_PERMISSIONS.update) && <SecondaryButton onClick={() => navigate(`/inventory/items/${item.id}/edit`)}><Edit size={14} /> Editar</SecondaryButton>}
         {hasPermission(INVENTORY_PERMISSIONS.move) && <PrimaryButton onClick={() => navigate(`/inventory/movements?new=1&item=${item.id}`)}><ArrowLeftRight size={14} /> Movimentar</PrimaryButton>}
       </>} />
@@ -598,19 +595,20 @@ export function InventoryItemDetail() {
             <h2 style={{ margin: '0 0 16px', fontSize: 14 }}>Dados gerais</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
               {[
-                ['SKU', item.sku ?? '—'], ['Categoria', item.categoryName ?? '—'], ['Fornecedor', item.supplierName ?? '—'],
-                ['Unidade de medida', item.unitOfMeasure], ['Estoque mínimo', `${item.minimumStock} ${item.unitOfMeasure}`],
-                ['Custo médio', money(item.averageCost)],
+                ['SKU', item.sku ?? 'Ã¢â‚¬â€'], ['Categoria', item.categoryName ?? 'Ã¢â‚¬â€'], ['Fornecedor', item.supplierName ?? 'Ã¢â‚¬â€'],
+                ['Unidade de medida', item.unitOfMeasure], ['Estoque mÃƒÂ­nimo', `${item.minimumStock} ${item.unitOfMeasure}`],
+                ['Custo mÃƒÂ©dio', money(item.projectedAverageCost)],
               ].map(([label, value]) => <div key={label}><div style={{ color: '#94A3B8', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>{label}</div><div style={{ marginTop: 4, fontSize: 13, fontWeight: 600 }}>{value}</div></div>)}
             </div>
           </div>
           <div style={{ ...cardStyle, padding: 18 }}>
             <h2 style={{ margin: '0 0 14px', fontSize: 14 }}>Saldo por unidade</h2>
-            {item.unitBalances.length === 0 ? <p style={{ color: '#94A3B8', fontSize: 12 }}>Nenhum saldo registrado por unidade.</p> : item.unitBalances.map(balance => {
-              const color = balance.currentStock <= 0 ? '#EF4444' : balance.currentStock <= item.minimumStock ? '#F59E0B' : '#10B981';
-              return <div key={balance.unitId} style={{ padding: 13, marginTop: 8, background: '#F8FAFC', borderRadius: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><strong style={{ fontSize: 12 }}>{balance.unitName ?? `Unidade ${balance.unitId}`}</strong><strong style={{ color }}>{balance.currentStock} {item.unitOfMeasure}</strong></div>
-                <div style={{ color: '#64748B', fontSize: 11, marginTop: 5 }}>Custo médio: {money(balance.averageCost)}</div>
+            {item.stockBalances.length === 0 ? <p style={{ color: '#94A3B8', fontSize: 12 }}>Nenhum saldo registrado por local.</p> : item.stockBalances.map(balance => {
+              const color = balance.onHand <= 0 ? '#EF4444' : balance.onHand <= item.minimumStock ? '#F59E0B' : '#10B981';
+              const label = balance.locationName ?? balance.unitName ?? `Unidade ${balance.unitId ?? 'geral'}`;
+              return <div key={balance.id} style={{ padding: 13, marginTop: 8, background: '#F8FAFC', borderRadius: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><strong style={{ fontSize: 12 }}>{label}</strong><strong style={{ color }}>{balance.onHand} {item.unitOfMeasure}</strong></div>
+                <div style={{ color: '#64748B', fontSize: 11, marginTop: 5 }}>Disponivel: {balance.available} - Custo medio projetado: {money(balance.projectedAverageCost)}</div>
               </div>;
             })}
           </div>
@@ -639,29 +637,29 @@ export function InventoryItemDetail() {
             ))}
           </div>
           <div style={{ ...cardStyle, padding: 18 }}>
-            <h2 style={{ margin: '0 0 14px', fontSize: 14 }}>Últimas movimentações</h2>
+            <h2 style={{ margin: '0 0 14px', fontSize: 14 }}>ÃƒÅ¡ltimas movimentaÃƒÂ§ÃƒÂµes</h2>
             <DynamicTableRenderer columns={[
               { key: 'createdAt', label: 'Data', width: '120px', render: value => dateTime(String(value)) },
               { key: 'type', label: 'Tipo', width: '90px', render: value => { const cfg = MOVEMENT_TYPE_CONFIG[value as MovementType]; return <span style={{ color: cfg.color, background: cfg.bg, padding: '3px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700 }}>{cfg.label}</span>; } },
               { key: 'quantity', label: 'Quantidade', width: '100px', render: (_, row) => `${MOVEMENT_TYPE_CONFIG[row.type as MovementType].sign}${Math.abs(Number(row.quantity))} ${item.unitOfMeasure}` },
               { key: 'unitName', label: 'Unidade', width: '130px' },
               { key: 'unitCost', label: 'Custo', width: '90px', render: value => money(Number(value ?? 0)) },
-              { key: 'performedByName', label: 'Responsável', width: '120px' },
-            ]} data={movements as unknown as Record<string, unknown>[]} emptyMessage="Nenhuma movimentação para este insumo." />
+              { key: 'performedByName', label: 'ResponsÃƒÂ¡vel', width: '120px' },
+            ]} data={movements as unknown as Record<string, unknown>[]} emptyMessage="Nenhuma movimentaÃƒÂ§ÃƒÂ£o para este insumo." />
           </div>
         </div>
         <div style={{ display: 'grid', gap: 16, alignContent: 'start' }}>
           <div style={{ ...cardStyle, padding: 18 }}>
             <span style={{ color: state.color, background: state.bg, borderRadius: 99, padding: '4px 10px', fontSize: 11, fontWeight: 700 }}>{state.label}</span>
-            <div style={{ fontSize: 30, fontWeight: 850, color: state.color, marginTop: 14 }}>{item.currentStock} <small style={{ fontSize: 14 }}>{item.unitOfMeasure}</small></div>
+            <div style={{ fontSize: 30, fontWeight: 850, color: state.color, marginTop: 14 }}>{item.totalOnHand} <small style={{ fontSize: 14 }}>{item.unitOfMeasure}</small></div>
             <div style={{ color: '#64748B', fontSize: 12 }}>Valor estimado</div>
             <div style={{ fontSize: 21, fontWeight: 800, marginTop: 3 }}>{money(item.totalValue)}</div>
           </div>
           <div style={{ ...cardStyle, padding: 18 }}>
-            <h2 style={{ margin: '0 0 12px', fontSize: 14 }}>Histórico</h2>
+            <h2 style={{ margin: '0 0 12px', fontSize: 14 }}>HistÃƒÂ³rico</h2>
             <div style={{ borderLeft: '2px solid #E2E8F0', paddingLeft: 13, display: 'grid', gap: 13 }}>
               <div><strong style={{ fontSize: 12 }}>Insumo criado</strong><div style={{ color: '#94A3B8', fontSize: 10 }}>{dateTime(item.createdAt)}</div></div>
-              <div><strong style={{ fontSize: 12 }}>Última atualização</strong><div style={{ color: '#94A3B8', fontSize: 10 }}>{dateTime(item.updatedAt)}</div></div>
+              <div><strong style={{ fontSize: 12 }}>ÃƒÅ¡ltima atualizaÃƒÂ§ÃƒÂ£o</strong><div style={{ color: '#94A3B8', fontSize: 10 }}>{dateTime(item.updatedAt)}</div></div>
               {movements.slice(0, 4).map(movement => <div key={movement.id}><strong style={{ fontSize: 12 }}>{MOVEMENT_TYPE_CONFIG[movement.type].label} de {movement.quantity} {item.unitOfMeasure}</strong><div style={{ color: '#94A3B8', fontSize: 10 }}>{dateTime(movement.createdAt)}</div></div>)}
             </div>
           </div>
@@ -709,27 +707,27 @@ function CrudPage<T extends InventoryCategory | InventorySupplier>({
       }
       toast.success(`${isSupplier ? 'Fornecedor' : 'Categoria'} salvo(a).`);
       setOpen(false); await reload();
-    } catch { toast.error('Não foi possível salvar.'); }
+    } catch { toast.error('NÃƒÂ£o foi possÃƒÂ­vel salvar.'); }
   };
   const remove = async (record: T) => {
     if (!window.confirm(`Excluir "${record.name}"?`)) return;
     try {
       if (kind === 'category') await inventoryService.deleteCategory(record.id);
       else await inventoryService.deleteSupplier(record.id);
-      toast.success('Registro excluído.'); await reload();
-    } catch { toast.error('Não foi possível excluir.'); }
+      toast.success('Registro excluÃƒÂ­do.'); await reload();
+    } catch { toast.error('NÃƒÂ£o foi possÃƒÂ­vel excluir.'); }
   };
 
   const columns: ColumnDef[] = isSupplier ? [
     { key: 'name', label: 'Fornecedor', type: 'avatar', width: '190px', sortable: true },
-    { key: 'document', label: 'Documento', width: '140px', render: value => <span style={{ fontFamily: 'monospace' }}>{String(value ?? '—')}</span> },
+    { key: 'document', label: 'Documento', width: '140px', render: value => <span style={{ fontFamily: 'monospace' }}>{String(value ?? 'Ã¢â‚¬â€')}</span> },
     { key: 'phone', label: 'Telefone', width: '120px' },
     { key: 'email', label: 'E-mail', width: '170px' },
     { key: 'contactName', label: 'Contato', width: '130px' },
     { key: 'active', label: 'Status', width: '90px', render: value => value ? 'Ativo' : 'Inativo' },
   ] : [
     { key: 'name', label: 'Categoria', sortable: true, width: '180px' },
-    { key: 'description', label: 'Descrição', width: '350px' },
+    { key: 'description', label: 'DescriÃƒÂ§ÃƒÂ£o', width: '350px' },
     { key: 'active', label: 'Status', width: '90px', render: value => value ? 'Ativa' : 'Inativa' },
   ];
 
@@ -752,7 +750,7 @@ function CrudPage<T extends InventoryCategory | InventorySupplier>({
           </div>
           <label style={{ fontSize: 12, fontWeight: 650 }}>Contato principal<input value={String(form.contactName ?? '')} onChange={e => setForm(current => ({ ...current, contactName: e.target.value }))} style={{ ...inputStyle, marginTop: 5 }} /></label>
           <label style={{ fontSize: 12, fontWeight: 650 }}>Prazo de entrega (dias)<input type="number" value={String((form.metadata as Record<string, unknown> | undefined)?.delivery_days ?? '')} onChange={e => setForm(current => ({ ...current, metadata: { ...(current.metadata as object ?? {}), delivery_days: Number(e.target.value) } }))} style={{ ...inputStyle, marginTop: 5 }} /></label>
-        </> : <label style={{ fontSize: 12, fontWeight: 650 }}>Descrição<textarea value={String(form.description ?? '')} onChange={e => setForm(current => ({ ...current, description: e.target.value }))} style={{ ...inputStyle, marginTop: 5, minHeight: 90 }} /></label>}
+        </> : <label style={{ fontSize: 12, fontWeight: 650 }}>DescriÃƒÂ§ÃƒÂ£o<textarea value={String(form.description ?? '')} onChange={e => setForm(current => ({ ...current, description: e.target.value }))} style={{ ...inputStyle, marginTop: 5, minHeight: 90 }} /></label>}
         <label style={{ display: 'flex', gap: 8, fontSize: 12 }}><input type="checkbox" checked={Boolean(form.active)} onChange={e => setForm(current => ({ ...current, active: e.target.checked }))} /> Ativo</label>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}><SecondaryButton onClick={() => setOpen(false)}>Cancelar</SecondaryButton><PrimaryButton onClick={() => void save()}><Save size={13} /> Salvar</PrimaryButton></div>
       </div>
@@ -763,13 +761,13 @@ function CrudPage<T extends InventoryCategory | InventorySupplier>({
 export function InventoryCategories() {
   const { categories, loading, error, reload } = useInventoryData();
   if (error) return <ModuleStateView state="error" errorMessage={error} />;
-  return <CrudPage kind="category" title="Categorias" description="Organize matérias-primas, embalagens, descartáveis e demais insumos." records={categories} loading={loading} reload={reload} />;
+  return <CrudPage kind="category" title="Categorias" description="Organize matÃƒÂ©rias-primas, embalagens, descartÃƒÂ¡veis e demais insumos." records={categories} loading={loading} reload={reload} />;
 }
 
 export function InventorySuppliers() {
   const { suppliers, loading, error, reload } = useInventoryData();
   if (error) return <ModuleStateView state="error" errorMessage={error} />;
-  return <CrudPage kind="supplier" title="Fornecedores" description="Cadastre os parceiros que abastecem a operação." records={suppliers} loading={loading} reload={reload} />;
+  return <CrudPage kind="supplier" title="Fornecedores" description="Cadastre os parceiros que abastecem a operaÃƒÂ§ÃƒÂ£o." records={suppliers} loading={loading} reload={reload} />;
 }
 
 export function InventoryLocations() {
@@ -914,7 +912,7 @@ export function InventoryBalances() {
     { key: 'reserved', label: 'Reserved', type: 'number', width: '95px' },
     { key: 'blocked', label: 'Blocked', type: 'number', width: '95px' },
     { key: 'available', label: 'Available', type: 'number', width: '95px', render: value => <strong style={{ color: Number(value) <= 0 ? '#EF4444' : '#10B981' }}>{Number(value)}</strong> },
-    ...(hasPermission(INVENTORY_PERMISSIONS.costView) ? [{ key: 'averageCost', label: 'Custo medio', width: '110px', render: (value: unknown) => money(Number(value ?? 0)) }] : []),
+    ...(hasPermission(INVENTORY_PERMISSIONS.costView) ? [{ key: 'projectedAverageCost', label: 'Custo medio', width: '110px', render: (value: unknown) => money(Number(value ?? 0)) }] : []),
   ];
 
   return <InventoryCapabilityState {...settingsState}>
@@ -1050,7 +1048,7 @@ export function InventoryMovements() {
           {settingsState.settings?.inventory_mode !== 'simple' && <label style={{ fontSize: 12, fontWeight: 650 }}>{term(settingsState.settings, 'location')}<select value={String(form.locationId)} onChange={e => setForm(current => ({ ...current, locationId: e.target.value }))} style={{ ...inputStyle, marginTop: 5 }}><option value="">Local default</option>{locations.filter(location => !form.unitId || location.unitId === String(form.unitId)).map(location => <option key={location.id} value={location.id}>{location.name}</option>)}</select></label>}
           <div style={{ display: 'grid', gridTemplateColumns: selectedType === 'exit' || selectedType === 'loss' || selectedType === 'negative_adjustment' ? '1fr' : '1fr 1fr', gap: 10 }}>
             <label style={{ fontSize: 12, fontWeight: 650 }}>Quantidade ({selectedItem?.unitOfMeasure ?? 'un'})<input type="number" step=".0001" value={String(form.quantity)} onChange={e => setForm(current => ({ ...current, quantity: e.target.value }))} style={{ ...inputStyle, marginTop: 5 }} /></label>
-            {selectedType !== 'exit' && selectedType !== 'loss' && selectedType !== 'negative_adjustment' && <label style={{ fontSize: 12, fontWeight: 650 }}>Custo unitario<input type="number" step=".0001" value={String(form.unitCost)} onChange={e => setForm(current => ({ ...current, unitCost: e.target.value }))} placeholder={String(selectedItem?.averageCost ?? 0)} style={{ ...inputStyle, marginTop: 5 }} /></label>}
+            {selectedType !== 'exit' && selectedType !== 'loss' && selectedType !== 'negative_adjustment' && <label style={{ fontSize: 12, fontWeight: 650 }}>Custo unitario<input type="number" step=".0001" value={String(form.unitCost)} onChange={e => setForm(current => ({ ...current, unitCost: e.target.value }))} placeholder={String(selectedItem?.projectedAverageCost ?? 0)} style={{ ...inputStyle, marginTop: 5 }} /></label>}
           </div>
           <label style={{ fontSize: 12, fontWeight: 650 }}>Referencia<input value={String(form.reference)} onChange={e => setForm(current => ({ ...current, reference: e.target.value }))} style={{ ...inputStyle, marginTop: 5 }} /></label>
           <label style={{ fontSize: 12, fontWeight: 650 }}>Motivo {['positive_adjustment', 'negative_adjustment', 'loss'].includes(selectedType) && '*'}<textarea value={String(form.reason)} onChange={e => setForm(current => ({ ...current, reason: e.target.value }))} style={{ ...inputStyle, marginTop: 5, minHeight: 80 }} /></label>
