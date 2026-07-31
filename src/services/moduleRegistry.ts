@@ -284,6 +284,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     status: 'active',
     nav: { show: true, order: 5, group: 'main', children: [
       { label: 'VisÃ£o Geral', path: '/inventory' }, { label: 'Itens', path: '/inventory/items' },
+      { label: 'Itens por Unidade', path: '/inventory/unit-items' },
       { label: 'Saldos', path: '/inventory/balances' }, { label: 'Locais', path: '/inventory/locations' },
       { label: 'MovimentaÃ§Ãµes', path: '/inventory/movements' }, { label: 'ConfiguraÃ§Ãµes', path: '/inventory/settings' },
     ] },
@@ -296,6 +297,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
       { path: '/inventory/categories', componentId: 'inventory-categories', requiredPermissions: ['tenant.inventory.view'] },
       { path: '/inventory/suppliers', componentId: 'inventory-suppliers', requiredPermissions: ['tenant.inventory.view'] },
       { path: '/inventory/locations', componentId: 'inventory-locations', requiredPermissions: ['tenant.inventory.view'] },
+      { path: '/inventory/unit-items', componentId: 'inventory-unit-items', requiredPermissions: ['tenant.inventory.view'] },
       { path: '/inventory/balances', componentId: 'inventory-balances', requiredPermissions: ['tenant.inventory.view'] },
       { path: '/inventory/movements', componentId: 'inventory-movements', requiredPermissions: ['tenant.inventory.view'] },
       { path: '/inventory/settings', componentId: 'inventory-settings', requiredPermissions: ['tenant.inventory.configure'] },

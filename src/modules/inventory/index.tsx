@@ -7,6 +7,7 @@ export {
   InventorySuppliers,
   InventoryLocations,
   InventoryBalances,
+  InventoryUnitItems,
   InventoryMovements,
   InventorySettings,
 } from '../../app/components/inventory/InventoryPages';

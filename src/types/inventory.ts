@@ -84,6 +84,47 @@ export interface StockLocation {
   metadata: Record<string, unknown>;
 }
 
+export type InventoryUnitAvailabilityStatus = 'available' | 'temporarily_unavailable' | 'internal_only' | 'blocked';
+
+export interface InventoryItemUnitSetting {
+  id: string;
+  inventoryItemId: string;
+  item?: {
+    id: string;
+    name: string;
+    sku?: string | null;
+    itemKind?: string | null;
+    categoryId?: string | null;
+    categoryName?: string | null;
+    unitOfMeasure?: string | null;
+    active?: boolean;
+  } | null;
+  unitId: string;
+  unitName?: string | null;
+  enabled: boolean;
+  availabilityStatus: InventoryUnitAvailabilityStatus | string;
+  minimumStock?: number | null;
+  maximumStock?: number | null;
+  reorderPoint?: number | null;
+  preferredStockLocationId?: string | null;
+  preferredLocationName?: string | null;
+  localUnitCost?: number | null;
+  metadata: Record<string, unknown>;
+  overrideValues: Record<string, unknown>;
+  availability?: {
+    enabled: boolean;
+    inStock: boolean;
+    availableForOperation: boolean;
+    availableForSale: boolean;
+  };
+  balance?: {
+    onHand: number;
+    reserved: number;
+    blocked: number;
+    available: number;
+  };
+}
+
 export interface InventoryItem {
   id: string;
   catalogItemId?: string | null;
@@ -106,6 +147,7 @@ export interface InventoryItem {
   metadata: Record<string, unknown>;
   unitBalances: InventoryUnitBalance[];
   stockBalances: StockBalance[];
+  unitSettings: InventoryItemUnitSetting[];
   createdAt?: string | null;
   updatedAt?: string | null;
 }
@@ -206,7 +248,7 @@ export interface InventoryOption {
 
 export type InventoryPayload = Record<string, unknown>;
 export type InventoryMetadata = Omit<CustomerFormSettings, 'entity_key'> & {
-  entity_key: 'inventory_items' | 'inventory_suppliers' | 'inventory_categories' | 'stock_locations' | 'stock_movements';
+  entity_key: 'inventory_items' | 'inventory_item_unit_settings' | 'inventory_suppliers' | 'inventory_categories' | 'stock_locations' | 'stock_movements';
   fields: DynamicFieldSchema[];
   table_columns: CustomerTableColumn[];
 };
@@ -219,6 +261,8 @@ export const INVENTORY_PERMISSIONS = {
   move: 'tenant.inventory.move',
   adjust: 'tenant.inventory.adjust',
   itemsManage: 'tenant.inventory.items.manage',
+  unitItemsManage: 'tenant.inventory.unit_items.manage',
+  unitItemsUpdate: 'tenant.inventory.unit_items.update',
   locationsManage: 'tenant.inventory.locations.manage',
   entryCreate: 'tenant.inventory.entry.create',
   exitCreate: 'tenant.inventory.exit.create',

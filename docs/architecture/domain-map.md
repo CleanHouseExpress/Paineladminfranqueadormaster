@@ -328,3 +328,24 @@ Eventos devem carregar chave de idempotência, aggregate id, schema/subdomain, c
 - Payments será criado antes de cobrança recorrente automatizada ou o MVP será manual via Finance?
 - Revenue Settlement absorverá Royalties tecnicamente ou apenas conceitualmente no curto prazo?
 - Quais eventos serão síncronos, assíncronos ou outbox no futuro?
+## Inventory Foundation - Fase 1B.1
+
+O frontend passa a distinguir tres superficies do dominio:
+
+- Itens de estoque da rede: `InventoryItems`, `InventoryItemForm`, `InventoryItemDetail`.
+- Configuracao operacional por unidade: `InventoryUnitItems` e bloco "Governanca por unidade" no detalhe do item.
+- Operacao fisica: `InventoryLocations`, `InventoryBalances`, `InventoryMovements`.
+
+Contrato novo:
+
+- `InventoryItemUnitSetting` representa habilitacao, disponibilidade operacional e overrides locais permitidos.
+- `InventoryItem` continua sendo a identidade fisica da rede.
+- `StockBalance` continua sendo saldo, nao cadastro/configuracao.
+- `StockMovement` continua sendo o ledger fisico.
+
+Rotas frontend:
+
+- `/inventory/items/:id`: franqueadora visualiza/associa/desabilita unidades do item quando possui `tenant.inventory.unit_items.manage`.
+- `/inventory/unit-items`: unidade visualiza itens associados e altera configuracao local quando possui `tenant.inventory.unit_items.update`.
+
+Fora desta fase: Portal Franqueado, CMV, DRE, Forms/Checklists, producao, transferencias novas, contagens novas, reservas, Purchasing e Sales/PDV.

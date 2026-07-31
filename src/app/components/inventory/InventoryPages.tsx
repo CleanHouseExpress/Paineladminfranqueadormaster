@@ -17,6 +17,7 @@ import { getApiErrorMessage } from '../../../services/apiClient';
 import {
   INVENTORY_PERMISSIONS, MOVEMENT_TYPE_CONFIG, UNITS_OF_MEASURE,
   type InventoryCategory, type InventoryItem, type InventoryMetadata,
+  type InventoryItemUnitSetting,
   type InventoryMetrics, type InventoryMovement, type InventoryPayload,
   type InventorySettings, type InventorySupplier, type MovementType,
   type StockBalance, type StockLocation,
@@ -519,15 +520,67 @@ export function InventoryItemDetail() {
   const { hasPermission } = usePermission();
   const [item, setItem] = useState<InventoryItem | null>(null);
   const [movements, setMovements] = useState<InventoryMovement[]>([]);
+  const [unitSettings, setUnitSettings] = useState<InventoryItemUnitSetting[]>([]);
+  const [units, setUnits] = useState<UnitOption[]>([]);
+  const [unitForm, setUnitForm] = useState({ unitId: '', minimumStock: '', reorderPoint: '' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
+  const reload = async () => {
     if (!id) return;
-    void Promise.all([inventoryService.getItem(id), inventoryService.listMovements({ itemId: id })])
-      .then(([nextItem, nextMovements]) => { setItem(nextItem); setMovements(nextMovements); })
-      .catch(() => setError('Insumo não encontrado.')).finally(() => setLoading(false));
+    setLoading(true);
+    setError('');
+    try {
+      const [nextItem, nextMovements, nextUnitSettings, nextUnits] = await Promise.all([
+        inventoryService.getItem(id),
+        inventoryService.listMovements({ itemId: id }),
+        inventoryService.listItemUnitSettings(id),
+        unitManagementService.getUnitOptions(),
+      ]);
+      setItem(nextItem);
+      setMovements(nextMovements);
+      setUnitSettings(nextUnitSettings);
+      setUnits(nextUnits);
+    } catch {
+      setError('Insumo nao encontrado.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void reload();
   }, [id]);
+
+  const assignUnit = async () => {
+    if (!item || !unitForm.unitId) { toast.error('Selecione uma unidade.'); return; }
+    try {
+      await inventoryService.assignItemUnit(item.id, {
+        unitId: unitForm.unitId,
+        minimumStock: unitForm.minimumStock || undefined,
+        reorderPoint: unitForm.reorderPoint || undefined,
+      });
+      toast.success('Item associado a unidade.');
+      setUnitForm({ unitId: '', minimumStock: '', reorderPoint: '' });
+      await reload();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Nao foi possivel associar a unidade.'));
+    }
+  };
+
+  const toggleUnit = async (setting: InventoryItemUnitSetting) => {
+    if (!item) return;
+    try {
+      await inventoryService.updateItemUnitSettingForNetwork(item.id, setting.unitId, {
+        enabled: !setting.enabled,
+        availabilityStatus: setting.enabled ? 'blocked' : 'available',
+      });
+      toast.success(setting.enabled ? 'Item desabilitado na unidade.' : 'Item habilitado na unidade.');
+      await reload();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Nao foi possivel atualizar a unidade.'));
+    }
+  };
 
   if (loading) return <ModuleStateView state="loading" />;
   if (error || !item) return <ModuleStateView state="error" errorMessage={error} />;
@@ -560,6 +613,30 @@ export function InventoryItemDetail() {
                 <div style={{ color: '#64748B', fontSize: 11, marginTop: 5 }}>Custo médio: {money(balance.averageCost)}</div>
               </div>;
             })}
+          </div>
+          <div style={{ ...cardStyle, padding: 18 }}>
+            <h2 style={{ margin: '0 0 14px', fontSize: 14 }}>Governanca por unidade</h2>
+            {hasPermission(INVENTORY_PERMISSIONS.unitItemsManage) && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px,1fr) 120px 120px auto', gap: 8, marginBottom: 12 }}>
+                <select value={unitForm.unitId} onChange={event => setUnitForm(current => ({ ...current, unitId: event.target.value }))} style={inputStyle}>
+                  <option value="">Selecionar unidade</option>
+                  {units.map(unit => <option key={unit.value} value={unit.value}>{unit.label}</option>)}
+                </select>
+                <input placeholder="Minimo" type="number" value={unitForm.minimumStock} onChange={event => setUnitForm(current => ({ ...current, minimumStock: event.target.value }))} style={inputStyle} />
+                <input placeholder="Reposicao" type="number" value={unitForm.reorderPoint} onChange={event => setUnitForm(current => ({ ...current, reorderPoint: event.target.value }))} style={inputStyle} />
+                <PrimaryButton onClick={() => void assignUnit()}><Plus size={14} /> Associar</PrimaryButton>
+              </div>
+            )}
+            {unitSettings.length === 0 ? <p style={{ color: '#94A3B8', fontSize: 12 }}>Nenhuma unidade associada explicitamente.</p> : unitSettings.map(setting => (
+              <div key={setting.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 12, alignItems: 'center', padding: '10px 0', borderTop: '1px solid #F1F5F9' }}>
+                <div>
+                  <strong style={{ fontSize: 13 }}>{setting.unitName ?? `Unidade ${setting.unitId}`}</strong>
+                  <div style={{ color: '#64748B', fontSize: 11 }}>Minimo {setting.minimumStock ?? '-'} - Reposicao {setting.reorderPoint ?? '-'} - Saldo {setting.balance?.onHand ?? 0}</div>
+                </div>
+                <span style={{ color: setting.enabled ? '#10B981' : '#EF4444', background: setting.enabled ? '#ECFDF5' : '#FEF2F2', borderRadius: 99, padding: '3px 9px', fontSize: 10, fontWeight: 700 }}>{setting.enabled ? 'Habilitado' : 'Desabilitado'}</span>
+                {hasPermission(INVENTORY_PERMISSIONS.unitItemsManage) && <SecondaryButton onClick={() => void toggleUnit(setting)}>{setting.enabled ? 'Desabilitar' : 'Habilitar'}</SecondaryButton>}
+              </div>
+            ))}
           </div>
           <div style={{ ...cardStyle, padding: 18 }}>
             <h2 style={{ margin: '0 0 14px', fontSize: 14 }}>Últimas movimentações</h2>
@@ -1002,9 +1079,111 @@ export function InventoryMovements() {
     </div>
   </InventoryCapabilityState>;
 }
+
+export function InventoryUnitItems() {
+  const settingsState = useInventorySettings();
+  const { hasPermission } = usePermission();
+  const [rows, setRows] = useState<InventoryItemUnitSetting[]>([]);
+  const [locations, setLocations] = useState<StockLocation[]>([]);
+  const [search, setSearch] = useState('');
+  const [editing, setEditing] = useState<InventoryItemUnitSetting | null>(null);
+  const [form, setForm] = useState<Record<string, unknown>>({});
+  const [loading, setLoading] = useState(true);
+
+  const reload = async () => {
+    setLoading(true);
+    try {
+      const [nextRows, nextLocations] = await Promise.all([
+        inventoryService.listUnitItems({ search }),
+        inventoryService.listLocations({ active: true }),
+      ]);
+      setRows(nextRows);
+      setLocations(nextLocations);
+    } catch {
+      toast.error('Nao foi possivel carregar os itens da unidade.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { void reload(); }, [search]);
+
+  const openEdit = (setting: InventoryItemUnitSetting) => {
+    setEditing(setting);
+    setForm({
+      enabled: setting.enabled,
+      availabilityStatus: setting.availabilityStatus,
+      minimumStock: setting.minimumStock ?? '',
+      maximumStock: setting.maximumStock ?? '',
+      reorderPoint: setting.reorderPoint ?? '',
+      preferredStockLocationId: setting.preferredStockLocationId ?? '',
+      metadata: JSON.stringify(setting.metadata ?? {}, null, 2),
+    });
+  };
+
+  const save = async () => {
+    if (!editing) return;
+    try {
+      await inventoryService.updateUnitItem(editing.id, {
+        enabled: form.enabled,
+        availabilityStatus: form.availabilityStatus,
+        minimumStock: form.minimumStock === '' ? null : form.minimumStock,
+        maximumStock: form.maximumStock === '' ? null : form.maximumStock,
+        reorderPoint: form.reorderPoint === '' ? null : form.reorderPoint,
+        preferredStockLocationId: form.preferredStockLocationId || null,
+        metadata: form.metadata ? JSON.parse(String(form.metadata)) : {},
+      });
+      toast.success('Configuracao local atualizada.');
+      setEditing(null);
+      await reload();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Nao foi possivel salvar a configuracao local.'));
+    }
+  };
+
+  const columns: ColumnDef[] = [
+    { key: 'itemName', label: term(settingsState.settings, 'item'), width: '220px', render: (_, row) => {
+      const setting = row as unknown as InventoryItemUnitSetting;
+      return <div><strong>{setting.item?.name ?? `Item ${setting.inventoryItemId}`}</strong><div style={{ color: '#94A3B8', fontSize: 10 }}>{setting.item?.sku ?? 'Sem SKU'} - {setting.item?.unitOfMeasure ?? 'un'}</div></div>;
+    } },
+    { key: 'unitName', label: 'Unidade', width: '150px' },
+    { key: 'enabled', label: 'Status', width: '110px', render: value => <span style={{ color: value ? '#10B981' : '#EF4444', background: value ? '#ECFDF5' : '#FEF2F2', borderRadius: 99, padding: '3px 9px', fontSize: 10, fontWeight: 700 }}>{value ? 'Habilitado' : 'Desabilitado'}</span> },
+    { key: 'availabilityStatus', label: 'Disponibilidade', width: '150px' },
+    { key: 'minimumStock', label: 'Minimo', width: '90px' },
+    { key: 'reorderPoint', label: 'Reposicao', width: '100px' },
+    { key: 'balance', label: 'Saldo', width: '100px', render: (_, row) => (row as unknown as InventoryItemUnitSetting).balance?.onHand ?? 0 },
+    { key: 'preferredLocationName', label: 'Local preferencial', width: '150px' },
+  ];
+
+  return <InventoryCapabilityState {...settingsState}>
+    <div style={pageStyle}>
+      <PageHeader title="Itens por Unidade" description="Habilitacao, disponibilidade operacional e parametros locais definidos pela rede." back="/inventory" icon={<Building2 size={21} />} />
+      <div style={{ ...cardStyle, padding: 13, marginBottom: 14 }}>
+        <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar item" style={inputStyle} />
+      </div>
+      <DynamicTableRenderer columns={columns} data={rows as unknown as Record<string, unknown>[]} loading={loading} emptyMessage="Nenhum item associado a sua unidade." actions={[
+        { label: 'Editar', icon: <Edit size={13} />, onClick: row => openEdit(row as unknown as InventoryItemUnitSetting), showCondition: () => hasPermission(INVENTORY_PERMISSIONS.unitItemsUpdate) },
+      ]} />
+      <Modal title="Configuracao local" open={Boolean(editing)} onClose={() => setEditing(null)}>
+        <div style={{ display: 'grid', gap: 10 }}>
+          <label style={{ display: 'flex', gap: 8, fontSize: 12 }}><input type="checkbox" checked={Boolean(form.enabled)} onChange={event => setForm(current => ({ ...current, enabled: event.target.checked }))} /> Habilitado na unidade</label>
+          <label style={{ fontSize: 12, fontWeight: 650 }}>Disponibilidade<select value={String(form.availabilityStatus ?? 'available')} onChange={event => setForm(current => ({ ...current, availabilityStatus: event.target.value }))} style={{ ...inputStyle, marginTop: 5 }}><option value="available">Disponivel</option><option value="temporarily_unavailable">Temporariamente indisponivel</option><option value="internal_only">Uso interno</option><option value="blocked">Bloqueado</option></select></label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+            <input placeholder="Minimo" type="number" value={String(form.minimumStock ?? '')} onChange={event => setForm(current => ({ ...current, minimumStock: event.target.value }))} style={inputStyle} />
+            <input placeholder="Maximo" type="number" value={String(form.maximumStock ?? '')} onChange={event => setForm(current => ({ ...current, maximumStock: event.target.value }))} style={inputStyle} />
+            <input placeholder="Reposicao" type="number" value={String(form.reorderPoint ?? '')} onChange={event => setForm(current => ({ ...current, reorderPoint: event.target.value }))} style={inputStyle} />
+          </div>
+          <label style={{ fontSize: 12, fontWeight: 650 }}>Local preferencial<select value={String(form.preferredStockLocationId ?? '')} onChange={event => setForm(current => ({ ...current, preferredStockLocationId: event.target.value }))} style={{ ...inputStyle, marginTop: 5 }}><option value="">Sem preferencia</option>{locations.filter(location => !editing || location.unitId === editing.unitId).map(location => <option key={location.id} value={location.id}>{location.name}</option>)}</select></label>
+          <label style={{ fontSize: 12, fontWeight: 650 }}>Metadata operacional<textarea value={String(form.metadata ?? '{}')} onChange={event => setForm(current => ({ ...current, metadata: event.target.value }))} style={{ ...inputStyle, marginTop: 5, minHeight: 90, fontFamily: 'monospace' }} /></label>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}><SecondaryButton onClick={() => setEditing(null)}>Cancelar</SecondaryButton><PrimaryButton onClick={() => void save()}><Save size={14} /> Salvar</PrimaryButton></div>
+        </div>
+      </Modal>
+    </div>
+  </InventoryCapabilityState>;
+}
 export function InventorySettings() {
   const entities = [
-    ['inventory_items', 'Itens'], ['stock_locations', 'Locais'], ['stock_movements', 'Movimentos'], ['inventory_suppliers', 'Fornecedores'], ['inventory_categories', 'Categorias'],
+    ['inventory_items', 'Itens'], ['inventory_item_unit_settings', 'Itens por Unidade'], ['stock_locations', 'Locais'], ['stock_movements', 'Movimentos'], ['inventory_suppliers', 'Fornecedores'], ['inventory_categories', 'Categorias'],
   ] as const;
   const settingsState = useInventorySettings();
   const [activeEntity, setActiveEntity] = useState<InventoryMetadata['entity_key']>('inventory_items');
@@ -1091,4 +1270,3 @@ export function InventorySettings() {
     </div>
   </div>;
 }
-

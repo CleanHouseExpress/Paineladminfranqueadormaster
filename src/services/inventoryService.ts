@@ -7,6 +7,7 @@ import type {
   InventoryMetrics,
   InventoryMovement,
   InventoryOption,
+  InventoryItemUnitSetting,
   InventoryPayload,
   InventorySupplier,
   StockBalance,
@@ -52,8 +53,48 @@ interface ApiItem {
     available: number | string;
     average_cost: number | string;
   }>;
+  unit_settings?: ApiUnitSetting[];
   created_at?: string | null;
   updated_at?: string | null;
+}
+
+interface ApiUnitSetting {
+  id: number | string;
+  inventory_item_id: number | string;
+  item?: {
+    id: number | string;
+    name: string;
+    sku?: string | null;
+    item_kind?: string | null;
+    category_id?: number | string | null;
+    category_name?: string | null;
+    unit_of_measure?: string | null;
+    active?: boolean;
+  } | null;
+  unit_id: number | string;
+  unit?: { id: number | string; name: string } | null;
+  enabled: boolean;
+  availability_status: string;
+  minimum_stock?: number | string | null;
+  maximum_stock?: number | string | null;
+  reorder_point?: number | string | null;
+  preferred_stock_location_id?: number | string | null;
+  preferred_location?: { id: number | string; name: string; code?: string } | null;
+  local_unit_cost?: number | string | null;
+  metadata?: Record<string, unknown> | null;
+  override_values?: Record<string, unknown> | null;
+  availability?: {
+    enabled: boolean;
+    in_stock: boolean;
+    available_for_operation: boolean;
+    available_for_sale: boolean;
+  };
+  balance?: {
+    on_hand: number | string;
+    reserved: number | string;
+    blocked: number | string;
+    available: number | string;
+  };
 }
 
 interface ApiCategory {
@@ -231,6 +272,7 @@ function toItem(item: ApiItem): InventoryItem {
       available: Number(balance.available ?? 0),
       averageCost: Number(balance.average_cost ?? 0),
     })),
+    unitSettings: (item.unit_settings ?? []).map(toUnitSetting),
     createdAt: item.created_at,
     updatedAt: item.updated_at,
   };
@@ -384,6 +426,63 @@ function toBalance(balance: ApiBalance): StockBalance {
   };
 }
 
+function toUnitSetting(setting: ApiUnitSetting): InventoryItemUnitSetting {
+  return {
+    id: String(setting.id),
+    inventoryItemId: String(setting.inventory_item_id),
+    item: setting.item ? {
+      id: String(setting.item.id),
+      name: setting.item.name,
+      sku: setting.item.sku,
+      itemKind: setting.item.item_kind,
+      categoryId: setting.item.category_id ? String(setting.item.category_id) : null,
+      categoryName: setting.item.category_name,
+      unitOfMeasure: setting.item.unit_of_measure,
+      active: setting.item.active,
+    } : null,
+    unitId: String(setting.unit_id),
+    unitName: setting.unit?.name,
+    enabled: Boolean(setting.enabled),
+    availabilityStatus: setting.availability_status,
+    minimumStock: setting.minimum_stock === null || setting.minimum_stock === undefined ? null : Number(setting.minimum_stock),
+    maximumStock: setting.maximum_stock === null || setting.maximum_stock === undefined ? null : Number(setting.maximum_stock),
+    reorderPoint: setting.reorder_point === null || setting.reorder_point === undefined ? null : Number(setting.reorder_point),
+    preferredStockLocationId: setting.preferred_stock_location_id ? String(setting.preferred_stock_location_id) : null,
+    preferredLocationName: setting.preferred_location?.name,
+    localUnitCost: setting.local_unit_cost === null || setting.local_unit_cost === undefined ? null : Number(setting.local_unit_cost),
+    metadata: setting.metadata ?? {},
+    overrideValues: setting.override_values ?? {},
+    availability: setting.availability ? {
+      enabled: setting.availability.enabled,
+      inStock: setting.availability.in_stock,
+      availableForOperation: setting.availability.available_for_operation,
+      availableForSale: setting.availability.available_for_sale,
+    } : undefined,
+    balance: setting.balance ? {
+      onHand: Number(setting.balance.on_hand ?? 0),
+      reserved: Number(setting.balance.reserved ?? 0),
+      blocked: Number(setting.balance.blocked ?? 0),
+      available: Number(setting.balance.available ?? 0),
+    } : undefined,
+  };
+}
+
+function unitSettingPayload(payload: InventoryPayload) {
+  return {
+    unit_id: payload.unitId ?? payload.unit_id,
+    unit_ids: payload.unitIds ?? payload.unit_ids,
+    enabled: payload.enabled,
+    availability_status: payload.availabilityStatus ?? payload.availability_status,
+    minimum_stock: payload.minimumStock ?? payload.minimum_stock,
+    maximum_stock: payload.maximumStock ?? payload.maximum_stock,
+    reorder_point: payload.reorderPoint ?? payload.reorder_point,
+    preferred_stock_location_id: payload.preferredStockLocationId ?? payload.preferred_stock_location_id,
+    local_unit_cost: payload.localUnitCost ?? payload.local_unit_cost,
+    metadata: payload.metadata ?? {},
+    override_values: payload.overrideValues ?? payload.override_values ?? {},
+  };
+}
+
 export const inventoryService = {
   listItems: async (filters: InventoryItemFilters = {}) => {
     const response = await apiClient.get<ListResponse<ApiItem>>(`/api/company/inventory/items${queryString({
@@ -401,6 +500,18 @@ export const inventoryService = {
   updateItem: async (id: string, payload: InventoryPayload) => toItem((await apiClient.put<DataResponse<ApiItem>>(`/api/company/inventory/items/${id}`, itemPayload(payload))).data),
   deleteItem: (id: string) => apiClient.delete<void>(`/api/company/inventory/items/${id}`),
   itemOptions: () => apiClient.get<InventoryOption[]>('/api/company/inventory/items/options'),
+  listItemUnitSettings: async (itemId: string) => (await apiClient.get<ListResponse<ApiUnitSetting>>(`/api/company/inventory/items/${itemId}/units?per_page=100`)).data.map(toUnitSetting),
+  assignItemUnit: async (itemId: string, payload: InventoryPayload) => (await apiClient.post<DataResponse<ApiUnitSetting[]> | { data: ApiUnitSetting[] }>(`/api/company/inventory/items/${itemId}/units`, unitSettingPayload(payload))).data.map(toUnitSetting),
+  updateItemUnitSettingForNetwork: async (itemId: string, unitId: string, payload: InventoryPayload) => toUnitSetting((await apiClient.put<DataResponse<ApiUnitSetting>>(`/api/company/inventory/items/${itemId}/units/${unitId}`, unitSettingPayload(payload))).data),
+  listUnitItems: async (filters: { unitId?: string; itemId?: string; enabled?: boolean | ''; availabilityStatus?: string; search?: string } = {}) => (await apiClient.get<ListResponse<ApiUnitSetting>>(`/api/company/inventory/unit-items${queryString({
+    unit_id: filters.unitId,
+    inventory_item_id: filters.itemId,
+    enabled: filters.enabled,
+    availability_status: filters.availabilityStatus,
+    search: filters.search,
+    per_page: 100,
+  })}`)).data.map(toUnitSetting),
+  updateUnitItem: async (id: string, payload: InventoryPayload) => toUnitSetting((await apiClient.put<DataResponse<ApiUnitSetting>>(`/api/company/inventory/unit-items/${id}`, unitSettingPayload(payload))).data),
 
   listCategories: async () => (await apiClient.get<ListResponse<ApiCategory>>('/api/company/inventory/categories?per_page=100')).data.map(toCategory),
   createCategory: async (payload: InventoryPayload) => toCategory((await apiClient.post<DataResponse<ApiCategory>>('/api/company/inventory/categories', payload)).data),
