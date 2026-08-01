@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { Archive, Beaker, CheckCircle2, Copy, Eye, FlaskConical, PackageCheck, Plus, Save, Trash2 } from 'lucide-react';
+import { Archive, Beaker, CheckCircle2, Copy, Eye, FlaskConical, PackageCheck, Play, Plus, RotateCcw, Save, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { DynamicTableRenderer, type ColumnDef } from '../../../shared/components/DynamicTableRenderer';
@@ -15,7 +15,7 @@ import { recipeService } from '../../../services/recipeService';
 import { unitManagementService } from '../../../services/unitManagementService';
 import type { InventoryItem } from '../../../types/inventory';
 import type { CatalogItem } from '../../../types/catalog';
-import { RECIPE_PERMISSIONS, RECIPE_STATUS_CONFIG, RECIPE_TYPE_CONFIG, RECIPE_UOMS, type Recipe, type RecipeCalculationResult, type RecipeComponent, type RecipeFilters, type RecipeOutput, type RecipePayload, type RecipeType, type RecipeVersion, type RecipeVersionPayload } from '../../../types/recipes';
+import { RECIPE_PERMISSIONS, RECIPE_STATUS_CONFIG, RECIPE_TYPE_CONFIG, RECIPE_UOMS, type Recipe, type RecipeCalculationResult, type RecipeComponent, type RecipeExecution, type RecipeFilters, type RecipeOutput, type RecipePayload, type RecipeType, type RecipeVersion, type RecipeVersionPayload } from '../../../types/recipes';
 
 type UnitOption = { id?: string | number; value?: string | number; name?: string; label?: string };
 type MetaField = { key: string; label?: string; type?: string; field_type?: string; visible?: boolean; editable?: boolean; options?: Array<string | { label: string; value: string }> };
@@ -146,5 +146,97 @@ export function RecipeVersionEditorPage() {
       <section style={cardStyle}><h3 style={{ marginTop: 0 }}>Saida principal</h3><fieldset disabled={!editable} style={{ border: 0, padding: 0, margin: 0 }}><div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr .55fr .7fr', gap: 10 }}><label>Tipo<select data-testid="recipe-output-type" style={inputStyle} value={primaryOutput?.output_type ?? 'inventory_item'} onChange={event => patchOutput({ output_type: event.target.value, inventory_item_id: null, catalog_item_id: null })}><option value="inventory_item">InventoryItem</option><option value="catalog_item">CatalogItem</option><option value="service_result">Resultado de servico</option><option value="waste">Perda</option></select></label>{(primaryOutput?.output_type ?? 'inventory_item') === 'catalog_item' ? <label>Catalogo<select style={inputStyle} value={String(primaryOutput?.catalog_item_id ?? '')} onChange={event => patchOutput({ catalog_item_id: event.target.value || null })}><option value="">Selecione</option>{catalogItems.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label> : (primaryOutput?.output_type ?? 'inventory_item') === 'inventory_item' ? <label>Item produzido<select data-testid="recipe-output-item" style={inputStyle} value={String(primaryOutput?.inventory_item_id ?? '')} onChange={event => { const item = items.find(row => row.id === event.target.value); patchOutput({ inventory_item_id: event.target.value || null, uom_id: (RECIPE_UOMS.find(uom => uom.code === item?.unitOfMeasure) ?? uomById(primaryOutput?.uom_id)).id }); }}><option value="">Selecione</option>{items.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label> : <label>Descricao<input style={inputStyle} value={primaryOutput?.description ?? ''} onChange={event => patchOutput({ description: event.target.value })} /></label>}<label>Qtd.<input type="number" min="0.001" step="0.001" style={inputStyle} value={primaryOutput?.quantity ?? form.expected_yield_quantity} onChange={event => patchOutput({ quantity: Number(event.target.value) })} /></label><label>UOM<select style={inputStyle} value={primaryOutput?.uom_id ?? form.expected_yield_uom_id} onChange={event => patchOutput({ uom_id: Number(event.target.value) })}>{RECIPE_UOMS.map(uom => <option key={uom.id} value={uom.id}>{uom.symbol}</option>)}</select></label></div></fieldset></section>
       <CustomMetadataFields fields={metadataFields} values={form.metadata ?? {}} onChange={values => setForm(current => ({ ...current, metadata: values }))} />
     </main><aside style={{ display: 'grid', gap: 14 }}><section style={cardStyle} data-testid="recipe-preview-panel"><h3 style={{ marginTop: 0 }}>Previa automatica</h3>{version.status !== 'published' ? <p style={{ color: muted, lineHeight: 1.55 }}>Publique a versao para calcular uma previa oficial. O frontend nao duplica a regra de calculo localmente.</p> : <><div style={{ display: 'grid', gap: 9 }}><label>Quantidade alvo<input data-testid="recipe-preview-quantity" type="number" min="0.001" step="0.001" style={inputStyle} value={preview.quantity} onChange={event => setPreview(current => ({ ...current, quantity: Number(event.target.value) }))} /></label><label>Unidade alvo<select style={inputStyle} value={preview.uomId} onChange={event => setPreview(current => ({ ...current, uomId: Number(event.target.value) }))}>{RECIPE_UOMS.map(uom => <option key={uom.id} value={uom.id}>{uom.name}</option>)}</select></label><label>Unidade operacional<select style={inputStyle} value={preview.unitId} onChange={event => setPreview(current => ({ ...current, unitId: event.target.value }))}><option value="">Sem custo local</option>{units.map(unit => <option key={optionId(unit)} value={optionId(unit)}>{optionLabel(unit)}</option>)}</select></label><Button onClick={() => void calculate()} testId="recipe-calculate-button"><Beaker size={14} /> Calcular</Button></div>{calculation && <div data-testid="recipe-calculation-result" style={{ marginTop: 14 }}><p style={{ margin: '8px 0' }}>Custo estimado <strong style={{ float: 'right', color: '#047857' }}>{money(calculation.estimated_total_cost)}</strong></p><p style={{ margin: '8px 0' }}>Custo por unidade <strong style={{ float: 'right' }}>{calculation.estimated_cost_per_output_unit ? money(calculation.estimated_cost_per_output_unit) : '-'}</strong></p><hr /><strong>Componentes</strong><div style={{ display: 'grid', gap: 8, marginTop: 8 }}>{calculation.components.map(component => <div key={component.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13 }}><span>{component.name}</span><strong>{numberText(component.gross_quantity)} {component.uom.symbol}</strong></div>)}</div>{calculation.warnings.length > 0 && <div style={{ marginTop: 12, padding: 10, background: '#FFFBEB', borderRadius: 8, color: '#92400E' }}>{calculation.warnings.map((warning, index) => <p key={`${warning.code}-${index}`} style={{ margin: index ? '6px 0 0' : 0 }}>{warning.message ?? warning.code}</p>)}</div>}</div>}</>}</section><section style={cardStyle}><h3 style={{ marginTop: 0 }}>Contrato operacional</h3><p style={{ color: muted, lineHeight: 1.55, marginBottom: 0 }}>Salvar, validar, publicar e calcular nao criam StockMovement, nao alteram StockBalance e nao geram Financeiro.</p></section></aside></div>
+  </div>;
+}
+
+export function RecipeExecutionsListPage() {
+  const navigate = useNavigate();
+  const { hasPermission } = usePermission();
+  const [rows, setRows] = useState<RecipeExecution[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState('');
+  const load = async () => {
+    setLoading(true);
+    try { setRows((await recipeService.listExecutions({ status })).data); } catch { toast.error('Nao foi possivel carregar as execucoes.'); } finally { setLoading(false); }
+  };
+  useEffect(() => { void load(); }, [status]);
+  const columns: ColumnDef[] = [
+    { key: 'number', label: 'Numero', width: '150px', render: value => <strong style={{ fontFamily: 'monospace', color: '#0F766E' }}>{String(value)}</strong> },
+    { key: 'recipe', label: 'Ficha tecnica', render: value => (value as RecipeExecution['recipe'])?.name ?? '-' },
+    { key: 'unit', label: 'Unidade', width: '170px', render: value => (value as RecipeExecution['unit'])?.name ?? '-' },
+    { key: 'target_quantity', label: 'Quantidade', width: '140px', render: (_value, row) => `${numberText(row.target_quantity as number)} ${(row.target_uom as RecipeExecution['target_uom'])?.symbol ?? ''}` },
+    { key: 'status', label: 'Status', width: '120px', render: value => value === 'reversed' ? <Badge label="Revertida" color="#991B1B" bg="#FEE2E2" /> : <Badge label="Confirmada" color="#047857" bg="#D1FAE5" /> },
+    { key: 'executed_at', label: 'Data', width: '160px', render: value => value ? new Date(String(value)).toLocaleString('pt-BR') : '-' },
+    { key: 'calculation_snapshot', label: 'Custo', width: '130px', render: value => money((value as RecipeCalculationResult)?.estimated_total_cost) },
+  ];
+  return <div style={pageStyle} data-testid="recipe-executions-page"><Header title="Producao e Consumo" subtitle="Execucoes manuais confirmadas a partir de fichas tecnicas publicadas." actions={hasPermission(RECIPE_PERMISSIONS.executionsCreate) ? <Button onClick={() => navigate('/recipe-executions/new')} testId="recipe-execution-new"><Play size={14} /> Executar ficha</Button> : undefined} />
+    <div style={{ ...cardStyle, padding: 12, marginBottom: 14, maxWidth: 260 }}><select style={inputStyle} value={status} onChange={event => setStatus(event.target.value)}><option value="">Todos os status</option><option value="confirmed">Confirmadas</option><option value="reversed">Revertidas</option></select></div>
+    <DynamicTableRenderer columns={columns} data={rows as unknown as Record<string, unknown>[]} loading={loading} emptyMessage="Nenhuma execucao registrada." actions={[{ label: 'Ver', icon: <Eye size={13} />, onClick: row => navigate(`/recipe-executions/${row.id}`) }]} />
+  </div>;
+}
+
+export function RecipeExecutionCreatePage() {
+  const navigate = useNavigate();
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [units, setUnits] = useState<UnitOption[]>([]);
+  const [locations, setLocations] = useState<Array<{ id: string; name: string; code?: string; unitId?: string }>>([]);
+  const [form, setForm] = useState({ recipeId: '', unitId: '', locationId: '', quantity: 1, uomId: 1, notes: '' });
+  const [calculation, setCalculation] = useState<RecipeCalculationResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { void Promise.all([recipeService.list({ active: true }), unitManagementService.getUnitOptions().catch(() => [] as UnitOption[])]).then(([recipeList, unitOptions]) => { setRecipes(recipeList.data.filter(recipe => recipe.active_version?.status === 'published')); setUnits(unitOptions); }).finally(() => setLoading(false)); }, []);
+  useEffect(() => { if (!form.unitId) { setLocations([]); return; } void inventoryService.listLocations({ unitId: form.unitId, active: true }).then(rows => setLocations(rows.map(row => ({ id: row.id, name: row.name, code: row.code, unitId: row.unitId ?? undefined })))).catch(() => setLocations([])); }, [form.unitId]);
+  const selected = recipes.find(recipe => String(recipe.id) === form.recipeId);
+  const activeVersion = selected?.active_version;
+  useEffect(() => { if (activeVersion) setForm(current => ({ ...current, uomId: activeVersion.expected_yield_uom_id, quantity: activeVersion.expected_yield_quantity || 1 })); }, [activeVersion?.id]);
+  const calculate = async () => {
+    if (!selected || !activeVersion || !form.unitId) { toast.error('Selecione ficha tecnica e unidade.'); return; }
+    try {
+      setCalculation(await recipeService.calculate(String(selected.id), String(activeVersion.version), { target_quantity: form.quantity, target_uom_id: form.uomId, unit_id: form.unitId }));
+    } catch (error) {
+      setCalculation(null);
+      toast.error(getApiErrorMessage(error, 'Nao foi possivel calcular a composicao.'));
+    }
+  };
+  const confirm = async () => {
+    if (!selected || !activeVersion || !calculation) { toast.error('Calcule e confira a composicao antes de confirmar.'); return; }
+    if (!window.confirm('Esta acao movimentara o estoque. Confirmar execucao?')) return;
+    setSaving(true);
+    try {
+      const execution = await recipeService.confirmExecution({ recipe_id: selected.id, recipe_version_id: activeVersion.id, unit_id: form.unitId, stock_location_id: form.locationId || null, target_quantity: form.quantity, target_uom_id: form.uomId, notes: form.notes });
+      toast.success('Execucao confirmada e estoque movimentado.');
+      navigate(`/recipe-executions/${execution.id}`);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Nao foi possivel confirmar a execucao.'));
+    } finally { setSaving(false); }
+  };
+  if (loading) return <ModuleStateView state="loading" />;
+  return <div style={pageStyle} data-testid="recipe-execution-create-page"><Header title="Executar ficha tecnica" subtitle="Informe o que foi produzido ou realizado. O Orchestra calcula antes de movimentar o estoque." actions={<><Button secondary onClick={() => navigate('/recipe-executions')}>Cancelar</Button><Button disabled={saving || !calculation} onClick={() => void confirm()} testId="recipe-execution-confirm"><PackageCheck size={14} /> Confirmar execucao</Button></>} />
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,420px) minmax(0,1fr)', gap: 16, alignItems: 'start' }}>
+      <section style={cardStyle}><h3 style={{ marginTop: 0 }}>Operacao</h3><div style={{ display: 'grid', gap: 10 }}><label>Ficha tecnica<select data-testid="execution-recipe" style={inputStyle} value={form.recipeId} onChange={event => { setCalculation(null); setForm(current => ({ ...current, recipeId: event.target.value })); }}><option value="">Selecione</option>{recipes.map(recipe => <option key={recipe.id} value={recipe.id}>{recipe.code} - {recipe.name}</option>)}</select></label><label>Unidade<select data-testid="execution-unit" style={inputStyle} value={form.unitId} onChange={event => { setCalculation(null); setForm(current => ({ ...current, unitId: event.target.value, locationId: '' })); }}><option value="">Selecione</option>{units.map(unit => <option key={optionId(unit)} value={optionId(unit)}>{optionLabel(unit)}</option>)}</select></label><label>Local<select data-testid="execution-location" style={inputStyle} value={form.locationId} onChange={event => setForm(current => ({ ...current, locationId: event.target.value }))}><option value="">Local default</option>{locations.map(location => <option key={location.id} value={location.id}>{location.name}{location.code ? ` (${location.code})` : ''}</option>)}</select></label><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}><label>Quantidade<input data-testid="execution-quantity" type="number" min="0.001" step="0.001" style={inputStyle} value={form.quantity} onChange={event => { setCalculation(null); setForm(current => ({ ...current, quantity: Number(event.target.value) })); }} /></label><label>UOM<select style={inputStyle} value={form.uomId} onChange={event => { setCalculation(null); setForm(current => ({ ...current, uomId: Number(event.target.value) })); }}>{RECIPE_UOMS.map(uom => <option key={uom.id} value={uom.id}>{uom.name}</option>)}</select></label></div><label>Observacao<textarea style={{ ...inputStyle, minHeight: 84 }} value={form.notes} onChange={event => setForm(current => ({ ...current, notes: event.target.value }))} /></label><Button onClick={() => void calculate()} testId="execution-calculate"><Beaker size={14} /> Calcular para conferencia</Button></div></section>
+      <section style={cardStyle} data-testid="execution-review"><h3 style={{ marginTop: 0 }}>Conferencia</h3>{!calculation ? <p style={{ color: muted }}>Calcule a ficha para conferir consumo, entrada e custo estimado antes de confirmar.</p> : <div><p><strong>Producao:</strong> {numberText(calculation.expected_output.quantity)} {calculation.expected_output.uom.symbol} de {calculation.expected_output.description ?? selected?.name}</p><strong>Consumo</strong><div style={{ display: 'grid', gap: 8, marginTop: 8 }}>{calculation.components.map(component => <div key={component.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}><span>{component.name}</span><strong>{numberText(component.gross_quantity)} {component.uom.symbol}</strong></div>)}</div>{calculation.expected_output.inventory_item_id && <p style={{ marginTop: 14 }}><strong>Entrada:</strong> {numberText(calculation.expected_output.quantity)} {calculation.expected_output.uom.symbol} de {calculation.expected_output.description}</p>}<p style={{ color: '#047857', fontWeight: 800 }}>Custo estimado: {money(calculation.estimated_total_cost)}</p>{calculation.warnings.length > 0 && <div style={{ marginTop: 12, padding: 10, borderRadius: 8, background: '#FFFBEB', color: '#92400E' }}>{calculation.warnings.map((warning, index) => <p key={`${warning.code}-${index}`} style={{ margin: index ? '6px 0 0' : 0 }}>{warning.message ?? warning.code}</p>)}</div>}<div style={{ marginTop: 14, padding: 10, borderRadius: 8, background: '#FEE2E2', color: '#991B1B', fontWeight: 700 }}>Esta acao movimentara o estoque.</div></div>}</section>
+    </div>
+  </div>;
+}
+
+export function RecipeExecutionDetailPage() {
+  const { id = '' } = useParams();
+  const navigate = useNavigate();
+  const { hasPermission } = usePermission();
+  const [execution, setExecution] = useState<RecipeExecution | null>(null);
+  const [loading, setLoading] = useState(true);
+  const load = async () => { setLoading(true); try { setExecution(await recipeService.getExecution(id)); } catch { toast.error('Execucao nao encontrada.'); } finally { setLoading(false); } };
+  useEffect(() => { void load(); }, [id]);
+  const reverse = async () => {
+    const reason = window.prompt('Informe o motivo da reversao');
+    if (!reason?.trim()) return;
+    if (!window.confirm('A reversao criara movimentos compensatorios de estoque. Continuar?')) return;
+    try { setExecution(await recipeService.reverseExecution(id, reason.trim())); toast.success('Execucao revertida.'); } catch (error) { toast.error(getApiErrorMessage(error, 'Nao foi possivel reverter a execucao.')); }
+  };
+  if (loading) return <ModuleStateView state="loading" />;
+  if (!execution) return <ModuleStateView state="error" errorMessage="Execucao nao encontrada." />;
+  const snapshot = execution.calculation_snapshot;
+  return <div style={pageStyle} data-testid="recipe-execution-detail-page"><Header title={execution.number} subtitle={`${execution.recipe?.name ?? 'Ficha tecnica'} | ${execution.unit?.name ?? 'Unidade'}`} actions={<><Button secondary onClick={() => navigate('/recipe-executions')}>Voltar</Button>{execution.status === 'confirmed' && hasPermission(RECIPE_PERMISSIONS.executionsReverse) && <Button danger onClick={() => void reverse()} testId="recipe-execution-reverse"><RotateCcw size={14} /> Reverter</Button>}</>} />
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 360px', gap: 16, alignItems: 'start' }}><section style={cardStyle}><h3 style={{ marginTop: 0 }}>Snapshot da composicao</h3><p><strong>Quantidade:</strong> {numberText(execution.target_quantity)} {execution.target_uom?.symbol}</p><p><strong>Local:</strong> {execution.stock_location?.name}</p><p><strong>Status:</strong> {execution.status === 'reversed' ? 'Revertida' : 'Confirmada'}</p><strong>Componentes</strong><div style={{ display: 'grid', gap: 8, marginTop: 8 }}>{(snapshot.components ?? []).map(component => <div key={component.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '8px 0', borderBottom: '1px solid #E2E8F0' }}><span>{component.name}</span><strong>{numberText(component.gross_quantity)} {component.uom.symbol}</strong></div>)}</div>{snapshot.expected_output && <p style={{ marginTop: 14 }}><strong>Output:</strong> {numberText(snapshot.expected_output.quantity)} {snapshot.expected_output.uom.symbol} de {snapshot.expected_output.description}</p>}<p style={{ color: '#047857', fontWeight: 800 }}>Custo estimado: {money(snapshot.estimated_total_cost)}</p></section><aside style={{ ...cardStyle, display: 'grid', gap: 8 }}><h3 style={{ marginTop: 0 }}>Movimentos vinculados</h3><p><strong>Saida:</strong> {execution.input_movement?.number ?? '-'}</p><p><strong>Entrada:</strong> {execution.output_movement?.number ?? 'Sem output fisico'}</p><p><strong>Operacao:</strong><br /><code>{execution.operation_id}</code></p><p><strong>Executado por:</strong> {execution.executed_by_name ?? '-'}</p>{execution.reversal_reason && <p><strong>Motivo da reversao:</strong> {execution.reversal_reason}</p>}</aside></div>
   </div>;
 }

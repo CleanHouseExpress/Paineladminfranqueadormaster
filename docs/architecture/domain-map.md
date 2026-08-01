@@ -433,3 +433,42 @@ Fora desta fase:
 - Financeiro, CMV e DRE;
 - overrides por unidade;
 - builder visual avancado.
+
+## Recipe and Composition - Fase 2B Execucao manual
+
+O frontend passa a expor a area operacional:
+
+```text
+Producao e Consumo
+```
+
+Rotas frontend:
+
+- `/recipe-executions`: lista execucoes confirmadas e revertidas;
+- `/recipe-executions/new`: seleciona ficha publicada, unidade, local e quantidade, calcula para conferencia e confirma;
+- `/recipe-executions/:id`: exibe snapshot, componentes, output, movimentos vinculados e reversao quando autorizada.
+
+Contrato de UI:
+
+- o usuario nao calcula manualmente componentes;
+- o frontend chama o endpoint de calculo antes da confirmacao;
+- a confirmacao chama `POST /api/company/recipe-executions` com `Idempotency-Key`;
+- o detalhe usa o snapshot persistido, nao recalcula historico;
+- reversao exige motivo e permissao.
+
+Permissoes:
+
+- `tenant.recipe-executions.view`;
+- `tenant.recipe-executions.create`;
+- `tenant.recipe-executions.reverse`.
+
+Fora desta fase:
+
+- Forms;
+- Checklists;
+- Automation;
+- Finance;
+- DRE;
+- reserva;
+- execucao parcial;
+- ordem de producao.

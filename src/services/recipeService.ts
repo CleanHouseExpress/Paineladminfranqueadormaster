@@ -2,6 +2,9 @@ import { apiClient } from './apiClient';
 import type {
   Recipe,
   RecipeCalculationResult,
+  RecipeExecution,
+  RecipeExecutionFilters,
+  RecipeExecutionPayload,
   RecipeFilters,
   RecipeListResponse,
   RecipePayload,
@@ -70,6 +73,23 @@ function normalizeVersion(version: RecipeVersion): RecipeVersion {
   };
 }
 
+function normalizeExecution(execution: RecipeExecution): RecipeExecution {
+  return {
+    ...execution,
+    id: String(execution.id),
+    recipe_id: String(execution.recipe_id),
+    recipe_version_id: String(execution.recipe_version_id),
+    unit_id: String(execution.unit_id),
+    stock_location_id: String(execution.stock_location_id),
+    target_quantity: Number(execution.target_quantity ?? 0),
+    target_uom_id: Number(execution.target_uom_id),
+    input_movement_id: execution.input_movement_id ? String(execution.input_movement_id) : null,
+    output_movement_id: execution.output_movement_id ? String(execution.output_movement_id) : null,
+    calculation_snapshot: execution.calculation_snapshot ?? {} as RecipeExecution['calculation_snapshot'],
+    metadata: execution.metadata ?? {},
+  };
+}
+
 function versionPayload(payload: RecipeVersionPayload): RecipeVersionPayload {
   return {
     ...payload,
@@ -98,6 +118,11 @@ function versionPayload(payload: RecipeVersionPayload): RecipeVersionPayload {
   };
 }
 
+function newClientKey(prefix = 'recipe-execution') {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return `${prefix}-${crypto.randomUUID()}`;
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 export const recipeService = {
   list: async (filters: RecipeFilters = {}): Promise<RecipeListResponse> => {
     const response = await apiClient.get<ListResponse<Recipe>>(`/api/company/recipes${queryString({
@@ -120,4 +145,22 @@ export const recipeService = {
   publishVersion: async (recipeId: string, version: string) => normalizeVersion((await apiClient.post<DataResponse<RecipeVersion>>(`/api/company/recipes/${recipeId}/versions/${version}/publish`, {})).data),
   cloneVersion: async (recipeId: string, version: string) => normalizeVersion((await apiClient.post<DataResponse<RecipeVersion>>(`/api/company/recipes/${recipeId}/versions/${version}/clone`, {})).data),
   calculate: async (recipeId: string, version: string, payload: { target_quantity: number; target_uom_id: number; unit_id?: number | string | null }) => (await apiClient.post<DataResponse<RecipeCalculationResult>>(`/api/company/recipes/${recipeId}/versions/${version}/calculate`, payload)).data,
+  listExecutions: async (filters: RecipeExecutionFilters = {}) => {
+    const response = await apiClient.get<ListResponse<RecipeExecution>>(`/api/company/recipe-executions${queryString({ ...filters, per_page: 100 })}`);
+    return { data: response.data.map(normalizeExecution), meta: response.meta };
+  },
+  getExecution: async (id: string) => normalizeExecution((await apiClient.get<DataResponse<RecipeExecution>>(`/api/company/recipe-executions/${id}`)).data),
+  confirmExecution: async (payload: RecipeExecutionPayload, idempotencyKey = newClientKey()) => normalizeExecution((await apiClient.post<DataResponse<RecipeExecution>>('/api/company/recipe-executions', {
+    recipe_id: Number(payload.recipe_id),
+    recipe_version_id: Number(payload.recipe_version_id),
+    unit_id: Number(payload.unit_id),
+    stock_location_id: payload.stock_location_id ? Number(payload.stock_location_id) : null,
+    target_quantity: Number(payload.target_quantity),
+    target_uom_id: Number(payload.target_uom_id),
+    notes: payload.notes || null,
+    metadata: payload.metadata ?? {},
+  }, { headers: { 'Idempotency-Key': idempotencyKey } })).data),
+  reverseExecution: async (id: string, reason: string) => normalizeExecution((await apiClient.post<DataResponse<RecipeExecution>>(`/api/company/recipe-executions/${id}/reverse`, {
+    reason,
+  })).data),
 };

@@ -154,7 +154,7 @@ export interface RecipeCalculationResult {
   recipe: { id: number | string; code: string; name: string; version: number; status: string };
   request: { target_quantity: string; target_uom: RecipeUom; unit_id?: number | string | null };
   scale_factor: string;
-  expected_output: { quantity: string; uom: RecipeUom; description?: string | null; output_type?: string | null };
+  expected_output: { id?: number | string; quantity: string; uom: RecipeUom; description?: string | null; type?: string | null; output_type?: string | null; inventory_item_id?: number | string | null; catalog_item_id?: number | string | null };
   yield: { base_quantity: string; base_uom: RecipeUom; requested_quantity_in_yield_uom: string };
   components: RecipeCalculationComponent[];
   estimated_total_cost: string;
@@ -166,6 +166,59 @@ export interface RecipeCalculationResult {
   side_effects: Record<string, boolean>;
 }
 
+export interface RecipeExecution {
+  id: number | string;
+  number: string;
+  recipe_id: number | string;
+  recipe?: Pick<Recipe, 'id' | 'code' | 'name' | 'recipe_type'> | null;
+  recipe_version_id: number | string;
+  version?: { id: number | string; version: number; status: string } | null;
+  unit_id: number | string;
+  unit?: { id: number | string; name: string } | null;
+  stock_location_id: number | string;
+  stock_location?: { id: number | string; name: string; code?: string | null; unit_id?: number | string } | null;
+  target_quantity: number;
+  target_uom_id: number | string;
+  target_uom?: RecipeUom | null;
+  status: 'confirmed' | 'reversed' | string;
+  operation_id: string;
+  idempotency_key?: string | null;
+  correlation_id?: string | null;
+  calculation_snapshot: RecipeCalculationResult & Record<string, unknown>;
+  input_movement_id?: number | string | null;
+  input_movement?: { id: number | string; number: string; movement_type: string; status: string } | null;
+  output_movement_id?: number | string | null;
+  output_movement?: { id: number | string; number: string; movement_type: string; status: string } | null;
+  executed_at?: string | null;
+  executed_by?: number | string | null;
+  executed_by_name?: string | null;
+  notes?: string | null;
+  metadata?: Record<string, unknown>;
+  reversed_at?: string | null;
+  reversed_by?: number | string | null;
+  reversal_reason?: string | null;
+}
+
+export interface RecipeExecutionPayload {
+  recipe_id: number | string;
+  recipe_version_id: number | string;
+  unit_id: number | string;
+  stock_location_id?: number | string | null;
+  target_quantity: number;
+  target_uom_id: number | string;
+  notes?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface RecipeExecutionFilters {
+  unit_id?: number | string | '';
+  recipe_id?: number | string | '';
+  recipe_version_id?: number | string | '';
+  status?: string;
+  date_from?: string;
+  date_to?: string;
+}
+
 export const RECIPE_PERMISSIONS = {
   view: 'tenant.recipes.view',
   create: 'tenant.recipes.create',
@@ -173,6 +226,9 @@ export const RECIPE_PERMISSIONS = {
   publish: 'tenant.recipes.publish',
   archive: 'tenant.recipes.archive',
   simulate: 'tenant.recipes.simulate',
+  executionsView: 'tenant.recipe-executions.view',
+  executionsCreate: 'tenant.recipe-executions.create',
+  executionsReverse: 'tenant.recipe-executions.reverse',
 } as const;
 
 export const RECIPE_TYPE_CONFIG: Record<RecipeType, { label: string; color: string; bg: string }> = {

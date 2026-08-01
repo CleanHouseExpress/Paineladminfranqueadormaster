@@ -317,12 +317,16 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     status: 'active',
     nav: { show: true, order: 5.2, group: 'main', children: [
       { label: 'Fichas Tecnicas', path: '/recipes' },
+      { label: 'Producao e Consumo', path: '/recipe-executions' },
     ] },
     routes: [
       { path: '/recipes', componentId: 'recipes-list', requiredPermissions: ['tenant.recipes.view'] },
       { path: '/recipes/new', componentId: 'recipe-create', moduleId: 'recipes', requiredPermissions: ['tenant.recipes.create'] },
       { path: '/recipes/:id', componentId: 'recipe-detail', moduleId: 'recipes', requiredPermissions: ['tenant.recipes.view'] },
       { path: '/recipes/:id/versions/:version', componentId: 'recipe-version-editor', moduleId: 'recipes', requiredPermissions: ['tenant.recipes.view'] },
+      { path: '/recipe-executions', componentId: 'recipe-executions-list', moduleId: 'recipes', requiredPermissions: ['tenant.recipe-executions.view'] },
+      { path: '/recipe-executions/new', componentId: 'recipe-execution-create', moduleId: 'recipes', requiredPermissions: ['tenant.recipe-executions.create'] },
+      { path: '/recipe-executions/:id', componentId: 'recipe-execution-detail', moduleId: 'recipes', requiredPermissions: ['tenant.recipe-executions.view'] },
     ],
     marketplace: { show: true, category: 'Operacao', price: 'Incluso' },
   },
