@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import { apiClient, type ApiRequestOptions } from './apiClient';
 import type {
   Recipe,
   RecipeCalculationResult,
@@ -124,13 +124,13 @@ function newClientKey(prefix = 'recipe-execution') {
 }
 
 export const recipeService = {
-  list: async (filters: RecipeFilters = {}): Promise<RecipeListResponse> => {
+  list: async (filters: RecipeFilters = {}, options?: ApiRequestOptions): Promise<RecipeListResponse> => {
     const response = await apiClient.get<ListResponse<Recipe>>(`/api/company/recipes${queryString({
       search: filters.search,
       recipe_type: filters.recipe_type,
       active: filters.active,
       per_page: 100,
-    })}`);
+    })}`, options);
     return { data: response.data.map(normalizeRecipe), meta: response.meta };
   },
   get: async (id: string) => normalizeRecipe((await apiClient.get<DataResponse<Recipe>>(`/api/company/recipes/${id}`)).data),

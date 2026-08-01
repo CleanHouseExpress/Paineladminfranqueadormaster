@@ -472,3 +472,39 @@ Fora desta fase:
 - reserva;
 - execucao parcial;
 - ordem de producao.
+
+## Recipe and Composition - Fase 3 Forms e Checklists
+
+O frontend passa a expor a primeira acao operacional concreta em Forms/Checklists:
+
+```text
+Executar ficha tecnica
+```
+
+Superficie de configuracao:
+
+- aba `Automacoes` do builder de templates;
+- selecao de ficha tecnica publicada;
+- campo numerico da submissao como quantidade;
+- UOM alvo;
+- unidade da submissao ou unidade fixa;
+- local default ou local fixo;
+- trigger ao concluir ou ao aprovar;
+- modo automatico ou confirmacao manual.
+
+Superficie operacional:
+
+- detalhe da execucao de checklist;
+- painel de acoes operacionais vinculadas;
+- status pendente, concluido, falhou ou revertido;
+- link para a `RecipeExecution`;
+- confirmar movimentacao quando pendente;
+- tentar novamente quando falhar;
+- reverter explicitamente quando houver execucao confirmada.
+
+Fronteira:
+
+- o frontend nao calcula composicao;
+- o frontend nao cria movimentos de estoque;
+- o frontend nao duplica logica de Inventory ou Recipe;
+- a execucao real continua no backend via `RecipeExecutionService`.

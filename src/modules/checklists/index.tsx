@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { AlertTriangle, Archive, ArrowLeft, ClipboardCheck, Edit, Package, Play, Plus, RefreshCw, Save, Send, Trash2, Zap } from 'lucide-react';
+import { AlertTriangle, Archive, ArrowLeft, ClipboardCheck, Edit, ExternalLink, Package, Play, Plus, RefreshCw, RotateCcw, Save, Send, Trash2, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../../app/components/ui/button';
 import { Input } from '../../app/components/ui/input';
@@ -15,8 +15,13 @@ import { usePermission } from '../../shared/hooks/usePermission';
 import { ApiError } from '../../services/apiClient';
 import { checklistInventoryAutomationService } from '../../services/checklistInventoryAutomationService';
 import { checklistManagementService } from '../../services/checklistManagementService';
+import { inventoryService } from '../../services/inventoryService';
+import { recipeService } from '../../services/recipeService';
 import { unitManagementService } from '../../services/unitManagementService';
 import type { ChecklistExecution, ChecklistTemplate } from '../../types/checklistManagement';
+import { RECIPE_PERMISSIONS, RECIPE_UOMS } from '../../types/recipes';
+import type { Recipe, RecipeUom } from '../../types/recipes';
+import type { StockLocation } from '../../types/inventory';
 import type { DynamicFieldSchema } from '../../types/userManagement';
 import type { UnitOption } from '../../types/unitManagement';
 
@@ -55,6 +60,14 @@ function StatusBadge({ status }: { status?: string | null }) {
     ? 'Concluido'
     : status === 'in_progress'
       ? 'Em andamento'
+      : status === 'pending_confirmation'
+        ? 'Aguardando confirmacao'
+        : status === 'failed'
+          ? 'Falhou'
+          : status === 'reversed'
+            ? 'Revertida'
+            : status === 'approved'
+              ? 'Aprovado'
       : status === 'active'
         ? 'Ativo'
         : status || 'Rascunho';
@@ -242,6 +255,7 @@ const AUTOMATION_OPERATORS = [
 ] as const;
 const AUTOMATION_ACTIONS = [
   ['inventory_exit', 'Baixar estoque'], ['inventory_entry', 'Entrada de estoque'], ['inventory_adjustment', 'Ajustar quantidade'],
+  ['execute_recipe', 'Executar ficha tecnica'],
   ['create_task', 'Criar tarefa'], ['create_noc_alert', 'Criar alerta NOC'], ['audit_only', 'Registrar auditoria'],
   ['require_field', 'Exigir campo'], ['block_completion', 'Impedir conclusao'], ['send_email', 'Enviar e-mail'],
   ['send_whatsapp', 'Enviar WhatsApp'], ['generate_document', 'Gerar documento'],
@@ -288,6 +302,10 @@ export function ChecklistTemplateFormPage() {
   const [automations, setAutomations] = useState<TemplateAutomation[]>([]);
   const [activeTab, setActiveTab] = useState<'configuration' | 'inventory' | 'automations' | 'preview' | 'publication'>('configuration');
   const [previewValues, setPreviewValues] = useState<Record<string, unknown>>({});
+  const [recipeOptions, setRecipeOptions] = useState<Recipe[]>([]);
+  const [uomOptions, setUomOptions] = useState<RecipeUom[]>(RECIPE_UOMS);
+  const [unitOptions, setUnitOptions] = useState<UnitOption[]>([]);
+  const [locationOptions, setLocationOptions] = useState<StockLocation[]>([]);
 
   useEffect(() => {
     if (isNew) return;
@@ -311,6 +329,39 @@ export function ChecklistTemplateFormPage() {
     void load().catch(() => setLoading(false));
   }, [id, isNew]);
 
+  useEffect(() => {
+    if (isNew) return;
+
+    async function loadOperationalOptions() {
+      const [recipesPayload, unitsPayload, locationsPayload] = await Promise.all([
+        recipeService.list({ active: true }, { expireSessionOnUnauthorized: false }),
+        unitManagementService.getUnitOptions(),
+        inventoryService.listLocations({ active: true }),
+      ]);
+      setRecipeOptions(recipesPayload.data.filter(recipe => Boolean(recipe.active_version_id)));
+      setUnitOptions(unitsPayload);
+      setLocationOptions(locationsPayload);
+      const uoms = recipesPayload.data
+        .flatMap(recipe => [
+          recipe.active_version?.base_uom,
+          recipe.active_version?.expected_yield_uom,
+          ...(recipe.active_version?.components ?? []).map(component => component.uom),
+          ...(recipe.active_version?.outputs ?? []).map(output => output.uom),
+        ])
+        .filter((uom): uom is RecipeUom => Boolean(uom?.id));
+      if (uoms.length > 0) {
+        setUomOptions(Array.from(new Map([...RECIPE_UOMS, ...uoms].map(uom => [uom.id, uom])).values()));
+      }
+    }
+
+    void loadOperationalOptions().catch(() => {
+      setRecipeOptions([]);
+      setUnitOptions([]);
+      setLocationOptions([]);
+      setUomOptions(RECIPE_UOMS);
+    });
+  }, [isNew]);
+
   function updateField(index: number, patch: Partial<DynamicFieldSchema>) {
     setFields(current => current.map((field, fieldIndex) => (
       fieldIndex === index ? { ...field, ...patch, field_type: patch.type ?? field.field_type } : field
@@ -330,6 +381,14 @@ export function ChecklistTemplateFormPage() {
   function patchAutomation(index: number, patch: Partial<TemplateAutomation>) {
     setAutomations(current => current.map((automation, automationIndex) => (
       automationIndex === index ? { ...automation, ...patch } : automation
+    )));
+  }
+
+  function patchAutomationParameters(index: number, patch: Record<string, unknown>) {
+    setAutomations(current => current.map((automation, automationIndex) => (
+      automationIndex === index
+        ? { ...automation, parameters: { ...(automation.parameters ?? {}), ...patch } }
+        : automation
     )));
   }
 
@@ -605,10 +664,117 @@ export function ChecklistTemplateFormPage() {
                 <option value="">Comparar com valor</option>
                 {fields.map(field => <option key={field.key} value={field.key}>Campo: {field.label}</option>)}
               </select>
-              <select className="h-9 rounded-md border bg-background px-3 text-sm md:col-span-2" value={automation.action_type} onChange={event => patchAutomation(index, { action_type: event.target.value })}>
+              <select
+                className="h-9 rounded-md border bg-background px-3 text-sm md:col-span-2"
+                data-testid={`automation-action-type-${index}`}
+                value={automation.action_type}
+                onChange={event => {
+                  const actionType = event.target.value;
+                  patchAutomation(index, {
+                    action_type: actionType,
+                    parameters: actionType === 'execute_recipe'
+                      ? {
+                        recipe_id: recipeOptions[0]?.id ?? '',
+                        quantity_field_id: numericFields[0]?.key ?? '',
+                        target_uom_id: recipeOptions[0]?.active_version?.expected_yield_uom_id ?? uomOptions[0]?.id ?? '',
+                        unit_source: 'submission_unit',
+                        stock_location_source: 'default_location',
+                        execution_mode: 'automatic',
+                        trigger: 'on_completed',
+                        enabled: true,
+                      }
+                      : automation.parameters,
+                  });
+                }}
+              >
                 {AUTOMATION_ACTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
-              <Textarea className="md:col-span-3" value={JSON.stringify(automation.parameters ?? {}, null, 2)} onChange={event => { try { patchAutomation(index, { parameters: JSON.parse(event.target.value || '{}') }); } catch { /* aguarda JSON valido */ } }} />
+              {automation.action_type === 'execute_recipe' ? (
+                <div className="grid gap-3 rounded-md border border-emerald-200 bg-emerald-50/40 p-3 md:col-span-6 md:grid-cols-3" data-testid={`execute-recipe-config-${index}`}>
+                  <div className="grid gap-1">
+                    <Label>Quando executar?</Label>
+                    <select className="h-9 rounded-md border bg-background px-3 text-sm" data-testid={`execute-recipe-trigger-${index}`} value={String(automation.parameters?.trigger ?? 'on_completed')} onChange={event => patchAutomationParameters(index, { trigger: event.target.value })}>
+                      <option value="on_completed">Ao concluir</option>
+                      <option value="on_approved">Ao aprovar</option>
+                    </select>
+                  </div>
+                  <div className="grid gap-1">
+                    <Label>Ficha tecnica</Label>
+                    <select className="h-9 rounded-md border bg-background px-3 text-sm" data-testid={`execute-recipe-recipe-${index}`} value={String(automation.parameters?.recipe_id ?? '')} onChange={event => {
+                      const selected = recipeOptions.find(recipe => String(recipe.id) === event.target.value);
+                      patchAutomationParameters(index, {
+                        recipe_id: event.target.value,
+                        target_uom_id: selected?.active_version?.expected_yield_uom_id ?? automation.parameters?.target_uom_id ?? '',
+                      });
+                    }}>
+                      <option value="">Selecione</option>
+                      {recipeOptions.map(recipe => <option key={recipe.id} value={recipe.id}>{recipe.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="grid gap-1">
+                    <Label>Campo de quantidade</Label>
+                    <select className="h-9 rounded-md border bg-background px-3 text-sm" data-testid={`execute-recipe-quantity-field-${index}`} value={String(automation.parameters?.quantity_field_id ?? '')} onChange={event => patchAutomationParameters(index, { quantity_field_id: event.target.value })}>
+                      <option value="">Selecione</option>
+                      {numericFields.map(field => <option key={field.key} value={field.key}>{field.label}</option>)}
+                    </select>
+                  </div>
+                  <div className="grid gap-1">
+                    <Label>Unidade de medida</Label>
+                    <select className="h-9 rounded-md border bg-background px-3 text-sm" data-testid={`execute-recipe-uom-${index}`} value={String(automation.parameters?.target_uom_id ?? '')} onChange={event => patchAutomationParameters(index, { target_uom_id: event.target.value })}>
+                      <option value="">Selecione</option>
+                      {uomOptions.map(uom => <option key={uom.id} value={uom.id}>{uom.name} ({uom.symbol})</option>)}
+                    </select>
+                  </div>
+                  <div className="grid gap-1">
+                    <Label>Unidade da rede</Label>
+                    <select className="h-9 rounded-md border bg-background px-3 text-sm" data-testid={`execute-recipe-unit-source-${index}`} value={String(automation.parameters?.unit_source ?? 'submission_unit')} onChange={event => patchAutomationParameters(index, { unit_source: event.target.value })}>
+                      <option value="submission_unit">Usar unidade da submissao</option>
+                      <option value="fixed_unit">Unidade fixa</option>
+                    </select>
+                  </div>
+                  {automation.parameters?.unit_source === 'fixed_unit' && (
+                    <div className="grid gap-1">
+                      <Label>Unidade fixa</Label>
+                      <select className="h-9 rounded-md border bg-background px-3 text-sm" data-testid={`execute-recipe-fixed-unit-${index}`} value={String(automation.parameters?.fixed_unit_id ?? '')} onChange={event => patchAutomationParameters(index, { fixed_unit_id: event.target.value })}>
+                        <option value="">Selecione</option>
+                        {unitOptions.map(unit => <option key={unit.value} value={unit.value}>{unit.label}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  <div className="grid gap-1">
+                    <Label>Local de estoque</Label>
+                    <select className="h-9 rounded-md border bg-background px-3 text-sm" data-testid={`execute-recipe-location-source-${index}`} value={String(automation.parameters?.stock_location_source ?? 'default_location')} onChange={event => patchAutomationParameters(index, { stock_location_source: event.target.value })}>
+                      <option value="default_location">Local default da unidade</option>
+                      <option value="fixed_location">Local fixo</option>
+                    </select>
+                  </div>
+                  {automation.parameters?.stock_location_source === 'fixed_location' && (
+                    <div className="grid gap-1">
+                      <Label>Local fixo</Label>
+                      <select className="h-9 rounded-md border bg-background px-3 text-sm" data-testid={`execute-recipe-fixed-location-${index}`} value={String(automation.parameters?.fixed_stock_location_id ?? '')} onChange={event => patchAutomationParameters(index, { fixed_stock_location_id: event.target.value })}>
+                        <option value="">Selecione</option>
+                        {locationOptions.map(location => <option key={location.id} value={location.id}>{location.name}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  <div className="grid gap-1">
+                    <Label>Modo</Label>
+                    <select className="h-9 rounded-md border bg-background px-3 text-sm" data-testid={`execute-recipe-mode-${index}`} value={String(automation.parameters?.execution_mode ?? 'automatic')} onChange={event => patchAutomationParameters(index, { execution_mode: event.target.value })}>
+                      <option value="automatic">Executar automaticamente</option>
+                      <option value="manual_confirmation">Solicitar confirmacao</option>
+                    </select>
+                  </div>
+                  <div className="grid gap-1 md:col-span-3">
+                    <Label>Observacao opcional</Label>
+                    <Input value={String(automation.parameters?.notes_template ?? '')} onChange={event => patchAutomationParameters(index, { notes_template: event.target.value })} placeholder="Ex.: Producao registrada por checklist" />
+                  </div>
+                  <p className="text-xs text-emerald-900 md:col-span-3">
+                    Ao executar, o Orchestra movimentara o estoque conforme a ficha tecnica publicada.
+                  </p>
+                </div>
+              ) : (
+                <Textarea className="md:col-span-3" value={JSON.stringify(automation.parameters ?? {}, null, 2)} onChange={event => { try { patchAutomation(index, { parameters: JSON.parse(event.target.value || '{}') }); } catch { /* aguarda JSON valido */ } }} />
+              )}
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={automation.is_active} onChange={event => patchAutomation(index, { is_active: event.target.checked })} />
                 Ativa
@@ -764,8 +930,21 @@ export function ChecklistExecutionPage() {
   const [hasInventoryAutomation, setHasInventoryAutomation] = useState(false);
   const { hasPermission } = usePermission();
   const canViewInventoryAutomation = hasPermission('tenant.inventory.automation.view');
+  const canConfirmRecipeExecution = hasPermission(RECIPE_PERMISSIONS.executionsCreate);
+  const canReverseRecipeExecution = hasPermission(RECIPE_PERMISSIONS.executionsReverse);
 
   const schema = useMemo(() => execution?.schema?.form_schema ?? [], [execution]);
+
+  async function reloadExecution() {
+    if (!id || id === 'new') return;
+    const payload = await checklistManagementService.getExecution(id as string);
+    setExecution(payload);
+    setAnswers(answersFromExecution(payload));
+    if (canViewInventoryAutomation) {
+      const rules = await checklistInventoryAutomationService.getRules(payload.template_id).catch(() => []);
+      setHasInventoryAutomation(rules.some(rule => rule.active));
+    }
+  }
 
   useEffect(() => {
     if (!id || id === 'new') {
@@ -775,13 +954,7 @@ export function ChecklistExecutionPage() {
 
     async function load() {
       setLoading(true);
-      const payload = await checklistManagementService.getExecution(id as string);
-      setExecution(payload);
-      setAnswers(answersFromExecution(payload));
-      if (canViewInventoryAutomation) {
-        const rules = await checklistInventoryAutomationService.getRules(payload.template_id).catch(() => []);
-        setHasInventoryAutomation(rules.some(rule => rule.active));
-      }
+      await reloadExecution();
       setLoading(false);
     }
 
@@ -806,6 +979,61 @@ export function ChecklistExecutionPage() {
           ? 'NÃƒÂ£o foi possÃƒÂ­vel concluir. Verifique as respostas e o saldo de estoque.'
           : 'NÃƒÂ£o foi possÃƒÂ­vel salvar as respostas.',
       ));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function approveExecution() {
+    if (!execution) return;
+    setSaving(true);
+    try {
+      const updated = await checklistManagementService.updateExecution(execution.id, { status: 'approved' });
+      setExecution(updated);
+      toast.success('Checklist aprovado.');
+    } catch (error) {
+      toast.error(apiErrorMessage(error, 'Nao foi possivel aprovar o checklist.'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function confirmOperationalAction(actionId: string | number) {
+    setSaving(true);
+    try {
+      await checklistManagementService.confirmOperationalAction(actionId);
+      await reloadExecution();
+      toast.success('Movimentacao de estoque confirmada.');
+    } catch (error) {
+      toast.error(apiErrorMessage(error, 'Nao foi possivel confirmar a movimentacao.'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function retryOperationalAction(actionId: string | number) {
+    setSaving(true);
+    try {
+      await checklistManagementService.retryOperationalAction(actionId);
+      await reloadExecution();
+      toast.success('Tentativa registrada.');
+    } catch (error) {
+      toast.error(apiErrorMessage(error, 'Nao foi possivel tentar novamente.'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function reverseOperationalAction(actionId: string | number) {
+    const reason = window.prompt('Informe o motivo da reversao');
+    if (!reason?.trim()) return;
+    setSaving(true);
+    try {
+      await checklistManagementService.reverseOperationalAction(actionId, reason.trim());
+      await reloadExecution();
+      toast.success('Movimentacao revertida.');
+    } catch (error) {
+      toast.error(apiErrorMessage(error, 'Nao foi possivel reverter a movimentacao.'));
     } finally {
       setSaving(false);
     }
@@ -843,6 +1071,56 @@ export function ChecklistExecutionPage() {
         />
       </div>
 
+      {(execution.operational_actions ?? []).length > 0 && (
+        <div className="grid gap-3 rounded-md border bg-card p-4" data-testid="operational-actions-panel">
+          <div>
+            <h2 className="font-medium">Acoes operacionais vinculadas</h2>
+            <p className="text-sm text-muted-foreground">Resultado das automacoes que podem movimentar estoque por ficha tecnica.</p>
+          </div>
+          {(execution.operational_actions ?? []).map(action => (
+            <div key={action.id} className="grid gap-3 rounded-md border p-3 md:grid-cols-[1fr_auto]">
+              <div className="grid gap-1 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <strong>{action.action_type === 'execute_recipe' ? 'Executar ficha tecnica' : action.action_type}</strong>
+                  <StatusBadge status={action.status} />
+                </div>
+                {action.status === 'completed' && (
+                  <p className="text-emerald-700">
+                    Estoque atualizado pela ficha tecnica. Execucao {action.recipe_execution?.number ?? action.recipe_execution_id} criada.
+                  </p>
+                )}
+                {action.status === 'pending_confirmation' && (
+                  <p className="text-amber-700">Movimentacao de estoque aguardando confirmacao.</p>
+                )}
+                {action.status === 'failed' && (
+                  <p className="text-red-700">O checklist foi concluido, mas o estoque nao foi atualizado. Motivo: {action.error_message ?? action.error_code ?? 'falha operacional'}.</p>
+                )}
+                {action.status === 'reversed' && (
+                  <p className="text-muted-foreground">Movimentacao vinculada revertida explicitamente.</p>
+                )}
+                {action.executed_at && <p className="text-xs text-muted-foreground">{formatDate(action.executed_at)}</p>}
+              </div>
+              <div className="flex flex-wrap justify-end gap-2">
+                {action.recipe_execution_id && (
+                  <Button asChild size="sm" variant="outline">
+                    <Link to={`/recipe-executions/${action.recipe_execution_id}`}><ExternalLink className="size-4" />Detalhe</Link>
+                  </Button>
+                )}
+                {action.status === 'pending_confirmation' && canConfirmRecipeExecution && (
+                  <Button size="sm" disabled={saving} onClick={() => void confirmOperationalAction(action.id)}><Play className="size-4" />Confirmar</Button>
+                )}
+                {action.status === 'failed' && canConfirmRecipeExecution && (
+                  <Button size="sm" variant="outline" disabled={saving} onClick={() => void retryOperationalAction(action.id)}><RefreshCw className="size-4" />Tentar novamente</Button>
+                )}
+                {action.status === 'completed' && action.recipe_execution_id && canReverseRecipeExecution && (
+                  <Button size="sm" variant="outline" disabled={saving} onClick={() => void reverseOperationalAction(action.id)}><RotateCcw className="size-4" />Reverter</Button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {execution.status !== 'completed' && (
         <div className="flex justify-end gap-2">
           <Button variant="outline" disabled={saving} onClick={() => void saveAnswers(false)}>
@@ -852,6 +1130,14 @@ export function ChecklistExecutionPage() {
           <Button disabled={saving} onClick={() => void saveAnswers(true)}>
             {saving ? <RefreshCw className="size-4 animate-spin" /> : hasInventoryAutomation ? <AlertTriangle className="size-4" /> : <ClipboardCheck className="size-4" />}
             Concluir
+          </Button>
+        </div>
+      )}
+      {execution.status === 'completed' && (
+        <div className="flex justify-end">
+          <Button variant="outline" disabled={saving} onClick={() => void approveExecution()}>
+            {saving ? <RefreshCw className="size-4 animate-spin" /> : <Send className="size-4" />}
+            Aprovar
           </Button>
         </div>
       )}

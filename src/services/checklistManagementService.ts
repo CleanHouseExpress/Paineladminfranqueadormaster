@@ -4,6 +4,7 @@ import type {
   ChecklistExecutionPayload,
   ChecklistMeta,
   ChecklistMetrics,
+  OperationalActionExecution,
   ChecklistTemplate,
   ChecklistTemplateLibraryItem,
   ChecklistTemplatePayload,
@@ -79,6 +80,18 @@ export const checklistManagementService = {
 
   completeExecution: async (id: string | number, payload: ChecklistExecutionPayload = {}) =>
     (await apiClient.post<DataResponse<ChecklistExecution>>(`/api/company/checklists/executions/${id}/complete`, payload)).data,
+
+  getOperationalAction: async (id: string | number) =>
+    (await apiClient.get<DataResponse<OperationalActionExecution>>(`/api/company/operational-actions/${id}`)).data,
+
+  confirmOperationalAction: async (id: string | number) =>
+    (await apiClient.post<DataResponse<OperationalActionExecution>>(`/api/company/operational-actions/${id}/confirm`, {})).data,
+
+  retryOperationalAction: async (id: string | number) =>
+    (await apiClient.post<DataResponse<OperationalActionExecution>>(`/api/company/operational-actions/${id}/retry`, {})).data,
+
+  reverseOperationalAction: async (id: string | number, reason: string) =>
+    (await apiClient.post<DataResponse<OperationalActionExecution>>(`/api/company/operational-actions/${id}/reverse`, { reason })).data,
 
   metrics: async () =>
     (await apiClient.get<DataResponse<ChecklistMetrics>>('/api/company/checklists/metrics')).data,

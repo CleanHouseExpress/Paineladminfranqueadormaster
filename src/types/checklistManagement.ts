@@ -46,6 +46,36 @@ export interface ChecklistExecution {
   schema?: {
     form_schema: DynamicFieldSchema[];
   };
+  operational_actions?: OperationalActionExecution[];
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface OperationalActionExecution {
+  id: number | string;
+  automation_rule_id?: number | string | null;
+  action_type: string;
+  source_type?: string | null;
+  source_id?: number | string | null;
+  source_reference?: string | null;
+  unit_id?: number | string | null;
+  status: 'pending_confirmation' | 'completed' | 'failed' | 'reversed' | string;
+  recipe_execution_id?: number | string | null;
+  recipe_execution?: {
+    id: number | string;
+    number?: string | null;
+    status?: string | null;
+    recipe_id?: number | string | null;
+    recipe_version_id?: number | string | null;
+    unit_id?: number | string | null;
+    stock_location_id?: number | string | null;
+  } | null;
+  error_code?: string | null;
+  error_message?: string | null;
+  result?: Record<string, unknown>;
+  executed_at?: string | null;
+  executed_by?: number | string | null;
+  metadata?: Record<string, unknown>;
   created_at?: string | null;
   updated_at?: string | null;
 }
