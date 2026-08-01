@@ -94,6 +94,10 @@ const SalesFormPage = lazyPage(() => import('../modules/sales'), 'SalesFormPage'
 const SalesDetailPage = lazyPage(() => import('../modules/sales'), 'SalesDetailPage');
 const SalesSettingsPage = lazyPage(() => import('../modules/sales'), 'SalesSettingsPage');
 const SubscriptionPoliciesPage = lazyPage(() => import('../modules/subscription-policies'), 'SubscriptionPoliciesPage');
+const RecipesListPage = lazyPage(() => import('../modules/recipes'), 'RecipesListPage');
+const RecipeCreatePage = lazyPage(() => import('../modules/recipes'), 'RecipeCreatePage');
+const RecipeDetailPage = lazyPage(() => import('../modules/recipes'), 'RecipeDetailPage');
+const RecipeVersionEditorPage = lazyPage(() => import('../modules/recipes'), 'RecipeVersionEditorPage');
 const LoyaltyDashboardPage = lazyPage(() => import('../modules/loyalty'), 'LoyaltyDashboardPage');
 const LoyaltyRulesPage = lazyPage(() => import('../modules/loyalty'), 'LoyaltyRulesPage');
 const LoyaltyWalletsPage = lazyPage(() => import('../modules/loyalty'), 'LoyaltyWalletsPage');
@@ -157,6 +161,10 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   'sales-detail': SalesDetailPage,
   'sales-settings': SalesSettingsPage,
   'subscription-policies': SubscriptionPoliciesPage,
+  'recipes-list': RecipesListPage,
+  'recipe-create': RecipeCreatePage,
+  'recipe-detail': RecipeDetailPage,
+  'recipe-version-editor': RecipeVersionEditorPage,
   'loyalty-dashboard': LoyaltyDashboardPage,
   'loyalty-rules': LoyaltyRulesPage,
   'loyalty-wallets': LoyaltyWalletsPage,
@@ -333,4 +341,3 @@ export default function App() {
     </AppProvider>
   );
 }
-

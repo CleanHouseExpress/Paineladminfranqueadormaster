@@ -60,6 +60,7 @@ Platform
 ├── AI
 │
 ├── Inventory
+├── Recipe and Composition
 ├── Purchasing
 ├── Manufacturing
 ├── Service Orders
@@ -181,6 +182,10 @@ Domínio futuro para assistentes, recomendações, análise, resposta automátic
 **Inventory**
 
 Dono de itens de estoque, saldos, movimentações, transferências, contagens, consumo e CMV operacional.
+
+**Recipe and Composition**
+
+Dono de ficha tecnica, composicao, receita, formula, transformacao, rendimento previsto, perdas previstas, explosao de materiais, outputs e custo teorico. Nao pertence exclusivamente ao Inventory: Catalog, Forms, Checklists, Automation, Production, Sales/PDV, Finance, Analytics, AI e Portal podem consumir composicoes publicadas.
 
 **Purchasing**
 
@@ -375,3 +380,56 @@ Decisoes de UI e contrato:
 - Forms/Checklists nao executam baixa/entrada de estoque nesta fase.
 
 Fora desta fase: transferencias novas, contagens novas, automacoes de estoque sobre ledger, producao/ficha tecnica e integracao financeira completa.
+
+## Recipe and Composition - Fase 2A
+
+Novo bounded context arquitetural para conhecimento operacional versionado da rede.
+
+Responsabilidades:
+
+- ficha tecnica, composicao, receita, formula e transformacao;
+- inputs e outputs estruturados;
+- rendimento previsto e perdas previstas;
+- explosao de materiais;
+- custo teorico;
+- versoes publicadas imutaveis;
+- snapshots para execucoes futuras.
+
+Fronteira:
+
+- Catalog define identidade comercial.
+- Inventory registra ledger, saldo e custo realizado.
+- Recipe and Composition define o que deveria ser consumido, produzido ou executado.
+- Forms, Checklists, Automation, Production, Sales/PDV, Finance, Analytics, AI e Portal consomem versoes publicadas conforme permissao/policy.
+
+Documento base: `docs/architecture/recipe-and-composition.md` no backend.
+
+## Recipe and Composition - Fase 2A.2.3 Frontend minimo
+
+O frontend passa a registrar o modulo `recipes` como superficie operacional da franqueadora para configurar fichas tecnicas versionadas.
+
+Rotas frontend:
+
+- `/recipes`: lista fichas tecnicas com busca, tipo, status, versao oficial e acoes permitidas.
+- `/recipes/new`: cria a identidade da ficha e abre o primeiro rascunho.
+- `/recipes/:id`: exibe resumo e historico de versoes.
+- `/recipes/:id/versions/:version`: edita rascunho, valida, publica, clona versao publicada e calcula previa oficial quando publicada.
+
+Responsabilidades desta fase:
+
+- cadastrar identidade simples da ficha tecnica;
+- editar rendimento, perda prevista, componentes e saida principal;
+- consultar itens de Inventory e Catalog apenas como referencias;
+- chamar o backend para validar, publicar e calcular composicao;
+- respeitar RBAC `tenant.recipes.*`.
+
+Fora desta fase:
+
+- execucao de producao;
+- baixa ou entrada de estoque;
+- reservas;
+- historico de simulacoes;
+- Forms/Checklists;
+- Financeiro, CMV e DRE;
+- overrides por unidade;
+- builder visual avancado.

@@ -310,6 +310,24 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   },
 
   {
+    id: 'recipes',
+    name: 'Fichas Tecnicas',
+    description: 'Fichas tecnicas versionadas para composicao, rendimento, componentes e custo teorico.',
+    icon: 'FlaskConical',
+    status: 'active',
+    nav: { show: true, order: 5.2, group: 'main', children: [
+      { label: 'Fichas Tecnicas', path: '/recipes' },
+    ] },
+    routes: [
+      { path: '/recipes', componentId: 'recipes-list', requiredPermissions: ['tenant.recipes.view'] },
+      { path: '/recipes/new', componentId: 'recipe-create', moduleId: 'recipes', requiredPermissions: ['tenant.recipes.create'] },
+      { path: '/recipes/:id', componentId: 'recipe-detail', moduleId: 'recipes', requiredPermissions: ['tenant.recipes.view'] },
+      { path: '/recipes/:id/versions/:version', componentId: 'recipe-version-editor', moduleId: 'recipes', requiredPermissions: ['tenant.recipes.view'] },
+    ],
+    marketplace: { show: true, category: 'Operacao', price: 'Incluso' },
+  },
+
+  {
     id: 'documents',
     name: 'Documentos',
     description: 'Biblioteca operacional de documentos com upload, categorias, download e visibilidade por tenant.',
@@ -740,5 +758,3 @@ export function getModuleByPath(pathname: string): ModuleDefinition | undefined 
     m.routes?.some(r => r.path === pathname || pathname.startsWith(r.path.replace(':id', '')))
   );
 }
-
-
