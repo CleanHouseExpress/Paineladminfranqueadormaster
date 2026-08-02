@@ -229,8 +229,40 @@ export interface InventoryTransfer {
 }
 
 export interface InventoryCount {
-  id: number; unit_id: number; unit_name: string; type: string; status: string; notes?: string;
-  items: Array<{ id: number; inventory_item_id: number; item_name: string; system_quantity: number; counted_quantity: number | null; difference_quantity: number; difference_cost: number }>;
+  id: number;
+  number: string;
+  unit_id: number;
+  unit?: { id: number; name: string } | null;
+  unit_name?: string | null;
+  stock_location_id: number;
+  stock_location?: { id: number; name: string; code?: string | null } | null;
+  stock_location_name?: string | null;
+  status: 'draft' | 'confirmed' | 'canceled' | 'reversed' | string;
+  counted_at?: string | null;
+  confirmed_at?: string | null;
+  confirmed_by_name?: string | null;
+  created_by_name?: string | null;
+  notes?: string | null;
+  operation_id?: string | null;
+  items_count?: number;
+  divergent_items_count?: number;
+  items: Array<{
+    id: number;
+    inventory_item_id: number;
+    item?: { id: number; name: string; sku?: string | null; unit_of_measure?: string | null } | null;
+    item_name?: string | null;
+    system_quantity: number;
+    counted_quantity: number | null;
+    difference_quantity: number | null;
+    uom_id?: string | null;
+    reason?: string | null;
+    stock_movement_id?: number | null;
+    stock_movement_number?: string | null;
+    cost_unavailable?: boolean;
+    metadata?: Record<string, unknown>;
+  }>;
+  movements?: Array<{ id: number; number: string; movement_type: string; status: string }>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface InventoryOption {
@@ -240,7 +272,7 @@ export interface InventoryOption {
 
 export type InventoryPayload = Record<string, unknown>;
 export type InventoryMetadata = Omit<CustomerFormSettings, 'entity_key'> & {
-  entity_key: 'inventory_items' | 'inventory_item_unit_settings' | 'inventory_suppliers' | 'inventory_categories' | 'stock_locations' | 'stock_movements';
+  entity_key: 'inventory_items' | 'inventory_item_unit_settings' | 'inventory_suppliers' | 'inventory_categories' | 'stock_locations' | 'stock_movements' | 'stock_counts' | 'stock_count_items';
   fields: DynamicFieldSchema[];
   table_columns: CustomerTableColumn[];
 };
@@ -267,4 +299,10 @@ export const INVENTORY_PERMISSIONS = {
   settingsView: 'tenant.inventory.settings.view', settingsUpdate: 'tenant.inventory.settings.update',
   transfer: 'tenant.inventory.transfer', transferApprove: 'tenant.inventory.transfer.approve', transferReceive: 'tenant.inventory.transfer.receive',
   count: 'tenant.inventory.count', countApprove: 'tenant.inventory.count.approve',
+  stockCountsView: 'tenant.inventory.stock_counts.view',
+  stockCountsCreate: 'tenant.inventory.stock_counts.create',
+  stockCountsUpdate: 'tenant.inventory.stock_counts.update',
+  stockCountsConfirm: 'tenant.inventory.stock_counts.confirm',
+  stockCountsCancel: 'tenant.inventory.stock_counts.cancel',
+  stockCountsReverse: 'tenant.inventory.stock_counts.reverse',
 } as const;

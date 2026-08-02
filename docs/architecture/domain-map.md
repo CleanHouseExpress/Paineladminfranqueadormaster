@@ -508,3 +508,49 @@ Fronteira:
 - o frontend nao cria movimentos de estoque;
 - o frontend nao duplica logica de Inventory ou Recipe;
 - a execucao real continua no backend via `RecipeExecutionService`.
+
+## Inventory - Fase 5 Inventario Fisico Simples
+
+O frontend reativa contagens somente no fluxo novo:
+
+```text
+stock_counts
+stock_count_items
+stock_movements
+stock_balances
+```
+
+Rotas frontend:
+
+- `/inventory/counts`: lista inventarios fisicos;
+- `/inventory/counts/new`: abre contagem por unidade e local;
+- `/inventory/counts/:id`: edita rascunho, confirma, cancela ou estorna.
+
+Contrato de UI:
+
+- a abertura da contagem chama o backend para criar snapshot;
+- o frontend nao calcula saldo oficial;
+- a diferenca exibida e apenas derivada da linha recebida/editada;
+- confirmar chama `POST /api/company/inventory/counts/{id}/confirm`;
+- cancelar chama `POST /api/company/inventory/counts/{id}/cancel`;
+- estornar chama `POST /api/company/inventory/counts/{id}/reverse`;
+- erro `stock_count_stale` deve ser exibido com a mensagem do backend;
+- movimentos e efeitos gerenciais permanecem responsabilidade do backend.
+
+Permissoes:
+
+- `tenant.inventory.stock_counts.view`;
+- `tenant.inventory.stock_counts.create`;
+- `tenant.inventory.stock_counts.update`;
+- `tenant.inventory.stock_counts.confirm`;
+- `tenant.inventory.stock_counts.cancel`;
+- `tenant.inventory.stock_counts.reverse`.
+
+Fora desta fase:
+
+- contagem cega;
+- multiplas rodadas;
+- aprovacao;
+- importacao massiva;
+- leitura offline;
+- lotes, validade, serial e reserva.

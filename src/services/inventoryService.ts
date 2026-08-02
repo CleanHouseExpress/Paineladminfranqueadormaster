@@ -177,6 +177,42 @@ interface ApiBalance {
   average_cost: number | string;
 }
 
+interface ApiCount {
+  id: number;
+  number: string;
+  unit_id: number;
+  unit?: { id: number; name: string } | null;
+  stock_location_id: number;
+  stock_location?: { id: number; name: string; code?: string | null } | null;
+  status: string;
+  counted_at?: string | null;
+  confirmed_at?: string | null;
+  confirmed_by_name?: string | null;
+  created_by_name?: string | null;
+  notes?: string | null;
+  operation_id?: string | null;
+  items_count?: number;
+  divergent_items_count?: number;
+  items?: Array<{
+    id: number;
+    inventory_item_id: number;
+    item?: { id: number; name: string; sku?: string | null; unit_of_measure?: string | null } | null;
+    system_quantity: number | string;
+    counted_quantity: number | string | null;
+    difference_quantity: number | string | null;
+    uom_id?: string | null;
+    reason?: string | null;
+    stock_movement_id?: number | null;
+    stock_movement_number?: string | null;
+    cost_unavailable?: boolean;
+    metadata?: Record<string, unknown>;
+  }>;
+  movements?: Array<{ id: number; number: string; movement_type: string; status: string }>;
+  metadata?: Record<string, unknown>;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
 interface ApiMetrics {
   items: number;
   active_items: number;
@@ -418,6 +454,45 @@ function toBalance(balance: ApiBalance): StockBalance {
   };
 }
 
+function toCount(count: ApiCount): InventoryCount {
+  return {
+    id: Number(count.id),
+    number: count.number,
+    unit_id: Number(count.unit_id),
+    unit: count.unit ? { id: Number(count.unit.id), name: count.unit.name } : null,
+    unit_name: count.unit?.name,
+    stock_location_id: Number(count.stock_location_id),
+    stock_location: count.stock_location ? { id: Number(count.stock_location.id), name: count.stock_location.name, code: count.stock_location.code } : null,
+    stock_location_name: count.stock_location?.name,
+    status: count.status,
+    counted_at: count.counted_at,
+    confirmed_at: count.confirmed_at,
+    confirmed_by_name: count.confirmed_by_name,
+    created_by_name: count.created_by_name,
+    notes: count.notes,
+    operation_id: count.operation_id,
+    items_count: Number(count.items_count ?? count.items?.length ?? 0),
+    divergent_items_count: Number(count.divergent_items_count ?? (count.items ?? []).filter(item => Number(item.difference_quantity ?? 0) !== 0).length),
+    items: (count.items ?? []).map(item => ({
+      id: Number(item.id),
+      inventory_item_id: Number(item.inventory_item_id),
+      item: item.item ? { id: Number(item.item.id), name: item.item.name, sku: item.item.sku, unit_of_measure: item.item.unit_of_measure } : null,
+      item_name: item.item?.name,
+      system_quantity: Number(item.system_quantity ?? 0),
+      counted_quantity: item.counted_quantity === null || item.counted_quantity === undefined ? null : Number(item.counted_quantity),
+      difference_quantity: item.difference_quantity === null || item.difference_quantity === undefined ? null : Number(item.difference_quantity),
+      uom_id: item.uom_id,
+      reason: item.reason,
+      stock_movement_id: item.stock_movement_id ?? null,
+      stock_movement_number: item.stock_movement_number,
+      cost_unavailable: Boolean(item.cost_unavailable),
+      metadata: item.metadata ?? {},
+    })),
+    movements: count.movements ?? [],
+    metadata: count.metadata ?? {},
+  };
+}
+
 function toUnitSetting(setting: ApiUnitSetting): InventoryItemUnitSetting {
   return {
     id: String(setting.id),
@@ -628,11 +703,14 @@ export const inventoryService = {
   getTransfer: async (id: string) => (await apiClient.get<DataResponse<InventoryTransfer>>(`/api/company/inventory/transfers/${id}`)).data,
   createTransfer: async (payload: Record<string, unknown>) => (await apiClient.post<DataResponse<InventoryTransfer>>('/api/company/inventory/transfers', payload)).data,
   transferAction: async (id: number, action: 'approve' | 'ship' | 'receive' | 'cancel') => (await apiClient.patch<DataResponse<InventoryTransfer>>(`/api/company/inventory/transfers/${id}/${action}`, {})).data,
-  listCounts: async () => (await apiClient.get<DataResponse<InventoryCount[]>>('/api/company/inventory/counts')).data,
-  getCount: async (id: string) => (await apiClient.get<DataResponse<InventoryCount>>(`/api/company/inventory/counts/${id}`)).data,
-  createCount: async (payload: Record<string, unknown>) => (await apiClient.post<DataResponse<InventoryCount>>('/api/company/inventory/counts', payload)).data,
-  updateCount: async (id: number, payload: Record<string, unknown>) => (await apiClient.put<DataResponse<InventoryCount>>(`/api/company/inventory/counts/${id}`, payload)).data,
-  countAction: async (id: number, action: 'complete' | 'approve') => (await apiClient.patch<DataResponse<InventoryCount>>(`/api/company/inventory/counts/${id}/${action}`, {})).data,
+  listCounts: async (filters: Record<string, string | number | boolean | undefined> = {}) => {
+    const response = await apiClient.get<ListResponse<ApiCount>>(`/api/company/inventory/counts${queryString({ per_page: 100, ...filters })}`);
+    return response.data.map(toCount);
+  },
+  getCount: async (id: string) => toCount((await apiClient.get<DataResponse<ApiCount>>(`/api/company/inventory/counts/${id}`)).data),
+  createCount: async (payload: Record<string, unknown>) => toCount((await apiClient.post<DataResponse<ApiCount>>('/api/company/inventory/counts', payload)).data),
+  updateCount: async (id: number, payload: Record<string, unknown>) => toCount((await apiClient.put<DataResponse<ApiCount>>(`/api/company/inventory/counts/${id}`, payload)).data),
+  countAction: async (id: number, action: 'confirm' | 'cancel' | 'reverse', payload: Record<string, unknown> = {}) => toCount((await apiClient.post<DataResponse<ApiCount>>(`/api/company/inventory/counts/${id}/${action}`, payload)).data),
   coverage: async () => (await apiClient.get<DataResponse<Record<string, unknown>[]>>('/api/company/inventory/coverage')).data,
   divergences: async () => (await apiClient.get<DataResponse<Record<string, unknown>[]>>('/api/company/inventory/divergences')).data,
 };
