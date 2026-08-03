@@ -596,3 +596,21 @@ Rotas de UX:
 - Criacao de item: `/catalog/new`.
 - Consulta de itens controlados: `/inventory/items`.
 - Configuracao por unidade: `/inventory/unit-items`.
+# Guia do Catalogo - Fase B
+
+O Guia do Catalogo orienta a configuracao inicial sem virar fonte de dados de Catalogo.
+
+Responsabilidades:
+
+- Frontend apresenta convite, wizard, ajuda contextual, empty state e deep links.
+- Backend guarda apenas progresso do guia por usuario, contexto e versao.
+- Backend calcula conclusoes automaticas consultando dados reais de Catalogo e a integracao com Estoque.
+- CatalogItem continua sendo a identidade unica do item.
+- InventoryItem continua sendo apenas perfil operacional de estoque.
+
+Nao responsabilidades:
+
+- Criar itens de exemplo.
+- Criar segunda configuracao de tipos.
+- Alterar regras de CatalogItem.
+- Criar cadastro duplicado no Estoque.

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
 import {
-  Edit, Archive, RefreshCw, Trash2,
+  Edit, Archive, RefreshCw, Trash2, HelpCircle,
   Package, Briefcase, RefreshCw as RefreshCwIcon, GraduationCap, Star, Boxes,
   Calendar, Clock, Award, Sparkles, Lock,
 } from 'lucide-react';
@@ -49,6 +49,11 @@ function formatDuration(minutes: number): string {
 
 const TYPE_ICON_MAP: Record<CatalogItemType, React.ReactNode> = {
   product:      <Package size={16} />,
+  internal_supply: <Package size={16} />,
+  material:     <Boxes size={16} />,
+  packaging:    <Package size={16} />,
+  semi_finished: <Boxes size={16} />,
+  finished_product: <Package size={16} />,
   service:      <Briefcase size={16} />,
   subscription: <RefreshCwIcon size={16} />,
   course:       <GraduationCap size={16} />,
@@ -56,6 +61,7 @@ const TYPE_ICON_MAP: Record<CatalogItemType, React.ReactNode> = {
   plan:         <Star size={16} />,
   custom:       <Boxes size={16} />,
 };
+const STOCKABLE_DETAIL_TYPES = new Set<CatalogItemType>(['product', 'internal_supply', 'material', 'packaging', 'semi_finished', 'finished_product']);
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -125,7 +131,7 @@ function TypeDetails({ item }: { item: CatalogItem }) {
     </div>
   );
 
-  if (item.type === 'product') {
+  if (STOCKABLE_DETAIL_TYPES.has(item.type)) {
     const cost = typeof f.custo === 'number' ? f.custo : 0;
     const margin = cost > 0 && item.price > 0
       ? Math.round(((item.price - cost) / item.price) * 100)
@@ -496,6 +502,11 @@ export function CatalogDetail() {
 
         {/* Action buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, flexWrap: 'wrap' }}>
+          <ActionBtn
+            label="Guia"
+            icon={<HelpCircle size={14} />}
+            onClick={() => navigate('/catalog?guide=catalog-onboarding')}
+          />
           {localStatus !== 'archived' && (
             <ActionBtn
               label="Editar"
@@ -763,7 +774,7 @@ export function CatalogDetail() {
             </div>
 
             <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {item.type === 'product' && typeof f.custo === 'number' && (
+              {STOCKABLE_DETAIL_TYPES.has(item.type) && typeof f.custo === 'number' && (
                 <>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                     <span style={{ color: '#64748B' }}>Custo</span>

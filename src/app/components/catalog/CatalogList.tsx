@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router';
+import { useNavigate, Link, useSearchParams } from 'react-router';
 import {
   Package, CheckCircle, MinusCircle, Archive, TrendingUp,
   Boxes, Briefcase, RefreshCw, GraduationCap, Stethoscope,
-  Star, Search, Settings, Plus, Eye, Edit, Trash2, X,
+  Star, Search, Settings, Plus, Eye, Edit, Trash2, X, HelpCircle,
 } from 'lucide-react';
 import { CATALOG_TYPE_CONFIG, CATALOG_STATUS_CONFIG, DEFAULT_CATALOG_LABELS } from '../../../types/catalog';
 import type { CatalogItem, CatalogItemType, CatalogItemStatus, CatalogStats } from '../../../types/catalog';
@@ -13,6 +13,9 @@ import { ModuleStateView } from '../../../shared/components/ModuleStateView';
 import {
   archiveItem, deleteItem, getCatalogConfig, getItems, getStats, reactivateItem,
 } from '../../../services/catalogService';
+import { catalogOnboardingService } from '../../../services/catalogOnboardingService';
+import type { CatalogOnboardingState } from '../../../types/catalogOnboarding';
+import { CatalogGuideMiniCard, CatalogOnboardingGuide } from './CatalogOnboardingGuide';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -30,6 +33,11 @@ function formatDate(dateStr: string): string {
 
 const TYPE_ICONS: Record<CatalogItemType, React.ReactNode> = {
   product:      <Package size={12} />,
+  internal_supply: <Package size={12} />,
+  material:     <Boxes size={12} />,
+  packaging:    <Package size={12} />,
+  semi_finished: <Boxes size={12} />,
+  finished_product: <Package size={12} />,
   service:      <Briefcase size={12} />,
   subscription: <RefreshCw size={12} />,
   course:       <GraduationCap size={12} />,
@@ -42,6 +50,7 @@ const TYPE_ICONS: Record<CatalogItemType, React.ReactNode> = {
 
 export function CatalogList() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [stats, setStats] = useState<CatalogStats>({
@@ -51,16 +60,40 @@ export function CatalogList() {
   const [enabledTypes, setEnabledTypes] = useState<CatalogItemType[]>(Object.keys(CATALOG_TYPE_CONFIG) as CatalogItemType[]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [onboardingState, setOnboardingState] = useState<CatalogOnboardingState | null>(null);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [guideMode, setGuideMode] = useState<'invite' | 'wizard'>('wizard');
+
+  const openGuide = (mode: 'invite' | 'wizard' = 'wizard') => {
+    setGuideMode(mode);
+    setGuideOpen(true);
+  };
 
   const load = async () => {
     setLoading(true);
     setError('');
     try {
-      const [nextItems, nextStats, config] = await Promise.all([getItems(), getStats(), getCatalogConfig()]);
+      const [nextItems, nextStats, config, nextOnboarding] = await Promise.all([
+        getItems(),
+        getStats(),
+        getCatalogConfig(),
+        catalogOnboardingService.getProgress('network').catch(() => null),
+      ]);
       setItems(nextItems);
       setStats(nextStats);
       setLabels(config.labels);
       setEnabledTypes(config.enabledTypes);
+      setOnboardingState(nextOnboarding);
+
+      if (nextOnboarding && searchParams.get('guide') === 'catalog-onboarding') {
+        openGuide('wizard');
+      } else if (nextOnboarding?.status === 'not_started') {
+        const inviteSeen = window.sessionStorage.getItem('catalog-onboarding-invite-seen') === '1';
+        if (!inviteSeen) {
+          window.sessionStorage.setItem('catalog-onboarding-invite-seen', '1');
+          openGuide('invite');
+        }
+      }
     } catch {
       setError('Nao foi possivel carregar o catalogo.');
     } finally {
@@ -366,6 +399,25 @@ export function CatalogList() {
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button
+            onClick={() => openGuide('wizard')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '9px 16px',
+              borderRadius: '10px',
+              border: '1px solid rgba(0,0,0,0.1)',
+              background: '#fff',
+              fontSize: 13,
+              fontWeight: 600,
+              color: '#64748B',
+              cursor: 'pointer',
+            }}
+          >
+            <HelpCircle size={14} />
+            Guia
+          </button>
+          <button
             onClick={() => navigate('/catalog/settings')}
             style={{
               display: 'inline-flex',
@@ -408,6 +460,39 @@ export function CatalogList() {
       </div>
 
       {/* ── KPI Cards ─────────────────────────────────────────────────────────── */}
+      {onboardingState && (
+        <CatalogGuideMiniCard state={onboardingState} onOpen={() => openGuide('wizard')} />
+      )}
+
+      {items.length === 0 && !filtersActive && (
+        <div style={{ background: '#fff', borderRadius: 8, border: '1px solid rgba(0,0,0,0.06)', padding: 18, marginBottom: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          <div>
+            <strong style={{ display: 'block', color: '#0F172A', fontSize: 14 }}>Comece por um item real da operacao</strong>
+            <span style={{ color: '#64748B', fontSize: 13 }}>Exemplo: Sorvete de Morango vendido, Leite como insumo ou Pote 500ml como embalagem.</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => openGuide('wizard')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '9px 14px',
+              borderRadius: 8,
+              border: 'none',
+              background: '#4F46E5',
+              color: '#fff',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            Abrir guia
+            <HelpCircle size={14} />
+          </button>
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '20px' }}>
         {[
           { label: 'Total',       value: stats.total,                        icon: <Boxes size={18} />,      color: '#6366F1', bg: '#EEF2FF' },
@@ -658,9 +743,18 @@ export function CatalogList() {
         keyField="id"
         onRowClick={row => navigate(`/catalog/${row.id}`)}
         actions={actions}
-        emptyMessage={`Nenhum ${labels.singular.toLowerCase()} encontrado.`}
+        emptyMessage={`Nenhum ${labels.singular.toLowerCase()} encontrado. Crie o primeiro item no Catalogo para usar em vendas, operacao ou Estoque.`}
         emptyIcon={<Package size={32} style={{ color: '#CBD5E1' }} />}
       />
+      {onboardingState && (
+        <CatalogOnboardingGuide
+          open={guideOpen}
+          mode={guideMode}
+          state={onboardingState}
+          onClose={() => setGuideOpen(false)}
+          onStateChange={setOnboardingState}
+        />
+      )}
     </div>
   );
 }

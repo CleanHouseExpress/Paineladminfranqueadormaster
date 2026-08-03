@@ -333,3 +333,23 @@ Proximo passo sugerido: configurar Estoque para os itens controlados.
 3. Criar etapa final conectando com Estoque.
 4. Adicionar persistencia minima somente se a experiencia exigir.
 5. Criar E2E de progresso automatico.
+# Fase B - contrato implementado
+
+O progresso do Guia do Catalogo e hibrido:
+
+- Etapas educativas podem ser marcadas pelo usuario.
+- Etapas operacionais tambem sao concluidas automaticamente quando existem dados reais.
+- Reset limpa progresso manual e preserva conclusoes automaticas.
+- Dismiss oculta o convite automatico, mas nao remove o acesso permanente ao guia.
+
+Fonte de progresso automatico:
+
+- Primeiro item: existe item no Catalogo.
+- Controle de estoque: existe item estocavel com controle de estoque marcado.
+- Insumo interno: existe insumo, material, embalagem ou semiacabado.
+- Servico: existe item de servico ou procedimento.
+- Campos extras: existe configuracao de campos para itens do Catalogo.
+- Governanca: existe configuracao de governanca de Catalogo.
+- Estoque: existe item controlado e o usuario pode ver Estoque.
+
+O modelo nao cria item de exemplo, nao duplica regra de Catalogo e nao substitui validacoes do backend.

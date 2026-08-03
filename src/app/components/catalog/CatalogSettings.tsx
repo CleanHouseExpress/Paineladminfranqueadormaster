@@ -4,6 +4,7 @@ import {
   Settings, ArrowLeft, Type, Eye, Star, GripVertical,
   LayoutGrid, ChevronLeft, ChevronRight, Boxes,
   Package, Briefcase, RefreshCw, GraduationCap, Stethoscope,
+  HelpCircle,
 } from 'lucide-react';
 import { CATALOG_TYPE_CONFIG, DEFAULT_CATALOG_LABELS } from '../../../types/catalog';
 import type { CatalogGovernanceSettings, CatalogItemType, CatalogLabels, CatalogMetadataConfig } from '../../../types/catalog';
@@ -72,7 +73,8 @@ const TABLE_COLUMNS = [
 ];
 
 const ALL_TYPES: CatalogItemType[] = [
-  'product', 'service', 'subscription', 'course', 'procedure', 'plan', 'custom',
+  'product', 'internal_supply', 'material', 'packaging', 'semi_finished', 'finished_product',
+  'service', 'subscription', 'course', 'procedure', 'plan', 'custom',
 ];
 
 const DEFAULT_GOVERNANCE: CatalogGovernanceSettings = {
@@ -107,6 +109,11 @@ const GOVERNANCE_FIELDS: Array<{ key: keyof CatalogGovernanceSettings; label: st
 
 const TYPE_ICON_NODES: Record<CatalogItemType, React.ReactNode> = {
   product:      <Package size={16} />,
+  internal_supply: <Package size={16} />,
+  material:     <Boxes size={16} />,
+  packaging:    <Package size={16} />,
+  semi_finished: <Boxes size={16} />,
+  finished_product: <Package size={16} />,
   service:      <Briefcase size={16} />,
   subscription: <RefreshCw size={16} />,
   course:       <GraduationCap size={16} />,
@@ -186,6 +193,11 @@ export function CatalogSettings() {
   // Enabled types (product and service always on)
   const [enabledTypes, setEnabledTypes] = useState<Record<CatalogItemType, boolean>>({
     product:      true,
+    internal_supply: true,
+    material:     true,
+    packaging:    true,
+    semi_finished: true,
+    finished_product: true,
     service:      true,
     subscription: true,
     course:       true,
@@ -324,17 +336,30 @@ export function CatalogSettings() {
             </p>
           </div>
         </div>
-        <button
-          onClick={() => navigate('/catalog')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '6px',
-            padding: '8px 14px', borderRadius: '10px',
-            border: '1.5px solid rgba(0,0,0,0.1)', background: 'white',
-            color: '#64748B', fontSize: '13px', fontWeight: 500, cursor: 'pointer',
-          }}
-        >
-          <ArrowLeft size={14} /> Voltar
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            onClick={() => navigate('/catalog?guide=catalog-onboarding')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '8px 14px', borderRadius: '10px',
+              border: '1.5px solid rgba(0,0,0,0.1)', background: 'white',
+              color: '#64748B', fontSize: '13px', fontWeight: 500, cursor: 'pointer',
+            }}
+          >
+            <HelpCircle size={14} /> Guia
+          </button>
+          <button
+            onClick={() => navigate('/catalog')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '8px 14px', borderRadius: '10px',
+              border: '1.5px solid rgba(0,0,0,0.1)', background: 'white',
+              color: '#64748B', fontSize: '13px', fontWeight: 500, cursor: 'pointer',
+            }}
+          >
+            <ArrowLeft size={14} /> Voltar
+          </button>
+        </div>
       </div>
 
       {/* Two-column layout */}

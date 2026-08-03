@@ -283,3 +283,15 @@ Isto criara um perfil operacional vinculado.
 5. Criar progresso automatico com base em dados reais.
 6. Integrar o fim do guia com sugestao de Estoque.
 7. Adicionar E2E da jornada Catalogo -> Estoque.
+
+## Fase B implementada
+
+- Guia interativo disponivel em `/catalog`, com convite de primeiro acesso e entrada permanente.
+- Progresso persistido por usuario, contexto e versao no backend tenant.
+- Progresso automatico calculado a partir de itens reais do Catalogo e itens marcados para controle de estoque.
+- Etapas filtradas por permissao para nao sugerir acoes que o usuario nao pode executar.
+- Deep links para formulario do Catalogo, configuracoes, governanca e Estoque.
+- Empty state da listagem orienta o primeiro cadastro sem criar exemplos artificiais.
+- Formulario mostra ajuda contextual sobre controle de estoque mantendo o Catalogo como origem do item.
+- Detalhe e Configuracoes apontam para o guia por link permanente.
+- E2E dedicado cobre convite, retomada, dados existentes, RBAC, dismiss, responsividade e Catalogo -> Estoque.

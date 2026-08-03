@@ -20,6 +20,11 @@ function formatCurrency(value: number): string {
 
 const TYPE_ICONS: Record<CatalogItemType, React.ReactNode> = {
   product:      <Package size={16} />,
+  internal_supply: <Package size={16} />,
+  material:     <Boxes size={16} />,
+  packaging:    <Package size={16} />,
+  semi_finished: <Boxes size={16} />,
+  finished_product: <Package size={16} />,
   service:      <Briefcase size={16} />,
   subscription: <RefreshCw size={16} />,
   course:       <GraduationCap size={16} />,
@@ -28,7 +33,7 @@ const TYPE_ICONS: Record<CatalogItemType, React.ReactNode> = {
   custom:       <Boxes size={16} />,
 };
 
-const TYPE_DESCRIPTIONS: Record<CatalogItemType, string> = {
+const TYPE_DESCRIPTIONS: Record<string, string> = {
   product:      'Tem estoque e código de barras',
   service:      'Agenda e profissional',
   subscription: 'Cobrança recorrente',
@@ -41,6 +46,8 @@ const TYPE_DESCRIPTIONS: Record<CatalogItemType, string> = {
 const UNIT_OPTIONS = ['un', 'kg', 'h', 'min', 'sessão', 'mês', 'ano', 'kit', 'vaga', 'curso', 'Outro'];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
+
+const STOCKABLE_FORM_TYPES = new Set<CatalogItemType>(['product', 'internal_supply', 'material', 'packaging', 'semi_finished', 'finished_product']);
 
 function SectionCard({
   title,
@@ -305,7 +312,7 @@ export function CatalogForm() {
 
   // ── Dynamic type section opacity/height ───────────────────────────────────
   function typeSectionStyle(type: CatalogItemType): React.CSSProperties {
-    const visible = selectedType === type;
+    const visible = type === 'product' ? STOCKABLE_FORM_TYPES.has(selectedType) : selectedType === type;
     return {
       overflow: 'hidden',
       maxHeight: visible ? '600px' : '0px',
@@ -514,7 +521,7 @@ export function CatalogForm() {
                           )}
                         </div>
                         <div style={{ fontSize: 10, color: '#94A3B8', lineHeight: 1.3 }}>
-                          {TYPE_DESCRIPTIONS[type]}
+                          {TYPE_DESCRIPTIONS[type] ?? 'Item configuravel'}
                         </div>
                       </div>
                     );
@@ -574,6 +581,12 @@ export function CatalogForm() {
 
             {/* PRODUCT */}
             <div style={typeSectionStyle('product')}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', borderRadius: 10, background: '#ECFDF5', border: '1px solid #BBF7D0', marginBottom: 12 }}>
+                <Package size={16} color="#047857" style={{ marginTop: 1, flexShrink: 0 }} />
+                <p style={{ margin: 0, fontSize: 12, color: '#047857', lineHeight: 1.5 }}>
+                  Marque controle de estoque quando existir quantidade fisica para acompanhar. O item continua sendo definido no Catalogo e aparece no Estoque para unidades, locais e movimentos.
+                </p>
+              </div>
               <Toggle
                 checked={!!typeFields.controlaEstoque}
                 onChange={v => setField('controlaEstoque', v)}
