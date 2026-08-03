@@ -172,6 +172,24 @@ test('@inventory onboarding primeiro acesso inicia wizard e mostra progresso', a
   await expect(page.getByText(/Etapa 2 de/)).toBeVisible();
 });
 
+test('@inventory onboarding abre mesmo com onboarding principal pendente', async ({ page }) => {
+  await mockAuth(page);
+  await page.route('**/api/me/onboarding', route => json(route, {
+    required: true,
+    status: 'pending',
+    current_step: 'company_profile',
+    required_steps: ['company_profile', 'branding', 'settings'],
+    completed_steps: [],
+    onboarding_required: true,
+    completed_at: null,
+  }));
+  await mockInventory(page);
+  await mockOnboarding(page, makeState());
+
+  await page.goto('/inventory');
+  await expect(page.getByText('Vamos preparar o estoque da sua rede?')).toBeVisible();
+});
+
 test('@inventory onboarding dados existentes aparecem concluidos e reset preserva progresso automatico', async ({ page }) => {
   await mockAuth(page);
   await mockInventory(page);

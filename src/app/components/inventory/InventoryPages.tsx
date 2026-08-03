@@ -11,7 +11,6 @@ import { DynamicFormRenderer } from '../../../shared/components/DynamicFormRende
 import { DynamicTableRenderer, type ColumnDef } from '../../../shared/components/DynamicTableRenderer';
 import { ModuleStateView } from '../../../shared/components/ModuleStateView';
 import { usePermission } from '../../../shared/hooks/usePermission';
-import { useOnboarding } from '../../../shared/hooks/useOnboarding';
 import { unitManagementService } from '../../../services/unitManagementService';
 import { inventoryService } from '../../../services/inventoryService';
 import { inventoryOnboardingService } from '../../../services/inventoryOnboardingService';
@@ -217,7 +216,6 @@ export function InventoryDashboard() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { hasPermission } = usePermission();
-  const { state: platformOnboarding } = useOnboarding();
   const settingsState = useInventorySettings();
   const [metrics, setMetrics] = useState<InventoryMetrics | null>(null);
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -282,7 +280,7 @@ export function InventoryDashboard() {
   useEffect(() => {
     if (!settingsState.loading) {
       const openGuide = searchParams.get('guide') === 'inventory-onboarding' || searchParams.get('inventoryGuide') === '1';
-      void loadOnboarding(!openGuide && platformOnboarding.wizardCompleted, openGuide).then(() => {
+      void loadOnboarding(!openGuide, openGuide).then(() => {
         if (!openGuide) return;
         const nextParams = new URLSearchParams(searchParams);
         nextParams.delete('guide');
@@ -290,7 +288,7 @@ export function InventoryDashboard() {
         setSearchParams(nextParams, { replace: true });
       });
     }
-  }, [settingsState.loading, location.key, platformOnboarding.wizardCompleted]);
+  }, [settingsState.loading, location.key]);
 
   const handleOnboardingStateChange = (next: InventoryOnboardingState) => {
     setOnboarding(next);
