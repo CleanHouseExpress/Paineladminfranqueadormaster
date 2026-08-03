@@ -66,11 +66,11 @@ function completedCount(state: CatalogOnboardingState) {
 function stepContent(step: CatalogOnboardingStep, state: CatalogOnboardingState): StepContent {
   const map: Record<string, StepContent> = {
     welcome: {
-      title: 'Vamos montar o Catalogo da rede',
-      text: 'O Catalogo guarda os itens que podem ser vendidos, usados em operacao ou controlados pelo Estoque.',
+      title: 'Tudo comeca aqui',
+      text: 'O Catalogo e a lista oficial da rede: Catalogo -> Estoque -> Producao -> Compras -> Financeiro.',
       actionLabel: 'Comecar guia',
       exampleTitle: 'Fluxo ideal',
-      exampleLines: ['Escolher tipos', 'Criar itens reais', 'Ativar estoque quando fizer sentido', 'Seguir para Estoque'],
+      exampleLines: ['Catalogo define o item', 'Estoque controla onde ele esta', 'Producao usa os insumos', 'Compras e Financeiro reutilizam os dados'],
       icon: <BookOpenCheck size={19} />,
     },
     item_types: {
@@ -107,12 +107,12 @@ function stepContent(step: CatalogOnboardingStep, state: CatalogOnboardingState)
       icon: <Warehouse size={19} />,
     },
     internal_supply: {
-      title: 'Cadastre insumos e embalagens sem vender por engano',
-      text: 'Itens internos ajudam a produzir, comprar e controlar consumo sem virar produto de venda.',
+      title: 'Fluxo Melten: tudo nasce no Catalogo',
+      text: 'Sorvete, morango, leite, acucar, embalagem e casquinha nascem no Catalogo; depois cada modulo usa o que precisa.',
       actionLabel: 'Criar insumo',
       secondaryLabel: 'Pular por enquanto',
-      exampleTitle: 'Exemplos',
-      exampleLines: ['Leite - litro', 'Morango - kg', 'Pote 500ml - un', 'Calda base - kg'],
+      exampleTitle: 'Sorvete de morango',
+      exampleLines: ['Sorvete: produto vendido', 'Morango e leite: insumos', 'Acucar: material', 'Embalagem e casquinha: itens controlados'],
       icon: <Boxes size={19} />,
     },
     service_item: {
@@ -388,7 +388,7 @@ export function CatalogOnboardingGuide({
             <button ref={closeButtonRef} type="button" aria-label="Fechar convite" onClick={onClose} style={{ border: 0, background: 'transparent', cursor: 'pointer', color: muted }}><X size={18} /></button>
           </div>
           <h2 id="catalog-onboarding-invite-title" style={{ margin: '16px 0 6px', color: dark, fontSize: 22 }}>Vamos montar o Catalogo?</h2>
-          <p style={{ margin: 0, color: muted, lineHeight: 1.55, fontSize: 14 }}>O Orchestra pode guiar voce pelos primeiros itens usando as telas reais do Catálogo e indicando quando seguir para Estoque.</p>
+          <p style={{ margin: 0, color: muted, lineHeight: 1.55, fontSize: 14 }}>O Orchestra pode guiar voce pelos primeiros itens usando as telas reais do Catalogo. O Catalogo define o item; o Estoque controla onde ele esta.</p>
           {error && <p role="alert" style={{ color: '#B91C1C', fontSize: 13 }}>{error}</p>}
           <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', marginTop: 18 }}>
             <button type="button" disabled={saving} onClick={() => void update({ completed_step: 'welcome' }).then(next => { if (next) setInternalMode('wizard'); })} style={{ ...buttonBase, background: primary, color: '#fff' }} data-testid="catalog-onboarding-start">Comecar agora <ArrowRight size={15} /></button>
@@ -414,6 +414,7 @@ export function CatalogOnboardingGuide({
             <section style={{ minWidth: 0 }}>
               <span style={{ color: muted, fontSize: 12, fontWeight: 800 }}>Etapa {stepIndex + 1} de {state.steps.length}</span>
               <h2 id="catalog-onboarding-title" style={{ margin: '8px 0', color: dark, fontSize: 24 }}>{content.title}</h2>
+              <p style={{ margin: '0 0 8px', color: primary, fontSize: 13, fontWeight: 800 }}>Catalogo define o item. Estoque controla onde ele esta.</p>
               <p style={{ margin: '0 0 16px', color: muted, lineHeight: 1.58, fontSize: 14 }}>{content.text}</p>
               {step.completed && <p style={{ color: '#15803D', fontSize: 13, fontWeight: 800 }}>Esta etapa ja esta concluida pelos dados da sua rede.</p>}
               {step.skipped && <p style={{ color: '#A16207', fontSize: 13, fontWeight: 800 }}>Esta etapa foi pulada. Voce pode voltar nela quando quiser.</p>}
