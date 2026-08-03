@@ -243,5 +243,5 @@ test('@inventory onboarding responsivo e API indisponivel nao bloqueia modulo', 
 
   await page.goto('/inventory');
   await expect(page.getByText(/On hand|Disponivel/i).first()).toBeVisible();
-  await expect(page.getByText(/O modulo continua disponivel normalmente/i)).toBeVisible();
+  await expect(page.getByText(/O modulo continua disponivel normalmente/i)).toBeHidden();
 });

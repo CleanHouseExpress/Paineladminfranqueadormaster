@@ -16,7 +16,7 @@ import { unitManagementService } from '../../../services/unitManagementService';
 import { inventoryService } from '../../../services/inventoryService';
 import { inventoryOnboardingService } from '../../../services/inventoryOnboardingService';
 import { notifyOnboardingRealityChanged } from '../../../services/onboardingService';
-import { getApiErrorMessage } from '../../../services/apiClient';
+import { ApiError, getApiErrorMessage } from '../../../services/apiClient';
 import { InventoryNetworkOnboardingWizard } from './InventoryNetworkOnboardingWizard';
 import {
   INVENTORY_PERMISSIONS, MOVEMENT_TYPE_CONFIG, UNITS_OF_MEASURE,
@@ -248,7 +248,11 @@ export function InventoryDashboard() {
         setWizardMode('invite');
         setWizardOpen(true);
       }
-    } catch {
+    } catch (loadError) {
+      if (loadError instanceof ApiError && [403, 404, 409, 500].includes(loadError.status)) {
+        setOnboarding(null);
+        return;
+      }
       setOnboardingError('Nao foi possivel carregar o guia de configuracao.');
     }
   };
