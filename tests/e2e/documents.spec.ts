@@ -29,6 +29,7 @@ async function mockAuth(page: Page) {
   await page.route('**/api/me/roles', route => json(route, { data: [{ id: 1, name: 'company_admin' }] }));
   await page.route('**/api/me/permissions', route => json(route, { data: permissions }));
   await page.route('**/api/me/units', route => json(route, []));
+  await page.route('**/api/company/units?**', route => json(route, { data: [{ id: 101, name: 'Unidade Centro', address_city: 'Sao Paulo', address_state: 'SP', status: 'active' }], meta: { total: 1 } }));
   await page.route('**/api/company/units/options', route => json(route, [{ value: 101, label: 'Unidade Centro' }]));
 }
 
