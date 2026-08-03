@@ -10,6 +10,8 @@
 
 **Base técnica analisada:** backend Laravel em `C:\repos\Clin\orchestra-api` e frontend/documentação em `C:\repos\Clin\Paineladminfranqueadormaster`.
 
+Nota de aceite MVP Inventory: o encerramento funcional do fluxo Melten esta documentado no backend em `docs/architecture/inventory-mvp-acceptance.md` e coberto no frontend por `tests/e2e/inventory/inventory-melten-e2e.spec.ts`.
+
 ## 1. Objetivo
 
 Este documento é a referência mestre para posicionar novos módulos e evoluções do Orchestra dentro de bounded contexts claros. Ele existe para evitar que domínios amplos como Finance, Communication, Automation ou Subscriptions virem caixas genéricas de responsabilidade.
