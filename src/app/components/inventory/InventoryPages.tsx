@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 import {
   AlertTriangle, ArrowLeftRight, Boxes, Building2, CheckCircle, ChevronLeft,
   ChevronRight, DollarSign, Edit, Eye, MapPin, Package, Plus, RotateCcw, Save, Settings, Trash2,
-  Truck, X, XCircle,
+  Truck, X, XCircle, ListChecks,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -13,7 +13,9 @@ import { ModuleStateView } from '../../../shared/components/ModuleStateView';
 import { usePermission } from '../../../shared/hooks/usePermission';
 import { unitManagementService } from '../../../services/unitManagementService';
 import { inventoryService } from '../../../services/inventoryService';
+import { inventoryOnboardingService } from '../../../services/inventoryOnboardingService';
 import { getApiErrorMessage } from '../../../services/apiClient';
+import { InventoryNetworkOnboardingWizard } from './InventoryNetworkOnboardingWizard';
 import {
   INVENTORY_PERMISSIONS, MOVEMENT_TYPE_CONFIG, UNITS_OF_MEASURE,
   type InventoryCategory, type InventoryItem, type InventoryMetadata,
@@ -22,6 +24,7 @@ import {
   type InventorySettings, type InventorySupplier, type MovementType,
   type StockBalance, type StockLocation,
 } from '../../../types/inventory';
+import type { InventoryOnboardingState } from '../../../types/inventoryOnboarding';
 import type { UnitOption } from '../../../types/unitManagement';
 import type { DynamicFieldSchema } from '../../../types/userManagement';
 
@@ -209,6 +212,7 @@ function useInventoryData() {
 
 export function InventoryDashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { hasPermission } = usePermission();
   const settingsState = useInventorySettings();
   const [metrics, setMetrics] = useState<InventoryMetrics | null>(null);
@@ -218,6 +222,26 @@ export function InventoryDashboard() {
   const [movements, setMovements] = useState<InventoryMovement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [onboarding, setOnboarding] = useState<InventoryOnboardingState | null>(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardMode, setWizardMode] = useState<'invite' | 'wizard'>('wizard');
+  const [onboardingError, setOnboardingError] = useState('');
+
+  const loadOnboarding = async (allowInvite = false) => {
+    setOnboardingError('');
+    try {
+      const state = await inventoryOnboardingService.getProgress('network');
+      setOnboarding(state);
+      const inviteSeen = window.sessionStorage.getItem('inventory-network-onboarding-invite-seen') === '1';
+      if (allowInvite && !inviteSeen && !state.dismissed && !state.completed && !state.started && state.steps.length > 0) {
+        window.sessionStorage.setItem('inventory-network-onboarding-invite-seen', '1');
+        setWizardMode('invite');
+        setWizardOpen(true);
+      }
+    } catch {
+      setOnboardingError('Nao foi possivel carregar o guia de configuracao.');
+    }
+  };
 
   useEffect(() => {
     if (!settingsState.settings?.inventory_enabled) {
@@ -240,6 +264,12 @@ export function InventoryDashboard() {
     }).catch(() => setError('Nao foi possivel carregar o painel de estoque.'))
       .finally(() => setLoading(false));
   }, [settingsState.settings?.inventory_enabled]);
+
+  useEffect(() => {
+    if (!settingsState.loading) {
+      void loadOnboarding(true);
+    }
+  }, [settingsState.loading, location.key]);
 
   if (settingsState.loading || loading) return <ModuleStateView state="loading" />;
   if (settingsState.error || error || !metrics) {
@@ -276,11 +306,41 @@ export function InventoryDashboard() {
           title={`${term(settingsState.settings, 'module')} & Suprimentos`}
           description={`Controle de ${term(settingsState.settings, 'itemPlural').toLowerCase()}, ${term(settingsState.settings, 'locationPlural').toLowerCase()}, ${term(settingsState.settings, 'movementPlural').toLowerCase()} e saldo por unidade.`}
           actions={<>
+            <SecondaryButton onClick={() => { setWizardMode('wizard'); setWizardOpen(true); }}><ListChecks size={14} /> Guia de configuracao</SecondaryButton>
             <SecondaryButton onClick={() => navigate('/inventory/balances')}><Boxes size={14} /> {term(settingsState.settings, 'balancePlural')}</SecondaryButton>
             {hasPermission(INVENTORY_PERMISSIONS.entryCreate) && <SecondaryButton onClick={() => navigate('/inventory/movements?new=1')}><ArrowLeftRight size={14} /> Novo {term(settingsState.settings, 'movement')}</SecondaryButton>}
             {hasPermission(INVENTORY_PERMISSIONS.itemsManage) && <PrimaryButton onClick={() => navigate('/inventory/items/new')}><Plus size={14} /> Novo {term(settingsState.settings, 'item')}</PrimaryButton>}
           </>}
         />
+        {onboarding && !onboarding.completed && !onboarding.dismissed && onboarding.started && (
+          <div style={{ ...cardStyle, padding: 14, marginBottom: 18, display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }} data-testid="inventory-onboarding-resume-card">
+            <div>
+              <strong style={{ color: '#0F172A', fontSize: 14 }}>Continue configurando seu estoque</strong>
+              <p style={{ margin: '4px 0 0', color: '#64748B', fontSize: 12 }}>
+                Voce concluiu {onboarding.steps.filter(step => step.completed).length} de {onboarding.steps.length} passos.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <SecondaryButton onClick={() => { setWizardMode('wizard'); setWizardOpen(true); }}>Continuar</SecondaryButton>
+              <SecondaryButton onClick={async () => { const next = await inventoryOnboardingService.reset('network'); setOnboarding(next); setWizardMode('wizard'); setWizardOpen(true); }}>Reiniciar</SecondaryButton>
+              <SecondaryButton onClick={async () => setOnboarding(await inventoryOnboardingService.dismiss('network'))}>Nao mostrar novamente</SecondaryButton>
+            </div>
+          </div>
+        )}
+        {onboardingError && (
+          <div style={{ ...cardStyle, padding: 12, marginBottom: 18, color: '#92400E', background: '#FFFBEB', borderColor: '#FCD34D', fontSize: 12 }}>
+            {onboardingError} O modulo continua disponivel normalmente.
+          </div>
+        )}
+        {onboarding && (
+          <InventoryNetworkOnboardingWizard
+            open={wizardOpen}
+            mode={wizardMode}
+            state={onboarding}
+            onClose={() => setWizardOpen(false)}
+            onStateChange={setOnboarding}
+          />
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 12, marginBottom: 18 }}>
           {kpis.map(([label, value, Icon, color, bg]) => (
             <div key={label} style={{ ...cardStyle, padding: 16 }}>

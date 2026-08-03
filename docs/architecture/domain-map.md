@@ -556,3 +556,29 @@ Fora desta fase:
 - importacao massiva;
 - leitura offline;
 - lotes, validade, serial e reserva.
+
+## Inventory Onboarding - Fase B2.1 Frontend
+
+O onboarding de Estoque nao e um bounded context separado. Ele e uma camada de UX sobre o dominio Inventory para reduzir curva de aprendizado da franqueadora.
+
+Ownership:
+
+- Inventory continua dono de itens, locais, movimentos, saldos e contagens.
+- Recipe and Composition continua dono de fichas tecnicas e execucoes.
+- Backend B1 de onboarding e dono do progresso, RBAC/capability e etapas permitidas.
+- Frontend B2.1 e dono apenas da apresentacao do wizard e da navegacao para telas existentes.
+
+Superficie implementada:
+
+- `InventoryDashboard` como ponto de entrada e retomada.
+- `InventoryNetworkOnboardingWizard` como modal guiado.
+- `inventoryOnboardingService` como adapter para endpoints B1.
+
+Fronteiras:
+
+- nao cria migrations;
+- nao cria endpoints;
+- nao altera RBAC;
+- nao cria regra nova de estoque;
+- nao calcula progresso olhando dados operacionais;
+- nao duplica services de Inventory.
