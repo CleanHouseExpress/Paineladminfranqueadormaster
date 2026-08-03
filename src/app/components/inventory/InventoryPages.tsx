@@ -11,9 +11,11 @@ import { DynamicFormRenderer } from '../../../shared/components/DynamicFormRende
 import { DynamicTableRenderer, type ColumnDef } from '../../../shared/components/DynamicTableRenderer';
 import { ModuleStateView } from '../../../shared/components/ModuleStateView';
 import { usePermission } from '../../../shared/hooks/usePermission';
+import { useOnboarding } from '../../../shared/hooks/useOnboarding';
 import { unitManagementService } from '../../../services/unitManagementService';
 import { inventoryService } from '../../../services/inventoryService';
 import { inventoryOnboardingService } from '../../../services/inventoryOnboardingService';
+import { notifyOnboardingRealityChanged } from '../../../services/onboardingService';
 import { getApiErrorMessage } from '../../../services/apiClient';
 import { InventoryNetworkOnboardingWizard } from './InventoryNetworkOnboardingWizard';
 import {
@@ -213,7 +215,9 @@ function useInventoryData() {
 export function InventoryDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { hasPermission } = usePermission();
+  const { state: platformOnboarding } = useOnboarding();
   const settingsState = useInventorySettings();
   const [metrics, setMetrics] = useState<InventoryMetrics | null>(null);
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -227,12 +231,18 @@ export function InventoryDashboard() {
   const [wizardMode, setWizardMode] = useState<'invite' | 'wizard'>('wizard');
   const [onboardingError, setOnboardingError] = useState('');
 
-  const loadOnboarding = async (allowInvite = false) => {
+  const loadOnboarding = async (allowInvite = false, openGuide = false) => {
     setOnboardingError('');
     try {
       const state = await inventoryOnboardingService.getProgress('network');
       setOnboarding(state);
       const inviteSeen = window.sessionStorage.getItem('inventory-network-onboarding-invite-seen') === '1';
+      if (openGuide && state.steps.length > 0) {
+        window.sessionStorage.setItem('inventory-network-onboarding-invite-seen', '1');
+        setWizardMode('wizard');
+        setWizardOpen(true);
+        return;
+      }
       if (allowInvite && !inviteSeen && !state.dismissed && !state.completed && !state.started && state.steps.length > 0) {
         window.sessionStorage.setItem('inventory-network-onboarding-invite-seen', '1');
         setWizardMode('invite');
@@ -267,9 +277,21 @@ export function InventoryDashboard() {
 
   useEffect(() => {
     if (!settingsState.loading) {
-      void loadOnboarding(true);
+      const openGuide = searchParams.get('guide') === 'inventory-onboarding' || searchParams.get('inventoryGuide') === '1';
+      void loadOnboarding(!openGuide && platformOnboarding.wizardCompleted, openGuide).then(() => {
+        if (!openGuide) return;
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete('guide');
+        nextParams.delete('inventoryGuide');
+        setSearchParams(nextParams, { replace: true });
+      });
     }
-  }, [settingsState.loading, location.key]);
+  }, [settingsState.loading, location.key, platformOnboarding.wizardCompleted]);
+
+  const handleOnboardingStateChange = (next: InventoryOnboardingState) => {
+    setOnboarding(next);
+    notifyOnboardingRealityChanged();
+  };
 
   if (settingsState.loading || loading) return <ModuleStateView state="loading" />;
   if (settingsState.error || error || !metrics) {
@@ -338,7 +360,7 @@ export function InventoryDashboard() {
             mode={wizardMode}
             state={onboarding}
             onClose={() => setWizardOpen(false)}
-            onStateChange={setOnboarding}
+            onStateChange={handleOnboardingStateChange}
           />
         )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(145px,1fr))', gap: 12, marginBottom: 18 }}>

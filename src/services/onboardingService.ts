@@ -65,8 +65,12 @@ type UnitSummary = {
 type UserSummary = { id: number | string; email: string; roles?: Array<{ name?: string; slug?: string }> };
 type ListResponse<T> = { data: T[]; meta?: { total?: number } };
 type RoyaltySetupResponse = { data?: unknown[]; meta?: { total?: number } };
-type SidebarModule = { id?: string; slug?: string; enabled?: boolean; status?: string };
+type SidebarModule = { id?: string; module_id?: string; slug?: string; enabled?: boolean; status?: string };
 type SidebarModuleResponse = SidebarModule[] | { data?: SidebarModule[] };
+type InventoryOnboardingSummary = {
+  completed?: boolean;
+  steps?: unknown[];
+};
 
 const STEP_TO_WIZARD_INDEX: Record<string, number> = {
   company_profile: 1,
@@ -148,10 +152,15 @@ function toUsers(users: UserSummary[]): WizardStepData['users'] {
 function toModules(modules: SidebarModuleResponse | null): string[] {
   const items = Array.isArray(modules) ? modules : modules?.data ?? [];
   const fromApi = items
-    .map(module => module.id ?? module.slug)
+    .map(module => module.id ?? module.module_id ?? module.slug)
     .filter((id): id is string => Boolean(id));
 
   return fromApi.length > 0 ? fromApi : INITIAL_ONBOARDING_STATE.stepData.modules;
+}
+
+function inventoryModuleAvailable(modules: SidebarModuleResponse | null): boolean {
+  const items = Array.isArray(modules) ? modules : modules?.data ?? [];
+  return items.some(module => (module.id ?? module.module_id ?? module.slug) === 'inventory');
 }
 
 function toFinancial(settings: TenantSettings | null): WizardStepData['financial'] {
@@ -183,10 +192,18 @@ function checklistFromBackend(params: {
   settings: TenantSettings | null;
   royaltyRules: RoyaltySetupResponse | null;
   royaltyAssignments: RoyaltySetupResponse | null;
+  inventoryOnboarding: DataResponse<InventoryOnboardingSummary> | InventoryOnboardingSummary | null;
 }): ChecklistItem[] {
   const modulesAvailable = (Array.isArray(params.modules) ? params.modules : params.modules?.data ?? []).length > 0;
   const settingsCompleted = backendStepCompleted(params.onboarding, 'settings');
   const royaltiesConfigured = hasItems(params.royaltyRules) && hasItems(params.royaltyAssignments);
+  const inventoryOnboarding = dataOf(params.inventoryOnboarding);
+  const showInventoryChecklist = Boolean(
+    inventoryOnboarding
+    && inventoryModuleAvailable(params.modules)
+    && Array.isArray(inventoryOnboarding.steps)
+    && inventoryOnboarding.steps.length > 0,
+  );
 
   const completed: Record<string, boolean> = {
     network: backendStepCompleted(params.onboarding, 'company_profile'),
@@ -194,15 +211,18 @@ function checklistFromBackend(params: {
     unit: params.units.length > 0,
     user: params.usersTotal > 1,
     modules: settingsCompleted || modulesAvailable,
+    inventory: inventoryOnboarding?.completed === true,
     royalties: royaltiesConfigured || Boolean(params.settings?.dashboard_preferences?.onboarding_financial),
     clients: customersConfigured(params.settings),
     tour: params.onboarding?.status === 'completed',
   };
 
-  return INITIAL_CHECKLIST.map(item => ({
-    ...item,
-    completed: completed[item.id] ?? item.completed,
-  }));
+  return INITIAL_CHECKLIST
+    .filter(item => item.id !== 'inventory' || showInventoryChecklist)
+    .map(item => ({
+      ...item,
+      completed: completed[item.id] ?? item.completed,
+    }));
 }
 
 function currentWizardStep(onboarding: ApiOnboarding | null): number {
@@ -259,6 +279,9 @@ export async function getOnboardingStatus(): Promise<OnboardingState> {
   const units = unitsResponse?.data ?? [];
   const usersTotal = usersResponse?.meta?.total ?? usersResponse?.data?.length ?? 0;
   const modules = modulesResponse ?? null;
+  const inventoryOnboardingResponse = inventoryModuleAvailable(modules)
+    ? await optional(apiClient.get<DataResponse<InventoryOnboardingSummary>>('/api/company/inventory/onboarding?context=network', { expireSessionOnUnauthorized: false }))
+    : null;
   const completed = isWizardCompleted(onboarding);
 
   return {
@@ -286,6 +309,7 @@ export async function getOnboardingStatus(): Promise<OnboardingState> {
       settings,
       royaltyRules: royaltyRulesResponse,
       royaltyAssignments: royaltyAssignmentsResponse,
+      inventoryOnboarding: inventoryOnboardingResponse,
     }),
     lastSynced: new Date().toISOString(),
   };

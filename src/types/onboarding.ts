@@ -152,6 +152,7 @@ export const INITIAL_CHECKLIST: ChecklistItem[] = [
   { id: 'unit',       label: 'Cadastrar primeira unidade',     description: 'Adicione ao menos uma unidade',    path: '/units',              completed: false },
   { id: 'user',       label: 'Convidar colaborador',           description: 'Gestores, admin ou operadores',    path: '/access',             completed: false },
   { id: 'modules',    label: 'Ativar módulos da rede',         description: 'Escolha as funcionalidades ativas',path: '/modules',            completed: false },
+  { id: 'inventory',  label: 'Configurar Estoque',              description: 'Voce ainda nao terminou a configuracao do Estoque.', path: '/inventory?guide=inventory-onboarding', completed: false, requiredModuleIds: ['inventory'] },
   { id: 'royalties',  label: 'Configurar royalties',           description: 'Regras, taxas e vinculos por unidade', path: '/royalties/settings', completed: false },
   { id: 'clients',    label: 'Configurar gestao de clientes',  description: 'Campos, labels e visualizacao',    path: '/customers/settings', completed: false },
   { id: 'tour',       label: 'Fazer tour pela plataforma',     description: 'Conheça todos os recursos',        path: '/',                   completed: false },
