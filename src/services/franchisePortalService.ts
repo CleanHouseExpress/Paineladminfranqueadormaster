@@ -47,7 +47,7 @@ export const franchisePortalService = {
     const response = await fetch(`${apiClientConfig.baseUrl}/api/franchise/documents/${id}/download`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
-    if (!response.ok) throw new Error('NÃƒÂ£o foi possÃƒÂ­vel baixar o documento.');
+    if (!response.ok) throw new Error('Não foi possível baixar o documento.');
     const url = URL.createObjectURL(await response.blob());
     const link = document.createElement('a');
     link.href = url; link.download = fileName; link.click();

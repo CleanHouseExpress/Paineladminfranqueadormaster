@@ -430,7 +430,7 @@ export function ChecklistTemplateFormPage() {
       setStatus(template.status ?? status);
       navigate(`${routeBase}/${template.id}`);
     } catch (error) {
-      toast.error(apiErrorMessage(error, 'NÃƒÂ£o foi possÃƒÂ­vel salvar o modelo.'));
+      toast.error(apiErrorMessage(error, 'Não foi possível salvar o modelo.'));
     } finally {
       setSaving(false);
     }
@@ -499,7 +499,7 @@ export function ChecklistTemplateFormPage() {
           className={`border-b-2 px-4 py-3 text-sm font-medium ${activeTab === 'configuration' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-muted-foreground'}`}
           onClick={() => setActiveTab('configuration')}
         >
-          ConfiguraÃƒÂ§ÃƒÂ£o
+          Configuração
         </button>
         <button
           type="button"
@@ -971,13 +971,13 @@ export function ChecklistExecutionPage() {
         : await checklistManagementService.updateExecution(execution.id, payload);
       setExecution(updated);
       setAnswers(answersFromExecution(updated));
-      toast.success(complete ? 'Checklist concluÃƒÂ­do.' : 'Respostas salvas.');
+      toast.success(complete ? 'Checklist concluído.' : 'Respostas salvas.');
     } catch (error) {
       toast.error(apiErrorMessage(
         error,
         complete
-          ? 'NÃƒÂ£o foi possÃƒÂ­vel concluir. Verifique as respostas e o saldo de estoque.'
-          : 'NÃƒÂ£o foi possÃƒÂ­vel salvar as respostas.',
+          ? 'Não foi possível concluir. Verifique as respostas e o saldo de estoque.'
+          : 'Não foi possível salvar as respostas.',
       ));
     } finally {
       setSaving(false);
@@ -1052,9 +1052,9 @@ export function ChecklistExecutionPage() {
         <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <Package className="size-5 shrink-0" />
           <div>
-            <p className="font-medium">Este checklist gera movimentaÃƒÂ§ÃƒÂµes de estoque ao ser concluÃƒÂ­do.</p>
+            <p className="font-medium">Este checklist gera movimentações de estoque ao ser concluído.</p>
             <p className="text-xs text-amber-800">
-              Se nÃƒÂ£o houver saldo suficiente, a conclusÃƒÂ£o serÃƒÂ¡ cancelada sem aplicar baixas parciais.
+              Se não houver saldo suficiente, a conclusão será cancelada sem aplicar baixas parciais.
             </p>
           </div>
         </div>

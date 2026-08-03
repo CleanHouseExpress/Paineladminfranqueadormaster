@@ -45,7 +45,7 @@ function money(value: number) {
 }
 
 function dateTime(value?: string | null) {
-  return value ? new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'Ã¢â‚¬â€';
+  return value ? new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '?';
 }
 
 const DEFAULT_TERMS = {
@@ -135,7 +135,7 @@ function InventoryCapabilityState({ settings, loading, error, children }: {
 }
 
 function stockState(item: InventoryItem) {
-  if (!item.trackInventory) return { label: 'NÃƒÂ£o controlado', color: '#64748B', bg: '#F1F5F9' };
+  if (!item.trackInventory) return { label: 'Não controlado', color: '#64748B', bg: '#F1F5F9' };
   if (item.totalOnHand <= 0) return { label: 'Sem estoque', color: '#EF4444', bg: '#FEF2F2' };
   if (item.totalOnHand <= item.minimumStock) return { label: 'Estoque baixo', color: '#D97706', bg: '#FFFBEB' };
   return { label: 'Normal', color: '#10B981', bg: '#ECFDF5' };
@@ -201,7 +201,7 @@ function useInventoryData() {
       setCategories(nextCategories);
       setSuppliers(nextSuppliers);
     } catch {
-      setError('NÃƒÂ£o foi possÃƒÂ­vel carregar os dados de estoque.');
+      setError('Não foi possível carregar os dados de estoque.');
     } finally {
       setLoading(false);
     }
@@ -457,8 +457,8 @@ export function InventoryItems() {
       const item = row as unknown as InventoryItem; const state = stockState(item);
       return <strong style={{ color: state.color }}>{item.totalOnHand} {item.unitOfMeasure}</strong>;
     } },
-    { key: 'minimumStock', label: 'MÃƒÂ­nimo', type: 'number', width: '80px' },
-    { key: 'projectedAverageCost', label: 'Custo mÃƒÂ©dio', width: '110px', render: value => money(Number(value)) },
+    { key: 'minimumStock', label: 'Mínimo', type: 'number', width: '80px' },
+    { key: 'projectedAverageCost', label: 'Custo médio', width: '110px', render: value => money(Number(value)) },
     { key: 'active', label: 'Status', width: '90px', render: value => <span style={{ color: value ? '#10B981' : '#64748B', background: value ? '#ECFDF5' : '#F1F5F9', borderRadius: 99, padding: '3px 9px', fontSize: 10, fontWeight: 700 }}>{value ? 'Ativo' : 'Inativo'}</span> },
   ];
 
@@ -483,7 +483,7 @@ export function InventoryItems() {
         <select value={supplier} onChange={e => setSupplier(e.target.value)} style={inputStyle}><option value="">Todos os fornecedores</option>{suppliers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
         <select value={status} onChange={e => setStatus(e.target.value)} style={inputStyle}><option value="">Todos os status</option><option value="true">Ativos</option><option value="false">Inativos</option></select>
         <select value={unit} onChange={e => setUnit(e.target.value)} style={inputStyle}><option value="">Todas as unidades</option>{unitOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select>
-        <button onClick={() => setCritical(value => !value)} style={{ border: `1px solid ${critical ? '#F59E0B' : '#CBD5E1'}`, background: critical ? '#FFFBEB' : '#fff', color: critical ? '#D97706' : '#64748B', borderRadius: 9, padding: '0 12px', fontWeight: 700, cursor: 'pointer' }}>Estoque crÃƒÂ­tico</button>
+        <button onClick={() => setCritical(value => !value)} style={{ border: `1px solid ${critical ? '#F59E0B' : '#CBD5E1'}`, background: critical ? '#FFFBEB' : '#fff', color: critical ? '#D97706' : '#64748B', borderRadius: 9, padding: '0 12px', fontWeight: 700, cursor: 'pointer' }}>Estoque crítico</button>
       </div>
       <DynamicTableRenderer
         columns={columns}
@@ -538,7 +538,7 @@ export function InventoryItemForm() {
         minimum_stock: item.minimumStock, metadata: item.metadata,
         ...item.metadata,
       });
-    }).catch(() => setError('NÃƒÂ£o foi possÃƒÂ­vel carregar o formulÃƒÂ¡rio.')).finally(() => setLoading(false));
+    }).catch(() => setError('Não foi possível carregar o formulário.')).finally(() => setLoading(false));
   }, [editing, id]);
 
   const schema = useMemo(() => {
@@ -568,7 +568,7 @@ export function InventoryItemForm() {
       const item = editing && id ? await inventoryService.updateItem(id, payload) : await inventoryService.createItem(payload);
       toast.success(editing ? 'Insumo atualizado.' : 'Insumo criado.');
       navigate(`/inventory/items/${item.id}`);
-    } catch { toast.error('NÃƒÂ£o foi possÃƒÂ­vel salvar o insumo.'); }
+    } catch { toast.error('Não foi possível salvar o insumo.'); }
     finally { setSaving(false); }
   };
 
@@ -576,7 +576,7 @@ export function InventoryItemForm() {
   if (error || !metadata) return <ModuleStateView state="error" errorMessage={error} />;
   return (
     <div style={pageStyle}>
-      <PageHeader title={editing ? 'Editar Insumo' : 'Novo Insumo'} description="Cadastro separado do catÃƒÂ¡logo comercial: aqui ficam os itens comprados, armazenados e consumidos." back="/inventory/items" actions={<>
+      <PageHeader title={editing ? 'Editar Insumo' : 'Novo Insumo'} description="Cadastro separado do catálogo comercial: aqui ficam os itens comprados, armazenados e consumidos." back="/inventory/items" actions={<>
         <SecondaryButton onClick={() => navigate(-1)}>Cancelar</SecondaryButton>
         <PrimaryButton onClick={() => void save()} disabled={saving}><Save size={14} /> {saving ? 'Salvando...' : 'Salvar Insumo'}</PrimaryButton>
       </>} />
@@ -585,11 +585,11 @@ export function InventoryItemForm() {
           <DynamicFormRenderer schema={schema as DynamicFieldSchema[]} values={values} onChange={(key, value) => setValues(current => ({ ...current, [key]: value }))} showProgress highlightRequired />
         </div>
         <div style={{ ...cardStyle, padding: 18, position: 'sticky', top: 18 }}>
-          <div style={{ fontSize: 11, color: '#64748B', textTransform: 'uppercase', fontWeight: 700 }}>PrÃƒÂ©via</div>
+          <div style={{ fontSize: 11, color: '#64748B', textTransform: 'uppercase', fontWeight: 700 }}>Prévia</div>
           <h2 style={{ margin: '8px 0 2px', fontSize: 19 }}>{String(values.name || 'Nome do insumo')}</h2>
           <p style={{ margin: 0, color: '#94A3B8', fontSize: 12 }}>{String(values.sku || 'Sem SKU')}</p>
           <div style={{ marginTop: 16, padding: 13, borderRadius: 10, background: '#F8FAFC' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginTop: 8 }}><span>Estoque mÃƒÂ­nimo</span><strong>{Number(values.minimum_stock ?? 0)} {String(values.unit_of_measure)}</strong></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginTop: 8 }}><span>Estoque mínimo</span><strong>{Number(values.minimum_stock ?? 0)} {String(values.unit_of_measure)}</strong></div>
           </div>
           <p style={{ color: '#64748B', fontSize: 11, lineHeight: 1.6 }}>Saldo e custo operacional sao exibidos nas projecoes por local e atualizados exclusivamente pelo ledger.</p>
         </div>
@@ -672,7 +672,7 @@ export function InventoryItemDetail() {
 
   return (
     <div style={pageStyle}>
-      <PageHeader title={item.name} description={item.description ?? 'Detalhes e posiÃƒÂ§ÃƒÂ£o de estoque do insumo.'} back="/inventory/items" actions={<>
+      <PageHeader title={item.name} description={item.description ?? 'Detalhes e posição de estoque do insumo.'} back="/inventory/items" actions={<>
         {hasPermission(INVENTORY_PERMISSIONS.update) && <SecondaryButton onClick={() => navigate(`/inventory/items/${item.id}/edit`)}><Edit size={14} /> Editar</SecondaryButton>}
         {hasPermission(INVENTORY_PERMISSIONS.move) && <PrimaryButton onClick={() => navigate(`/inventory/movements?new=1&item=${item.id}`)}><ArrowLeftRight size={14} /> Movimentar</PrimaryButton>}
       </>} />
@@ -682,9 +682,9 @@ export function InventoryItemDetail() {
             <h2 style={{ margin: '0 0 16px', fontSize: 14 }}>Dados gerais</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
               {[
-                ['SKU', item.sku ?? 'Ã¢â‚¬â€'], ['Categoria', item.categoryName ?? 'Ã¢â‚¬â€'], ['Fornecedor', item.supplierName ?? 'Ã¢â‚¬â€'],
-                ['Unidade de medida', item.unitOfMeasure], ['Estoque mÃƒÂ­nimo', `${item.minimumStock} ${item.unitOfMeasure}`],
-                ['Custo mÃƒÂ©dio', money(item.projectedAverageCost)],
+                ['SKU', item.sku ?? '?'], ['Categoria', item.categoryName ?? '?'], ['Fornecedor', item.supplierName ?? '?'],
+                ['Unidade de medida', item.unitOfMeasure], ['Estoque mínimo', `${item.minimumStock} ${item.unitOfMeasure}`],
+                ['Custo médio', money(item.projectedAverageCost)],
               ].map(([label, value]) => <div key={label}><div style={{ color: '#94A3B8', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>{label}</div><div style={{ marginTop: 4, fontSize: 13, fontWeight: 600 }}>{value}</div></div>)}
             </div>
           </div>
@@ -724,15 +724,15 @@ export function InventoryItemDetail() {
             ))}
           </div>
           <div style={{ ...cardStyle, padding: 18 }}>
-            <h2 style={{ margin: '0 0 14px', fontSize: 14 }}>ÃƒÅ¡ltimas movimentaÃƒÂ§ÃƒÂµes</h2>
+            <h2 style={{ margin: '0 0 14px', fontSize: 14 }}>Últimas movimentações</h2>
             <DynamicTableRenderer columns={[
               { key: 'createdAt', label: 'Data', width: '120px', render: value => dateTime(String(value)) },
               { key: 'type', label: 'Tipo', width: '90px', render: value => { const cfg = MOVEMENT_TYPE_CONFIG[value as MovementType]; return <span style={{ color: cfg.color, background: cfg.bg, padding: '3px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700 }}>{cfg.label}</span>; } },
               { key: 'quantity', label: 'Quantidade', width: '100px', render: (_, row) => `${MOVEMENT_TYPE_CONFIG[row.type as MovementType].sign}${Math.abs(Number(row.quantity))} ${item.unitOfMeasure}` },
               { key: 'unitName', label: 'Unidade', width: '130px' },
               { key: 'unitCost', label: 'Custo', width: '90px', render: value => money(Number(value ?? 0)) },
-              { key: 'performedByName', label: 'ResponsÃƒÂ¡vel', width: '120px' },
-            ]} data={movements as unknown as Record<string, unknown>[]} emptyMessage="Nenhuma movimentaÃƒÂ§ÃƒÂ£o para este insumo." />
+              { key: 'performedByName', label: 'Responsável', width: '120px' },
+            ]} data={movements as unknown as Record<string, unknown>[]} emptyMessage="Nenhuma movimentação para este insumo." />
           </div>
         </div>
         <div style={{ display: 'grid', gap: 16, alignContent: 'start' }}>
@@ -743,10 +743,10 @@ export function InventoryItemDetail() {
             <div style={{ fontSize: 21, fontWeight: 800, marginTop: 3 }}>{money(item.totalValue)}</div>
           </div>
           <div style={{ ...cardStyle, padding: 18 }}>
-            <h2 style={{ margin: '0 0 12px', fontSize: 14 }}>HistÃƒÂ³rico</h2>
+            <h2 style={{ margin: '0 0 12px', fontSize: 14 }}>Histórico</h2>
             <div style={{ borderLeft: '2px solid #E2E8F0', paddingLeft: 13, display: 'grid', gap: 13 }}>
               <div><strong style={{ fontSize: 12 }}>Insumo criado</strong><div style={{ color: '#94A3B8', fontSize: 10 }}>{dateTime(item.createdAt)}</div></div>
-              <div><strong style={{ fontSize: 12 }}>ÃƒÅ¡ltima atualizaÃƒÂ§ÃƒÂ£o</strong><div style={{ color: '#94A3B8', fontSize: 10 }}>{dateTime(item.updatedAt)}</div></div>
+              <div><strong style={{ fontSize: 12 }}>Última atualização</strong><div style={{ color: '#94A3B8', fontSize: 10 }}>{dateTime(item.updatedAt)}</div></div>
               {movements.slice(0, 4).map(movement => <div key={movement.id}><strong style={{ fontSize: 12 }}>{MOVEMENT_TYPE_CONFIG[movement.type].label} de {movement.quantity} {item.unitOfMeasure}</strong><div style={{ color: '#94A3B8', fontSize: 10 }}>{dateTime(movement.createdAt)}</div></div>)}
             </div>
           </div>
@@ -794,27 +794,27 @@ function CrudPage<T extends InventoryCategory | InventorySupplier>({
       }
       toast.success(`${isSupplier ? 'Fornecedor' : 'Categoria'} salvo(a).`);
       setOpen(false); await reload();
-    } catch { toast.error('NÃƒÂ£o foi possÃƒÂ­vel salvar.'); }
+    } catch { toast.error('Não foi possível salvar.'); }
   };
   const remove = async (record: T) => {
     if (!window.confirm(`Excluir "${record.name}"?`)) return;
     try {
       if (kind === 'category') await inventoryService.deleteCategory(record.id);
       else await inventoryService.deleteSupplier(record.id);
-      toast.success('Registro excluÃƒÂ­do.'); await reload();
-    } catch { toast.error('NÃƒÂ£o foi possÃƒÂ­vel excluir.'); }
+      toast.success('Registro excluído.'); await reload();
+    } catch { toast.error('Não foi possível excluir.'); }
   };
 
   const columns: ColumnDef[] = isSupplier ? [
     { key: 'name', label: 'Fornecedor', type: 'avatar', width: '190px', sortable: true },
-    { key: 'document', label: 'Documento', width: '140px', render: value => <span style={{ fontFamily: 'monospace' }}>{String(value ?? 'Ã¢â‚¬â€')}</span> },
+    { key: 'document', label: 'Documento', width: '140px', render: value => <span style={{ fontFamily: 'monospace' }}>{String(value ?? '?')}</span> },
     { key: 'phone', label: 'Telefone', width: '120px' },
     { key: 'email', label: 'E-mail', width: '170px' },
     { key: 'contactName', label: 'Contato', width: '130px' },
     { key: 'active', label: 'Status', width: '90px', render: value => value ? 'Ativo' : 'Inativo' },
   ] : [
     { key: 'name', label: 'Categoria', sortable: true, width: '180px' },
-    { key: 'description', label: 'DescriÃƒÂ§ÃƒÂ£o', width: '350px' },
+    { key: 'description', label: 'Descrição', width: '350px' },
     { key: 'active', label: 'Status', width: '90px', render: value => value ? 'Ativa' : 'Inativa' },
   ];
 
@@ -837,7 +837,7 @@ function CrudPage<T extends InventoryCategory | InventorySupplier>({
           </div>
           <label style={{ fontSize: 12, fontWeight: 650 }}>Contato principal<input value={String(form.contactName ?? '')} onChange={e => setForm(current => ({ ...current, contactName: e.target.value }))} style={{ ...inputStyle, marginTop: 5 }} /></label>
           <label style={{ fontSize: 12, fontWeight: 650 }}>Prazo de entrega (dias)<input type="number" value={String((form.metadata as Record<string, unknown> | undefined)?.delivery_days ?? '')} onChange={e => setForm(current => ({ ...current, metadata: { ...(current.metadata as object ?? {}), delivery_days: Number(e.target.value) } }))} style={{ ...inputStyle, marginTop: 5 }} /></label>
-        </> : <label style={{ fontSize: 12, fontWeight: 650 }}>DescriÃƒÂ§ÃƒÂ£o<textarea value={String(form.description ?? '')} onChange={e => setForm(current => ({ ...current, description: e.target.value }))} style={{ ...inputStyle, marginTop: 5, minHeight: 90 }} /></label>}
+        </> : <label style={{ fontSize: 12, fontWeight: 650 }}>Descrição<textarea value={String(form.description ?? '')} onChange={e => setForm(current => ({ ...current, description: e.target.value }))} style={{ ...inputStyle, marginTop: 5, minHeight: 90 }} /></label>}
         <label style={{ display: 'flex', gap: 8, fontSize: 12 }}><input type="checkbox" checked={Boolean(form.active)} onChange={e => setForm(current => ({ ...current, active: e.target.checked }))} /> Ativo</label>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}><SecondaryButton onClick={() => setOpen(false)}>Cancelar</SecondaryButton><PrimaryButton onClick={() => void save()}><Save size={13} /> Salvar</PrimaryButton></div>
       </div>
@@ -848,13 +848,13 @@ function CrudPage<T extends InventoryCategory | InventorySupplier>({
 export function InventoryCategories() {
   const { categories, loading, error, reload } = useInventoryData();
   if (error) return <ModuleStateView state="error" errorMessage={error} />;
-  return <CrudPage kind="category" title="Categorias" description="Organize matÃƒÂ©rias-primas, embalagens, descartÃƒÂ¡veis e demais insumos." records={categories} loading={loading} reload={reload} />;
+  return <CrudPage kind="category" title="Categorias" description="Organize matérias-primas, embalagens, descartáveis e demais insumos." records={categories} loading={loading} reload={reload} />;
 }
 
 export function InventorySuppliers() {
   const { suppliers, loading, error, reload } = useInventoryData();
   if (error) return <ModuleStateView state="error" errorMessage={error} />;
-  return <CrudPage kind="supplier" title="Fornecedores" description="Cadastre os parceiros que abastecem a operaÃƒÂ§ÃƒÂ£o." records={suppliers} loading={loading} reload={reload} />;
+  return <CrudPage kind="supplier" title="Fornecedores" description="Cadastre os parceiros que abastecem a operação." records={suppliers} loading={loading} reload={reload} />;
 }
 
 export function InventoryLocations() {
