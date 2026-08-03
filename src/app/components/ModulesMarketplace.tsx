@@ -18,6 +18,7 @@ const iconMap: Record<string, React.FC<any>> = {
 
 const directModuleRoutes: Record<string, string> = {
   "form-builder": "/settings/form-builder",
+  inventory: "/inventory",
 };
 
 const statusConfig: Record<ModuleStatus, { label: string; color: string; bg: string; icon: React.ReactNode }> = {

@@ -25,7 +25,7 @@ export const mockModules = [
   { id: "relatorios", name: "Relatórios Avançados", description: "Relatórios customizados com exportação e agendamento automático.", category: "Relatórios", icon: "FileBarChart", status: "available" as const, price: "R$ 97/mês" },
   { id: "integracoes", name: "Integrações", description: "Conexão com ERPs, gateways de pagamento, plataformas de delivery e mais.", category: "Integrações", icon: "Plug", status: "available" as const, price: "Sob consulta" },
   { id: "nps", name: "NPS & Satisfação", description: "Pesquisas de satisfação automatizadas e acompanhamento de NPS por unidade.", category: "Clientes e CRM", icon: "Star", status: "development" as const, price: "Em breve" },
-  { id: "supply", name: "Gestão de Insumos", description: "Controle de estoque, pedidos de reposição e centralização de compras.", category: "Operação", icon: "Boxes", status: "blocked" as const, price: "Sob consulta" },
+  { id: "inventory", name: "Estoque & Suprimentos", description: "Controle de insumos, fornecedores, saldos por unidade, movimentacoes e custos medios.", category: "Operação", icon: "Boxes", status: "active" as const, price: "Incluso" },
 ];
 
 export const mockUnits = [
