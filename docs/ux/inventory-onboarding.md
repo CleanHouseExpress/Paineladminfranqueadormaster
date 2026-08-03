@@ -186,3 +186,11 @@ Responsabilidades que permanecem fora do frontend:
 - marcar progresso automatico por dados reais;
 - validar regras de estoque;
 - criar item, local, movimento, saldo, receita ou contagem fora das telas oficiais.
+
+## Atualizacao - Catalog como origem dos itens
+
+A etapa de itens do guia passa a abrir o Catalogo. O usuario cria ou edita o item no Catalogo, escolhe o tipo adequado (produto, insumo interno, material, embalagem, semiacabado ou produto acabado) e marca "Controlar estoque".
+
+Depois disso, o perfil operacional aparece automaticamente em Estoque como item controlado. A etapa seguinte continua em Estoque: habilitar o item por unidade e configurar parametros locais.
+
+A tela de Estoque nao deve oferecer cadastro independente de item. Quando houver uma lista de itens no Estoque, ela representa consulta e configuracao operacional de itens controlados, com CTA "Editar no Catalogo".

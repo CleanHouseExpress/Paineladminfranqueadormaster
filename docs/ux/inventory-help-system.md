@@ -212,3 +212,18 @@ Use uma contagem quando quiser comparar o saldo do sistema com o estoque real.
 - Se ha itens e locais, mas nao ha saldo: sugerir primeira entrada.
 - Se ha saldo baixo: explicar estoque minimo e link para itens por unidade.
 - Se usuario nao tem permissao: explicar que a acao depende da franqueadora/admin.
+
+## Atualizacao - ajuda para itens controlados
+
+A ajuda da tela de itens deve explicar:
+
+- "Os dados do item sao definidos no Catalogo."
+- "Use Estoque para controlar onde esta, quanto existe e como se movimenta."
+- "Para mudar nome, SKU, barcode ou tipo, use Editar no Catalogo."
+
+Empty state revisado:
+
+```text
+Nenhum item controlado encontrado.
+Crie o item no Catalogo e marque Controlar estoque para ele aparecer aqui.
+```

@@ -103,6 +103,10 @@ const BASIC_FIELDS = new Set([
   'sku', 'unit_of_measure', 'metadata', 'created_at',
 ]);
 
+const STOCKABLE_CATALOG_TYPES = new Set<CatalogItemType>([
+  'product', 'internal_supply', 'material', 'packaging', 'semi_finished', 'finished_product',
+]);
+
 function normalizedOptions(value?: ApiMetadataField['options']) {
   return (value ?? []).map(option => typeof option === 'string'
     ? { label: option, value: option }
@@ -120,7 +124,7 @@ function metadataFields(value: ApiCatalogItem['metadata']): CatalogMetadataField
 }
 
 function typeFields(api: ApiCatalogItem): Record<string, unknown> {
-  if (api.item_type === 'product') {
+  if (STOCKABLE_CATALOG_TYPES.has(api.item_type)) {
     const detail = api.product_detail ?? {};
     return {
       controlaEstoque: detail.track_stock,
@@ -212,7 +216,7 @@ function toPayload(data: Partial<CatalogItem>) {
     metadata: Object.fromEntries((data.metadata ?? []).map(field => [field.key, field.value])),
   };
 
-  if (data.type === 'product') payload.product_detail = {
+  if (data.type && STOCKABLE_CATALOG_TYPES.has(data.type)) payload.product_detail = {
     track_stock: Boolean(fields.controlaEstoque),
     min_stock: fields.estoqueMinimo || null,
     cost_price: fields.custo || null,

@@ -91,9 +91,9 @@ function stepContent(step: InventoryOnboardingStep): StepContent {
       icon: <Settings size={19} />,
     },
     inventory_items: {
-      title: 'Crie o primeiro item',
-      text: 'Um item e algo que voce deseja controlar, como morango, leite ou embalagem.',
-      actionLabel: 'Criar primeiro item',
+      title: 'Crie o primeiro item no Catalogo',
+      text: 'O item nasce no Catalogo. Marque Controlar estoque para ele aparecer automaticamente aqui.',
+      actionLabel: 'Criar no Catalogo',
       exampleTitle: 'Exemplos',
       exampleLines: ['Morango - kg', 'Leite - litro', 'Embalagem 1 litro - unidade'],
       icon: <PackagePlus size={19} />,
@@ -170,8 +170,13 @@ function stepContent(step: InventoryOnboardingStep): StepContent {
 }
 
 function nextVisibleStep(state: InventoryOnboardingState) {
-  return state.steps.find(step => step.id === state.current_step)
-    ?? state.steps.find(step => !step.completed && !step.skipped)
+  const current = state.steps.find(step => step.id === state.current_step);
+
+  if (current && !current.completed && !current.skipped) {
+    return current;
+  }
+
+  return state.steps.find(step => !step.completed && !step.skipped)
     ?? state.steps[state.steps.length - 1];
 }
 
@@ -255,14 +260,16 @@ export function InventoryNetworkOnboardingWizard({
 
   useEffect(() => {
     if (open) {
-      setStepId(state.current_step);
+      setStepId(nextVisibleStep(state)?.id ?? state.current_step);
     }
   }, [open, state.current_step]);
 
   if (!open) return null;
 
   const refresh = async () => {
-    onStateChange(await inventoryOnboardingService.getProgress('network'));
+    const next = await inventoryOnboardingService.getProgress('network');
+    onStateChange(next);
+    setStepId(nextVisibleStep(next)?.id ?? next.current_step);
   };
 
   const update = async (payload: Parameters<typeof inventoryOnboardingService.updateProgress>[0]) => {
@@ -271,7 +278,7 @@ export function InventoryNetworkOnboardingWizard({
     try {
       const next = await inventoryOnboardingService.updateProgress({ context: 'network', ...payload });
       onStateChange(next);
-      setStepId(next.current_step);
+      setStepId(nextVisibleStep(next)?.id ?? next.current_step);
       return next;
     } catch (apiError) {
       const message = getApiErrorMessage(apiError, 'Nao foi possivel salvar o progresso.');
@@ -396,7 +403,7 @@ export function InventoryNetworkOnboardingWizard({
               {error && <p role="alert" style={{ color: '#B91C1C', fontSize: 13 }}>{error}</p>}
               <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', marginTop: 18 }}>
                 <button type="button" disabled={saving} onClick={() => void continueStep()} style={{ ...buttonBase, background: primary, color: '#fff' }} data-testid="inventory-onboarding-primary-action">{content.actionLabel}<ArrowRight size={15} /></button>
-                {step.id === 'finish' && <button type="button" onClick={() => { onClose(); navigate('/inventory/items/new'); }} style={{ ...buttonBase, background: '#fff', color: muted, border: `1px solid ${border}` }}>{content.secondaryLabel}</button>}
+                {step.id === 'finish' && <button type="button" onClick={() => { onClose(); navigate('/catalog/new'); }} style={{ ...buttonBase, background: '#fff', color: muted, border: `1px solid ${border}` }}>{content.secondaryLabel}</button>}
                 {step.optional && step.id !== 'finish' && <button type="button" disabled={saving} onClick={() => void skipStep()} style={{ ...buttonBase, background: '#fff', color: muted, border: `1px solid ${border}` }}>{content.secondaryLabel ?? 'Pular por enquanto'}</button>}
                 <button type="button" disabled={saving} onClick={() => void refresh()} style={{ ...buttonBase, background: soft, color: muted }}>Atualizar progresso</button>
               </div>

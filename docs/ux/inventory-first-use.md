@@ -77,9 +77,9 @@ Conclusao: modo salvo ou revisado.
 
 Progresso: `inventory_mode` existente.
 
-### 4. Cadastrar itens
+### 4. Cadastrar itens no Catalogo
 
-Objetivo: criar a base de insumos/produtos controlados.
+Objetivo: criar a base de insumos/produtos controlados a partir do Catalogo.
 
 Mensagem: "Item e tudo que voce quer acompanhar: insumo, embalagem ou produto pronto."
 
@@ -87,7 +87,7 @@ Exemplo: "Morango, leite, embalagem 1 litro, sorvete de morango."
 
 Ilustracao sugerida: lista curta com nomes reais.
 
-Acao principal: abrir `/inventory/items/new`.
+Acao principal: abrir `/catalog/new` e marcar o item para controle de estoque.
 
 Acao secundaria: ver lista de itens.
 

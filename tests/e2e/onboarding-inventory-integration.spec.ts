@@ -36,7 +36,7 @@ type InventoryOnboardingState = {
 
 const inventorySteps: InventoryStep[] = [
   ['welcome', 'Conhecer o estoque', '/inventory', 'tenant.inventory.view', false, 5],
-  ['inventory_items', 'Cadastrar itens', '/inventory/items/new', 'tenant.inventory.create', false, 15],
+  ['inventory_items', 'Cadastrar itens no Catalogo', '/catalog/new', 'tenant.catalog.create', false, 15],
   ['stock_locations', 'Criar locais', '/inventory/locations', 'tenant.inventory.locations.manage', false, 15],
   ['unit_items', 'Habilitar itens por unidade', '/inventory/unit-items', 'tenant.inventory.unit_items.manage', false, 15],
   ['first_entry', 'Registrar primeira entrada', '/inventory/movements?new=1', 'tenant.inventory.entry.create', false, 20],
@@ -120,7 +120,7 @@ async function mockPlatform(page: Page) {
   await page.route('**/api/me/roles', route => json(route, { data: [{ id: 1, name: 'company_admin' }] }));
   await page.route('**/api/me/permissions', route => json(route, { data: [
     'tenant.inventory.view',
-    'tenant.inventory.create',
+    'tenant.catalog.create',
     'tenant.inventory.items.manage',
     'tenant.inventory.locations.manage',
     'tenant.inventory.unit_items.manage',

@@ -582,3 +582,17 @@ Fronteiras:
 - nao cria regra nova de estoque;
 - nao calcula progresso olhando dados operacionais;
 - nao duplica services de Inventory.
+
+## Catalog x Inventory - identidade unica
+
+O frontend passa a tratar Catalog como origem dos itens da rede.
+
+- Catalog: cria e edita identidade, tipo, SKU, barcode, unidade-base, status e metadata de identidade.
+- Inventory: consulta itens controlados, configura perfil operacional, habilitacao por unidade, locais, saldos e movimentos.
+- Recipe, Forms e Checklists continuam selecionando `InventoryItem` tecnico quando precisam operar estoque, mas exibem a identidade resolvida do Catalog.
+
+Rotas de UX:
+
+- Criacao de item: `/catalog/new`.
+- Consulta de itens controlados: `/inventory/items`.
+- Configuracao por unidade: `/inventory/unit-items`.

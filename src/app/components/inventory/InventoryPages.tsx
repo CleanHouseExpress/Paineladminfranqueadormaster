@@ -333,7 +333,7 @@ export function InventoryDashboard() {
             <SecondaryButton onClick={() => { setWizardMode('wizard'); setWizardOpen(true); }}><ListChecks size={14} /> Guia de configuracao</SecondaryButton>
             <SecondaryButton onClick={() => navigate('/inventory/balances')}><Boxes size={14} /> {term(settingsState.settings, 'balancePlural')}</SecondaryButton>
             {hasPermission(INVENTORY_PERMISSIONS.entryCreate) && <SecondaryButton onClick={() => navigate('/inventory/movements?new=1')}><ArrowLeftRight size={14} /> Novo {term(settingsState.settings, 'movement')}</SecondaryButton>}
-            {hasPermission(INVENTORY_PERMISSIONS.itemsManage) && <PrimaryButton onClick={() => navigate('/inventory/items/new')}><Plus size={14} /> Novo {term(settingsState.settings, 'item')}</PrimaryButton>}
+            {hasPermission('tenant.catalog.create') && <PrimaryButton onClick={() => navigate('/catalog/new')}><Plus size={14} /> Criar no Catalogo</PrimaryButton>}
           </>}
         />
         {onboarding && !onboarding.completed && !onboarding.dismissed && onboarding.started && (
@@ -462,18 +462,21 @@ export function InventoryItems() {
     { key: 'active', label: 'Status', width: '90px', render: value => <span style={{ color: value ? '#10B981' : '#64748B', background: value ? '#ECFDF5' : '#F1F5F9', borderRadius: 99, padding: '3px 9px', fontSize: 10, fontWeight: 700 }}>{value ? 'Ativo' : 'Inativo'}</span> },
   ];
 
-  const remove = async (id: string) => {
-    if (!window.confirm('Excluir este insumo? O histÃƒÂ³rico de movimentaÃƒÂ§ÃƒÂµes tambÃƒÂ©m serÃƒÂ¡ removido.')) return;
-    try { await inventoryService.deleteItem(id); toast.success('Insumo excluÃƒÂ­do.'); await reload(); }
-    catch { toast.error('NÃƒÂ£o foi possÃƒÂ­vel excluir o insumo.'); }
+  const remove = async (item: InventoryItem) => {
+    const catalogItemId = item.catalogItemId ?? item.id;
+    if (!window.confirm('Para desativar este item, ajuste o controle de estoque no Catalogo. Abrir o cadastro agora?')) return;
+    navigate(`/catalog/${catalogItemId}/edit`);
   };
 
   if (error) return <ModuleStateView state="error" errorMessage={error} />;
   return (
     <div style={pageStyle}>
-      <PageHeader title="Insumos" description="Materiais, matÃƒÂ©rias-primas, embalagens e itens de consumo interno." back="/inventory" actions={
-        hasPermission(INVENTORY_PERMISSIONS.create) ? <PrimaryButton onClick={() => navigate('/inventory/items/new')}><Plus size={14} /> Novo Insumo</PrimaryButton> : undefined
+      <PageHeader title="Itens controlados" description="Perfis operacionais de estoque criados a partir dos itens do Catalogo." back="/inventory" actions={
+        hasPermission('tenant.catalog.create') ? <PrimaryButton onClick={() => navigate('/catalog/new')}><Plus size={14} /> Criar no Catalogo</PrimaryButton> : undefined
       } />
+      <div style={{ ...cardStyle, padding: 13, marginBottom: 14, color: '#0F766E', background: '#ECFDF5', borderColor: '#99F6E4', fontSize: 12, lineHeight: 1.5 }}>
+        Os dados do item sao definidos no Catalogo. O Estoque mostra somente os itens marcados para controle fisico e guarda parametros operacionais como minimo, fornecedor e categoria.
+      </div>
       <div style={{ ...cardStyle, padding: 13, marginBottom: 14, display: 'grid', gridTemplateColumns: 'minmax(180px,1fr) repeat(4,minmax(115px,.55fr)) auto', gap: 9 }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Pesquisar nome ou SKU..." style={inputStyle} />
         <select value={category} onChange={e => setCategory(e.target.value)} style={inputStyle}><option value="">Todas as categorias</option>{categories.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
@@ -486,12 +489,12 @@ export function InventoryItems() {
         columns={columns}
         data={filtered as unknown as Record<string, unknown>[]}
         loading={loading}
-        emptyMessage="Nenhum insumo encontrado."
+        emptyMessage="Nenhum item controlado encontrado."
         onRowClick={row => navigate(`/inventory/items/${row.id}`)}
         actions={[
           { label: 'Visualizar', onClick: row => navigate(`/inventory/items/${row.id}`) },
-          { label: 'Editar', icon: <Edit size={13} />, onClick: row => navigate(`/inventory/items/${row.id}/edit`), showCondition: () => hasPermission(INVENTORY_PERMISSIONS.update) },
-          { label: 'Excluir', icon: <Trash2 size={13} />, variant: 'danger', onClick: row => void remove(String(row.id)), showCondition: () => hasPermission(INVENTORY_PERMISSIONS.delete) },
+          { label: 'Editar no Catalogo', icon: <Edit size={13} />, onClick: row => navigate('/catalog/' + ((row as unknown as InventoryItem).catalogItemId ?? row.id) + '/edit'), showCondition: () => hasPermission('tenant.catalog.update') },
+          { label: 'Desativar no Catalogo', icon: <Trash2 size={13} />, variant: 'danger', onClick: row => void remove(row as unknown as InventoryItem), showCondition: () => hasPermission('tenant.catalog.update') },
         ]}
       />
     </div>

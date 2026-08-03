@@ -1,4 +1,4 @@
-﻿import type { ModuleDefinition } from '../types';
+import type { ModuleDefinition } from '../types';
 
 /**
  * Central Module Registry â€” single source of truth for all modules in the platform.
@@ -283,16 +283,16 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     icon: 'Boxes',
     status: 'active',
     nav: { show: true, order: 5, group: 'main', children: [
-      { label: 'VisÃ£o Geral', path: '/inventory' }, { label: 'Itens', path: '/inventory/items' },
+      { label: 'Visão Geral', path: '/inventory' }, { label: 'Itens controlados', path: '/inventory/items' },
       { label: 'Itens por Unidade', path: '/inventory/unit-items' },
       { label: 'Saldos', path: '/inventory/balances' }, { label: 'Locais', path: '/inventory/locations' },
-      { label: 'MovimentaÃ§Ãµes', path: '/inventory/movements' }, { label: 'Inventario Fisico', path: '/inventory/counts' },
-      { label: 'ConfiguraÃ§Ãµes', path: '/inventory/settings' },
+      { label: 'Movimentações', path: '/inventory/movements' }, { label: 'Inventário Físico', path: '/inventory/counts' },
+      { label: 'Configurações', path: '/inventory/settings' },
     ] },
     routes: [
       { path: '/inventory', componentId: 'inventory-dashboard', requiredPermissions: ['tenant.inventory.view'] },
       { path: '/inventory/items', componentId: 'inventory-items', requiredPermissions: ['tenant.inventory.view'] },
-      { path: '/inventory/items/new', componentId: 'inventory-item-form', requiredPermissions: ['tenant.inventory.items.manage'] },
+      { path: '/inventory/items/new', componentId: 'catalog-form', requiredPermissions: ['tenant.catalog.create'] },
       { path: '/inventory/items/:id/edit', componentId: 'inventory-item-form', requiredPermissions: ['tenant.inventory.items.manage'] },
       { path: '/inventory/items/:id', componentId: 'inventory-item-detail', requiredPermissions: ['tenant.inventory.view'] },
       { path: '/inventory/categories', componentId: 'inventory-categories', requiredPermissions: ['tenant.inventory.view'] },

@@ -1,6 +1,11 @@
 // The 7 item types — each unlocks different form fields
 export type CatalogItemType =
   | 'product'      // Produto — has stock, barcode, weight
+  | 'internal_supply'
+  | 'material'
+  | 'packaging'
+  | 'semi_finished'
+  | 'finished_product'
   | 'service'      // Serviço — has duration, professional, schedule
   | 'subscription' // Assinatura — has billing cycle, recurrence, trial
   | 'course'       // Curso — has workload, certificate, linked training
@@ -12,6 +17,11 @@ export const CATALOG_TYPE_CONFIG: Record<CatalogItemType, {
   label: string; color: string; bg: string; icon: string;
 }> = {
   product:      { label: 'Produto',       color: '#3B82F6', bg: '#EFF6FF',  icon: 'Package' },
+  internal_supply: { label: 'Insumo interno', color: '#0F766E', bg: '#ECFDF5', icon: 'Package' },
+  material: { label: 'Material', color: '#2563EB', bg: '#EFF6FF', icon: 'Boxes' },
+  packaging: { label: 'Embalagem', color: '#D97706', bg: '#FFFBEB', icon: 'Package' },
+  semi_finished: { label: 'Semiacabado', color: '#7C3AED', bg: '#F5F3FF', icon: 'Boxes' },
+  finished_product: { label: 'Produto acabado', color: '#059669', bg: '#ECFDF5', icon: 'Package' },
   service:      { label: 'Serviço',       color: '#10B981', bg: '#ECFDF5',  icon: 'Briefcase' },
   subscription: { label: 'Assinatura',    color: '#8B5CF6', bg: '#F5F3FF',  icon: 'RefreshCw' },
   course:       { label: 'Curso',         color: '#F59E0B', bg: '#FFFBEB',  icon: 'GraduationCap' },
@@ -76,6 +86,7 @@ export interface PlanFields {
 
 export type CatalogItemTypeFields =
   | { type: 'product';      fields: ProductFields }
+  | { type: 'internal_supply' | 'material' | 'packaging' | 'semi_finished' | 'finished_product'; fields: ProductFields }
   | { type: 'service';      fields: ServiceFields }
   | { type: 'subscription'; fields: SubscriptionFields }
   | { type: 'course';       fields: CourseFields }

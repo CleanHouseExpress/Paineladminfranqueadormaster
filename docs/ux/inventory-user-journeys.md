@@ -178,3 +178,18 @@ Fora desta jornada:
 - Central global de ajuda.
 - FAQ completa.
 - Qualquer cadastro ou movimento automatico de estoque.
+
+## Atualizacao - jornada de identidade unica
+
+Hoje, o item nasce no Catalogo. A entidade fonte da identidade e `CatalogItem`; Estoque mostra apenas itens controlados derivados dessa identidade.
+
+Jornada revisada da franqueadora:
+
+1. Acessa Catalogo.
+2. Cria Morango, Leite, Embalagem ou insumo interno.
+3. Marca "Controlar estoque".
+4. Abre Estoque e ve o item automaticamente em Itens controlados.
+5. Associa o item a unidade.
+6. Registra entrada e acompanha saldo.
+
+Itens por Unidade nao e uma segunda lista de cadastro: e a configuracao local do item que ja existe no Catalogo.

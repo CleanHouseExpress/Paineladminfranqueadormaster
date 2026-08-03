@@ -111,7 +111,7 @@ Observacao: isso nao deve criar movimento, saldo, item ou contagem. Deve guardar
 O progresso deve considerar o que o usuario pode fazer:
 
 - Sem `tenant.inventory.settings.update`: nao mostrar "ativar modulo" como tarefa acionavel; mostrar "solicitar ao admin".
-- Sem `tenant.inventory.create`: pode ver explicacao de itens, mas nao CTA de criar.
+- Sem `tenant.catalog.create`: pode ver explicacao de itens, mas nao CTA de criar no Catalogo.
 - Sem `tenant.inventory.locations.manage`: locais viram etapa informativa.
 - Sem `tenant.inventory.entry.create`: primeira entrada vira "peca para alguem autorizado".
 - Sem `tenant.inventory.stock_counts.create`: contagem vira leitura/explicacao.
