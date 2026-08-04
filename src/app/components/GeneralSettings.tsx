@@ -118,7 +118,7 @@ export function GeneralSettings() {
                 </div>
                 <p style={{ fontSize: "12px", color: "#94A3B8" }}>{s.desc}</p>
               </div>
-              <Arrow size={16} style={{ color: "#CBD5E1", flexShrink: 0 }} className="group-hover:text-indigo-500 transition-colors" />
+              <ChevronRight size={16} style={{ color: "#CBD5E1", flexShrink: 0 }} className="group-hover:text-indigo-500 transition-colors" />
             </Link>
           );
         })}
