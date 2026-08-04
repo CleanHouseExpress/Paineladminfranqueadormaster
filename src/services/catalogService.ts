@@ -32,6 +32,8 @@ interface ApiCatalogItem {
   origin?: 'corporate' | 'local' | 'promoted' | null;
   rejection_reason?: string | null;
   promoted_from_item_id?: number | string | null;
+  tracks_inventory?: boolean | number | null;
+  catalog_visible?: boolean | number | null;
   base_price?: number | null;
   sku?: string | null;
   unit_of_measure?: string | null;
@@ -96,6 +98,8 @@ export interface CatalogFilters {
   scope?: 'corporate' | 'local' | '';
   approvalStatus?: CatalogApprovalStatus | '';
   ownerUnitId?: string;
+  tracksInventory?: boolean | '';
+  catalogVisible?: boolean | '';
 }
 
 const BASIC_FIELDS = new Set([
@@ -127,7 +131,6 @@ function typeFields(api: ApiCatalogItem): Record<string, unknown> {
   if (STOCKABLE_CATALOG_TYPES.has(api.item_type)) {
     const detail = api.product_detail ?? {};
     return {
-      controlaEstoque: detail.track_stock,
       estoqueMinimo: detail.min_stock,
       custo: detail.cost_price,
       codigoBarras: detail.barcode,
@@ -168,6 +171,12 @@ function typeFields(api: ApiCatalogItem): Record<string, unknown> {
   return {};
 }
 
+function apiBoolean(value: unknown, fallback = false): boolean {
+  if (value === true || value === 1 || value === '1' || value === 'true') return true;
+  if (value === false || value === 0 || value === '0' || value === 'false') return false;
+  return fallback;
+}
+
 function toItem(api: ApiCatalogItem): CatalogItem {
   const createdAt = api.created_at ?? new Date().toISOString();
   return {
@@ -183,6 +192,8 @@ function toItem(api: ApiCatalogItem): CatalogItem {
     origin: api.origin ?? 'corporate',
     rejectionReason: api.rejection_reason ?? null,
     promotedFromItemId: api.promoted_from_item_id ?? null,
+    tracksInventory: apiBoolean(api.tracks_inventory, apiBoolean(api.product_detail?.track_stock, false)),
+    catalogVisible: apiBoolean(api.catalog_visible, true),
     price: Number(api.base_price ?? 0),
     sku: api.sku ?? undefined,
     unit: api.unit_of_measure ?? undefined,
@@ -210,6 +221,8 @@ function toPayload(data: Partial<CatalogItem>) {
     description: data.description ?? null,
     item_type: data.type,
     status: data.status,
+    ...(data.tracksInventory !== undefined ? { tracks_inventory: Boolean(data.tracksInventory) } : {}),
+    ...(data.catalogVisible !== undefined ? { catalog_visible: Boolean(data.catalogVisible) } : {}),
     base_price: Number(data.price ?? 0),
     sku: data.sku || null,
     unit_of_measure: data.unit || null,
@@ -217,7 +230,6 @@ function toPayload(data: Partial<CatalogItem>) {
   };
 
   if (data.type && STOCKABLE_CATALOG_TYPES.has(data.type)) payload.product_detail = {
-    track_stock: Boolean(fields.controlaEstoque),
     min_stock: fields.estoqueMinimo || null,
     cost_price: fields.custo || null,
     barcode: fields.codigoBarras || null,
@@ -249,6 +261,8 @@ function queryString(filters?: CatalogFilters) {
   if (filters?.scope) params.set('scope', filters.scope);
   if (filters?.approvalStatus) params.set('approval_status', filters.approvalStatus);
   if (filters?.ownerUnitId) params.set('owner_unit_id', filters.ownerUnitId);
+  if (filters?.tracksInventory !== undefined && filters.tracksInventory !== '') params.set('tracks_inventory', String(Boolean(filters.tracksInventory)));
+  if (filters?.catalogVisible !== undefined && filters.catalogVisible !== '') params.set('catalog_visible', String(Boolean(filters.catalogVisible)));
   if (filters?.search) params.set('search', filters.search);
   if (filters?.minPrice !== undefined) params.set('min_price', String(filters.minPrice));
   if (filters?.maxPrice !== undefined) params.set('max_price', String(filters.maxPrice));

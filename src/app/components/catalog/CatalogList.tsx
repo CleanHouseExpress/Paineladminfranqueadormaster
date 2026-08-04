@@ -13,6 +13,7 @@ import { ModuleStateView } from '../../../shared/components/ModuleStateView';
 import {
   archiveItem, deleteItem, getCatalogConfig, getItems, getStats, reactivateItem,
 } from '../../../services/catalogService';
+import type { CatalogFilters } from '../../../services/catalogService';
 import { catalogOnboardingService } from '../../../services/catalogOnboardingService';
 import type { CatalogOnboardingState } from '../../../types/catalogOnboarding';
 import { CatalogGuideMiniCard, CatalogOnboardingGuide } from './CatalogOnboardingGuide';
@@ -46,6 +47,34 @@ const TYPE_ICONS: Record<CatalogItemType, React.ReactNode> = {
   custom:       <Boxes size={12} />,
 };
 
+function BehaviorBadges({ tracksInventory, catalogVisible }: { tracksInventory: boolean; catalogVisible: boolean }) {
+  const badge = (active: boolean, label: string, inactiveLabel: string) => (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        padding: '3px 8px',
+        borderRadius: 999,
+        fontSize: 11,
+        fontWeight: 700,
+        color: active ? '#047857' : '#64748B',
+        background: active ? '#ECFDF5' : '#F1F5F9',
+        border: `1px solid ${active ? '#BBF7D0' : '#E2E8F0'}`,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {active ? label : inactiveLabel}
+    </span>
+  );
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+      {badge(tracksInventory, 'Controla estoque', 'Sem controle de estoque')}
+      {badge(catalogVisible, 'Visivel no catalogo', 'Oculto no catalogo')}
+    </div>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function CatalogList() {
@@ -74,7 +103,7 @@ export function CatalogList() {
     setError('');
     try {
       const [nextItems, nextStats, config, nextOnboarding] = await Promise.all([
-        getItems(),
+        getItems(catalogRequestFilters()),
         getStats(),
         getCatalogConfig(),
         catalogOnboardingService.getProgress('network').catch(() => null),
@@ -101,8 +130,6 @@ export function CatalogList() {
     }
   };
 
-  useEffect(() => { void load(); }, []);
-
   // ── Filters ────────────────────────────────────────────────────────────────
   const [search,       setSearch]       = useState('');
   const [typeFilter,   setTypeFilter]   = useState('');
@@ -112,8 +139,27 @@ export function CatalogList() {
   const [priceMin,     setPriceMin]     = useState('');
   const [priceMax,     setPriceMax]     = useState('');
   const [skuFilter,    setSkuFilter]    = useState('');
+  const [inventoryFilter, setInventoryFilter] = useState('');
+  const [catalogVisibleFilter, setCatalogVisibleFilter] = useState('');
 
-  const filtersActive = !!(search || typeFilter || statusFilter || scopeFilter || approvalFilter || priceMin || priceMax || skuFilter);
+  function catalogRequestFilters(): CatalogFilters {
+    return {
+      search: search || undefined,
+      type: (typeFilter || '') as CatalogFilters['type'],
+      status: (statusFilter || '') as CatalogFilters['status'],
+      scope: (scopeFilter || '') as CatalogFilters['scope'],
+      approvalStatus: (approvalFilter || '') as CatalogFilters['approvalStatus'],
+      minPrice: priceMin ? Number(priceMin) : undefined,
+      maxPrice: priceMax ? Number(priceMax) : undefined,
+      sku: skuFilter || undefined,
+      tracksInventory: inventoryFilter === '' ? '' : inventoryFilter === 'true',
+      catalogVisible: catalogVisibleFilter === '' ? '' : catalogVisibleFilter === 'true',
+    };
+  }
+
+  useEffect(() => { void load(); }, [search, typeFilter, statusFilter, scopeFilter, approvalFilter, priceMin, priceMax, skuFilter, inventoryFilter, catalogVisibleFilter]);
+
+  const filtersActive = !!(search || typeFilter || statusFilter || scopeFilter || approvalFilter || priceMin || priceMax || skuFilter || inventoryFilter || catalogVisibleFilter);
 
   const filtered = useMemo(() => {
     return items.filter(item => {
@@ -130,9 +176,11 @@ export function CatalogList() {
       const matchSku    = !skuFilter    || (item.sku ?? '').toLowerCase().includes(skuFilter.toLowerCase());
       const matchMin    = !priceMin     || item.price >= parseFloat(priceMin);
       const matchMax    = !priceMax     || item.price <= parseFloat(priceMax);
-      return matchSearch && matchType && matchStatus && matchScope && matchApproval && matchSku && matchMin && matchMax;
+      const matchInventory = !inventoryFilter || item.tracksInventory === (inventoryFilter === 'true');
+      const matchCatalogVisible = !catalogVisibleFilter || item.catalogVisible === (catalogVisibleFilter === 'true');
+      return matchSearch && matchType && matchStatus && matchScope && matchApproval && matchSku && matchMin && matchMax && matchInventory && matchCatalogVisible;
     });
-  }, [items, search, typeFilter, statusFilter, scopeFilter, approvalFilter, skuFilter, priceMin, priceMax]);
+  }, [items, search, typeFilter, statusFilter, scopeFilter, approvalFilter, skuFilter, priceMin, priceMax, inventoryFilter, catalogVisibleFilter]);
 
   // ── Columns ────────────────────────────────────────────────────────────────
   const columns: ColumnDef[] = [
@@ -228,6 +276,18 @@ export function CatalogList() {
         approved: { label: 'Aprovado', color: '#047857', bg: '#ECFDF5' },
         rejected: { label: 'Rejeitado', color: '#B91C1C', bg: '#FEF2F2' },
       },
+    },
+    {
+      key: 'behavior',
+      label: 'Comportamento',
+      type: 'text',
+      width: '240px',
+      render: (_val, row) => (
+        <BehaviorBadges
+          tracksInventory={Boolean(row.tracksInventory)}
+          catalogVisible={Boolean(row.catalogVisible)}
+        />
+      ),
     },
     {
       key: 'price',
@@ -342,6 +402,8 @@ export function CatalogList() {
         status: item.status,
         scope: item.scope ?? 'corporate',
         approvalStatus: item.approvalStatus ?? 'approved',
+        tracksInventory: item.tracksInventory,
+        catalogVisible: item.catalogVisible,
         price: item.price,
         unit: item.unit,
         sku: item.sku,
@@ -681,6 +743,27 @@ export function CatalogList() {
           <option value="draft">Rascunho</option>
         </select>
 
+        <select
+          data-testid="catalog-filter-tracks-inventory"
+          value={inventoryFilter}
+          onChange={e => setInventoryFilter(e.target.value)}
+          style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.1)', fontSize: 13, color: '#0F172A', background: '#fff', cursor: 'pointer' }}
+        >
+          <option value="">Controle de estoque</option>
+          <option value="true">Controla estoque</option>
+          <option value="false">Nao controla estoque</option>
+        </select>
+
+        <select
+          data-testid="catalog-filter-visible"
+          value={catalogVisibleFilter}
+          onChange={e => setCatalogVisibleFilter(e.target.value)}
+          style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.1)', fontSize: 13, color: '#0F172A', background: '#fff', cursor: 'pointer' }}
+        >
+          <option value="">Visibilidade comercial</option>
+          <option value="true">Visivel no catalogo</option>
+          <option value="false">Oculto no catalogo</option>
+        </select>
         {/* Price range */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <span style={{ fontSize: 12, color: '#64748B', whiteSpace: 'nowrap' }}>De R$</span>
@@ -711,7 +794,7 @@ export function CatalogList() {
 
         {filtersActive && (
           <button
-            onClick={() => { setSearch(''); setTypeFilter(''); setStatusFilter(''); setScopeFilter(''); setApprovalFilter(''); setPriceMin(''); setPriceMax(''); setSkuFilter(''); }}
+            onClick={() => { setSearch(''); setTypeFilter(''); setStatusFilter(''); setScopeFilter(''); setApprovalFilter(''); setPriceMin(''); setPriceMax(''); setSkuFilter(''); setInventoryFilter(''); setCatalogVisibleFilter(''); }}
             style={{
               display: 'inline-flex',
               alignItems: 'center',

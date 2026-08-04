@@ -44,7 +44,6 @@ export const CATALOG_STATUS_CONFIG: Record<CatalogItemStatus, {
 
 // Type-specific extra fields stored as a JSON blob
 export interface ProductFields {
-  controlaEstoque?: boolean;
   estoqueMinimo?: number;
   custo?: number;
   codigoBarras?: string;
@@ -116,6 +115,8 @@ export interface CatalogItem {
   origin?: 'corporate' | 'local' | 'promoted';
   rejectionReason?: string | null;
   promotedFromItemId?: string | number | null;
+  tracksInventory: boolean;
+  catalogVisible: boolean;
   price: number;               // base price in BRL
   sku?: string;                // SKU or internal code
   unit?: string;               // "un", "h", "mês", "sessão", etc.

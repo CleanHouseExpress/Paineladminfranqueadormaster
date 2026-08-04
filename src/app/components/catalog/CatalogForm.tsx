@@ -11,6 +11,7 @@ import type { CatalogItemType, CatalogItemStatus, CatalogItem } from '../../../t
 import { DynamicFormRenderer } from '../../../shared/components/DynamicFormRenderer';
 import type { ChecklistFieldSchema } from '../../../types/checklist';
 import { createItem, getCatalogConfig, getItem, updateItem } from '../../../services/catalogService';
+import { getApiErrorMessage } from '../../../services/apiClient';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -164,14 +165,22 @@ function Toggle({
   checked,
   onChange,
   label,
+  description,
+  testId,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   label: string;
+  description?: string;
+  testId?: string;
 }) {
   return (
-    <div
-      style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      data-testid={testId}
+      style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer', border: 0, background: 'transparent', padding: 0, textAlign: 'left', width: '100%' }}
       onClick={() => onChange(!checked)}
     >
       <div
@@ -199,8 +208,11 @@ function Toggle({
           }}
         />
       </div>
-      <span style={{ fontSize: 13, color: '#374151', fontWeight: 500 }}>{label}</span>
-    </div>
+      <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <span style={{ fontSize: 13, color: '#374151', fontWeight: 700 }}>{label}</span>
+        {description && <span style={{ fontSize: 11, color: '#64748B', lineHeight: 1.45 }}>{description}</span>}
+      </span>
+    </button>
   );
 }
 
@@ -225,6 +237,8 @@ export function CatalogForm() {
   const [unit,        setUnit]        = useState(existingItem?.unit ?? 'un');
   const [selectedType, setSelectedType] = useState<CatalogItemType>(existingItem?.type ?? 'service');
   const [status,      setStatus]      = useState<CatalogItemStatus>(existingItem?.status ?? 'active');
+  const [tracksInventory, setTracksInventory] = useState(false);
+  const [catalogVisible, setCatalogVisible] = useState(true);
   const [price,       setPrice]       = useState(existingItem?.price?.toString() ?? '');
   const [typeFields,  setTypeFields]  = useState<Record<string, unknown>>(existingItem?.typeFields ?? {});
   const [metadataValues, setMetadataValues] = useState<Record<string, unknown>>(() => {
@@ -250,6 +264,8 @@ export function CatalogForm() {
       setUnit(item.unit ?? 'un');
       setSelectedType(item.type);
       setStatus(item.status);
+      setTracksInventory(item.tracksInventory);
+      setCatalogVisible(item.catalogVisible);
       setPrice(String(item.price));
       setTypeFields(item.typeFields);
       setMetadataValues(Object.fromEntries(item.metadata.map(field => [field.key, field.value])));
@@ -276,6 +292,13 @@ export function CatalogForm() {
       setFormError('Informe o nome do item.');
       return;
     }
+    if (isEdit && existingItem?.tracksInventory && !tracksInventory) {
+      const confirmed = window.confirm('Ao desativar o controle de estoque, o historico existente sera preservado, mas novas movimentacoes ficarao bloqueadas.');
+      if (!confirmed) {
+        setTracksInventory(existingItem.tracksInventory);
+        return;
+      }
+    }
     setSaving(true);
     setFormError('');
     const payload: Partial<CatalogItem> = {
@@ -285,6 +308,8 @@ export function CatalogForm() {
       unit,
       type: selectedType,
       status: nextStatus,
+      tracksInventory,
+      catalogVisible,
       price: Number(price || 0),
       typeFields,
       metadata: customSchema.map(field => ({
@@ -298,8 +323,12 @@ export function CatalogForm() {
     try {
       const saved = isEdit && id ? await updateItem(id, payload) : await createItem(payload);
       navigate(`/catalog/${saved.id}`);
-    } catch {
-      setFormError('Nao foi possivel salvar o item. Revise os campos e tente novamente.');
+    } catch (error) {
+      if (existingItem) {
+        setTracksInventory(existingItem.tracksInventory);
+        setCatalogVisible(existingItem.catalogVisible);
+      }
+      setFormError(getApiErrorMessage(error, 'Nao foi possivel salvar o item. Revise os campos e tente novamente.'));
     } finally {
       setSaving(false);
     }
@@ -572,6 +601,46 @@ export function CatalogForm() {
           </SectionCard>
 
           {/* Card: Configurações Específicas (dynamic) */}
+          <SectionCard title="Comportamento do Item" subtitle="Comercializacao e estoque sao configuracoes independentes.">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14 }}>
+              <div style={{ padding: 14, borderRadius: 10, border: '1px solid #E2E8F0', background: '#F8FAFC' }}>
+                <div style={{ marginBottom: 10 }}>
+                  <strong style={{ display: 'block', fontSize: 13, color: '#0F172A' }}>Comercializacao</strong>
+                  <span style={{ fontSize: 11, color: '#64748B' }}>Este item deve aparecer para venda ou selecao comercial?</span>
+                </div>
+                <Toggle
+                  checked={catalogVisible}
+                  onChange={setCatalogVisible}
+                  label="Visivel no catalogo"
+                  description="Define se o item podera aparecer no catalogo e nas selecoes comerciais."
+                  testId="catalog-visible-switch"
+                />
+                {!catalogVisible && (
+                  <p data-testid="catalog-visible-warning" style={{ margin: '10px 0 0', fontSize: 11, lineHeight: 1.5, color: '#92400E', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8, padding: '8px 10px' }}>
+                    O item deixara de aparecer para novas operacoes comerciais, mas continuara disponivel na administracao e seus historicos serao preservados.
+                  </p>
+                )}
+              </div>
+              <div style={{ padding: 14, borderRadius: 10, border: '1px solid #E2E8F0', background: '#F8FAFC' }}>
+                <div style={{ marginBottom: 10 }}>
+                  <strong style={{ display: 'block', fontSize: 13, color: '#0F172A' }}>Estoque</strong>
+                  <span style={{ fontSize: 11, color: '#64748B' }}>Este item precisa ter saldo e movimentacoes controladas?</span>
+                </div>
+                <Toggle
+                  checked={tracksInventory}
+                  onChange={setTracksInventory}
+                  label="Controla estoque"
+                  description="Define se o item tera saldo, inventario e movimentacoes de estoque."
+                  testId="catalog-tracks-inventory-switch"
+                />
+                {isEdit && existingItem?.tracksInventory && !tracksInventory && (
+                  <p data-testid="catalog-inventory-disable-warning" style={{ margin: '10px 0 0', fontSize: 11, lineHeight: 1.5, color: '#92400E', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8, padding: '8px 10px' }}>
+                    Ao desativar o controle de estoque, o historico existente sera preservado, mas novas movimentacoes ficarao bloqueadas.
+                  </p>
+                )}
+              </div>
+            </div>
+          </SectionCard>
           <SectionCard
             title={`Configurações de ${typeCfg.label}`}
             icon={TYPE_ICONS[selectedType]}
@@ -581,18 +650,7 @@ export function CatalogForm() {
 
             {/* PRODUCT */}
             <div style={typeSectionStyle('product')}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', borderRadius: 10, background: '#ECFDF5', border: '1px solid #BBF7D0', marginBottom: 12 }}>
-                <Package size={16} color="#047857" style={{ marginTop: 1, flexShrink: 0 }} />
-                <p style={{ margin: 0, fontSize: 12, color: '#047857', lineHeight: 1.5 }}>
-                  Marque controle de estoque quando existir quantidade fisica para acompanhar. O item continua sendo definido no Catalogo e aparece no Estoque para unidades, locais e movimentos.
-                </p>
-              </div>
-              <Toggle
-                checked={!!typeFields.controlaEstoque}
-                onChange={v => setField('controlaEstoque', v)}
-                label="Controla Estoque"
-              />
-              {typeFields.controlaEstoque && (
+              {tracksInventory && (
                 <div style={{ marginTop: 12 }}>
                   <FormField label="Estoque Mínimo">
                     <input

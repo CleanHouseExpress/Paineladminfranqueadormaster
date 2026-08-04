@@ -11,6 +11,7 @@ import { ModuleStateView } from '../../../shared/components/ModuleStateView';
 import {
   archiveItem, deleteItem, getItem, getLabels, reactivateItem,
 } from '../../../services/catalogService';
+import { usePermission } from '../../../shared/hooks/usePermission';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -94,6 +95,19 @@ function YesNoBadge({ value, trueLabel = 'Sim', falseLabel = 'Não' }: { value: 
   );
 }
 
+function behaviorDescription(item: CatalogItem): string {
+  if (item.catalogVisible && item.tracksInventory) {
+    return 'Este item aparece no catalogo e participa do controle de estoque.';
+  }
+  if (item.catalogVisible && !item.tracksInventory) {
+    return 'Este item aparece no catalogo, mas nao possui controle de estoque.';
+  }
+  if (!item.catalogVisible && item.tracksInventory) {
+    return 'Este item controla estoque, mas nao aparece no catalogo comercial.';
+  }
+  return 'Este item nao aparece no catalogo e nao participa do controle de estoque.';
+}
+
 function PropRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -140,9 +154,6 @@ function TypeDetails({ item }: { item: CatalogItem }) {
       <div>
         {sectionHeader}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-          <PropRow label="Controla Estoque">
-            <YesNoBadge value={!!f.controlaEstoque} />
-          </PropRow>
           {typeof f.estoqueMinimo === 'number' && (
             <PropRow label="Estoque Mínimo">
               {f.estoqueMinimo} <span style={{ color: '#94A3B8' }}>unidades</span>
@@ -342,6 +353,8 @@ function TypeDetails({ item }: { item: CatalogItem }) {
 export function CatalogDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { hasPermission } = usePermission();
+  const canUpdate = hasPermission('tenant.catalog.update');
 
   const [item, setItem] = useState<CatalogItem | null>(null);
   const [labels, setLabels] = useState(DEFAULT_CATALOG_LABELS);
@@ -507,14 +520,14 @@ export function CatalogDetail() {
             icon={<HelpCircle size={14} />}
             onClick={() => navigate('/catalog?guide=catalog-onboarding')}
           />
-          {localStatus !== 'archived' && (
+          {canUpdate && localStatus !== 'archived' && (
             <ActionBtn
               label="Editar"
               icon={<Edit size={14} />}
               onClick={() => navigate(`/catalog/${item.id}/edit`)}
             />
           )}
-          {localStatus === 'active' && (
+          {canUpdate && localStatus === 'active' && (
             <ActionBtn
               label="Arquivar"
               icon={<Archive size={14} />}
@@ -525,7 +538,7 @@ export function CatalogDetail() {
               })}
             />
           )}
-          {(localStatus === 'archived' || localStatus === 'inactive') && (
+          {canUpdate && (localStatus === 'archived' || localStatus === 'inactive') && (
             <ActionBtn
               label="Reativar"
               icon={<RefreshCw size={14} />}
@@ -537,7 +550,7 @@ export function CatalogDetail() {
               })}
             />
           )}
-          {(localStatus === 'inactive' || localStatus === 'archived') && (
+          {canUpdate && (localStatus === 'inactive' || localStatus === 'archived') && (
             <ActionBtn
               label="Excluir"
               icon={<Trash2 size={14} />}
@@ -648,6 +661,26 @@ export function CatalogDetail() {
           </div>
 
           {/* ── Card 2: Detalhes Específicos ── */}
+          <div data-testid="catalog-behavior-section" style={card}>
+            <h2 style={cardTitle}>Comportamento</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: 14 }}>
+              <PropRow label="Controle de estoque">
+                <YesNoBadge value={item.tracksInventory} trueLabel="Controla estoque" falseLabel="Sem controle de estoque" />
+              </PropRow>
+              <PropRow label="Visibilidade comercial">
+                <YesNoBadge value={item.catalogVisible} trueLabel="Visivel no catalogo" falseLabel="Oculto no catalogo" />
+              </PropRow>
+              <PropRow label="Status do item">
+                <span style={{ fontWeight: 600 }}>{statusCfg.label}</span>
+              </PropRow>
+              <PropRow label="Tipo do item">
+                <span style={{ fontWeight: 600 }}>{typeCfg.label}</span>
+              </PropRow>
+            </div>
+            <p style={{ margin: 0, padding: '10px 12px', borderRadius: 10, background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#475569', fontSize: 13, lineHeight: 1.55 }}>
+              {behaviorDescription(item)}
+            </p>
+          </div>
           <div style={card}>
             <TypeDetails item={item} />
           </div>
@@ -816,7 +849,7 @@ export function CatalogDetail() {
           <div style={card}>
             <h2 style={{ ...cardTitle, marginBottom: '14px' }}>Ações Rápidas</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {localStatus !== 'archived' && (
+              {canUpdate && localStatus !== 'archived' && (
                 <button
                   onClick={() => navigate(`/catalog/${item.id}/edit`)}
                   style={{
@@ -829,7 +862,7 @@ export function CatalogDetail() {
                   <Edit size={14} /> Editar {labels.singular}
                 </button>
               )}
-              {localStatus === 'active' && (
+              {canUpdate && localStatus === 'active' && (
                 <button
                   onClick={() => void archiveItem(item.id).then(updated => {
                     setItem(updated);
@@ -845,7 +878,7 @@ export function CatalogDetail() {
                   <Archive size={14} /> Arquivar
                 </button>
               )}
-              {(localStatus === 'inactive' || localStatus === 'archived') && (
+              {canUpdate && (localStatus === 'inactive' || localStatus === 'archived') && (
                 <button
                   onClick={() => void reactivateItem(item.id).then(updated => {
                     setItem(updated);
