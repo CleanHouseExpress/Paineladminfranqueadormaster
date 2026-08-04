@@ -1316,7 +1316,7 @@ export function InventorySettings() {
           <h2 style={{ margin: '0 0 14px', fontSize: 14 }}>Capability</h2>
           <label style={{ display: 'flex', gap: 8, fontSize: 12, marginBottom: 12 }}><input type="checkbox" checked={Boolean(settingsForm.inventory_enabled)} onChange={e => setSettingsForm(current => ({ ...current, inventory_enabled: e.target.checked }))} /> Inventory habilitado</label>
           <label style={{ fontSize: 12, fontWeight: 650 }}>Modo<select value={String(settingsForm.inventory_mode ?? 'simple')} onChange={e => setSettingsForm(current => ({ ...current, inventory_mode: e.target.value }))} style={{ ...inputStyle, marginTop: 5 }}><option value="simple">Simples</option><option value="intermediate">Intermediario</option><option value="advanced">Avancado</option></select></label>
-          <p style={{ color: '#64748B', fontSize: 11, lineHeight: 1.5 }}>Transferencias, contagens, reservas e automacoes permanecem fora da Fase 1B.</p>
+          <p style={{ color: '#64748B', fontSize: 11, lineHeight: 1.5 }}>Contagens, reservas e automacoes permanecem controladas por fases/capabilities publicadas.</p>
         </div>
         <div style={{ ...cardStyle, padding: 18 }}>
           <h2 style={{ margin: '0 0 14px', fontSize: 14 }}>Terminologia</h2>

@@ -37,11 +37,9 @@ test('@smoke biblioteca oficial importa template para o Form Builder', async ({ 
 test('@smoke Form Builder abre pela Central de Modulos sem solicitar acesso', async ({ masterPage }) => {
   await masterPage.goto('/modules');
 
-  await masterPage.getByRole('textbox', { name: /Buscar módulos/i }).fill('Form Builder');
-  const card = masterPage.locator('div').filter({ hasText: 'Form Builder' }).filter({ hasText: 'Configurar' }).first();
-
-  await expect(card).toBeVisible();
-  await card.getByRole('button', { name: /configurar/i }).click();
+  const openButton = masterPage.getByTestId('module-open-form-builder');
+  await expect(openButton).toBeVisible();
+  await openButton.click();
 
   await expect(masterPage).toHaveURL(/\/settings\/form-builder$/);
   await expect(masterPage.getByRole('heading', { name: 'Form Builder' })).toBeVisible();

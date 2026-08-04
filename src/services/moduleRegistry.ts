@@ -673,6 +673,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     description: 'Metadata Engine — configure campos, formulários e estrutura de dados de toda a plataforma sem escrever código.',
     icon: 'LayoutTemplate',
     status: 'active',
+    marketplace: { show: true, category: 'Configuracoes', price: 'Incluso' },
     routes: [
       { path: '/settings/form-builder', componentId: 'form-builder-catalog' },
       { path: '/settings/form-builder/:entityId', componentId: 'form-builder-fields' },
