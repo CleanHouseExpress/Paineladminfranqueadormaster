@@ -11,6 +11,7 @@ import { NAV_MODULES } from '../../services/moduleRegistry';
 import { configuredModuleLabel, moduleDisplayName, moduleIdentity } from '../../services/moduleLabels';
 import { useTenant } from '../../shared/context/TenantContext';
 import { useAuth } from '../../shared/context/AuthContext';
+import { usePermission } from '../../shared/hooks/usePermission';
 
 // ─── Dynamic icon resolver ─────────────────────────────────────────────────────
 
@@ -25,6 +26,7 @@ function DynIcon({ name, ...props }: { name: string } & LucideProps) {
 function SidebarNav({ collapsed }: { collapsed: boolean }) {
   const location = useLocation();
   const { isModuleEnabled } = useTenant();
+  const { hasPermission } = usePermission();
   const { modules } = useAuth();
   const [expanded, setExpanded] = useState<string[]>(['financial', 'access']);
 
@@ -51,12 +53,13 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
   const systemModules = NAV_MODULES.filter(m => m.nav!.group === 'system');
 
   function renderItem(mod: (typeof NAV_MODULES)[number]) {
+    if (mod.id === 'pricing' && !hasPermission('tenant.pricing.view')) return null;
     const primaryPath = mod.routes?.[0]?.path ?? '#';
     const active = isActive(primaryPath);
     const isExp = expanded.includes(mod.id);
     const moduleId = mod.routes?.[0]?.moduleId ?? mod.id;
     const enabled = isModuleEnabled(moduleId);
-    const label = configuredModuleLabels.get(moduleId) ?? configuredModuleLabels.get(mod.id) ?? mod.nav!.label ?? mod.name;
+    const label = mod.id === 'pricing' ? (mod.nav!.label ?? mod.name) : configuredModuleLabels.get(moduleId) ?? configuredModuleLabels.get(mod.id) ?? mod.nav!.label ?? mod.name;
 
     const baseStyle: React.CSSProperties = {
       color: active ? '#F1F5F9' : '#94A3B8',

@@ -1,4 +1,4 @@
-﻿import { lazy, Suspense } from 'react';
+import { lazy, Suspense } from 'react';
 import type { ComponentType } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 
@@ -90,6 +90,7 @@ const CMVByUnitPage = lazyPage(() => import('../modules/cmv'), 'CMVByUnitPage');
 const CMVByOriginPage = lazyPage(() => import('../modules/cmv'), 'CMVByOriginPage');
 
 const SalesListPage = lazyPage(() => import('../modules/sales'), 'SalesListPage');
+const PricingProductsPage = lazyPage(() => import('../modules/pricing'), 'PricingProductsPage');
 const SalesFormPage = lazyPage(() => import('../modules/sales'), 'SalesFormPage');
 const SalesDetailPage = lazyPage(() => import('../modules/sales'), 'SalesDetailPage');
 const SalesSettingsPage = lazyPage(() => import('../modules/sales'), 'SalesSettingsPage');
@@ -163,6 +164,7 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   'sales-form': SalesFormPage,
   'sales-detail': SalesDetailPage,
   'sales-settings': SalesSettingsPage,
+  'pricing-products': PricingProductsPage,
   'subscription-policies': SubscriptionPoliciesPage,
   'recipes-list': RecipesListPage,
   'recipe-create': RecipeCreatePage,

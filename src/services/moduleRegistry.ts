@@ -238,6 +238,18 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   // ─── Operação ─────────────────────────────────────────────────────────────────
 
   {
+    id: 'pricing',
+    name: 'Precos',
+    description: 'Gestao comercial de precos padrao e sobrescritas por unidade.',
+    icon: 'Tags',
+    status: 'active',
+    nav: { show: true, order: 6.1, group: 'main' },
+    routes: [
+      { path: '/pricing/products', componentId: 'pricing-products', moduleId: 'sales', requiredPermissions: ['tenant.pricing.view'] },
+    ],
+    marketplace: { show: true, category: 'Comercial', price: 'Incluso' },
+  },
+  {
     id: 'subscription-policies',
     name: 'Politicas de Assinaturas',
     description: 'Configurador versionado de regras comerciais para assinaturas recorrentes.',

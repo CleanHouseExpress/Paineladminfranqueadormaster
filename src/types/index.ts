@@ -55,3 +55,6 @@ export type {
   CashbackTransaction, CashbackTransactionStatus, CashbackTransactionType, CashbackWallet,
 } from './loyalty';
 export { LOYALTY_PERMISSIONS } from './loyalty';
+
+export type { EffectivePrice, PricingFilters, PricingListResult, ProductPrice, ProductPricePayload, ProductUnitPrice, ProductUnitPricePayload } from './pricing';
+export { PRICING_PERMISSIONS } from './pricing';
