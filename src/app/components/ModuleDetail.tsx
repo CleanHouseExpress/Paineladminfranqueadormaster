@@ -1,230 +1,221 @@
-import { useParams, useNavigate } from "react-router";
+import { type ComponentType, type CSSProperties, type ReactNode } from 'react';
+import { useNavigate, useParams } from 'react-router';
 import {
-  ArrowLeft, CheckCircle, Settings, Link, History, Shield,
-  TrendingUp, Users, Clock, ChevronRight, Building2, DollarSign,
-  BarChart3, Package, Receipt, ClipboardCheck, AlertCircle,
-  BookOpen, MessageCircle, Bot, Zap, FileBarChart, Plug, Star, Boxes, Instagram, LayoutTemplate
-} from "lucide-react";
-import { mockModules } from "../data/mockData";
+  Activity,
+  AlertCircle,
+  ArrowLeft,
+  BarChart3,
+  Bot,
+  Boxes,
+  Building2,
+  CheckCircle,
+  ClipboardCheck,
+  ClipboardList,
+  Clock,
+  DollarSign,
+  FileBarChart,
+  FlaskConical,
+  FolderOpen,
+  Instagram,
+  LayoutDashboard,
+  LayoutTemplate,
+  Link,
+  Lock,
+  MessageCircle,
+  Package,
+  Plug,
+  Puzzle,
+  Receipt,
+  Rocket,
+  Settings,
+  Shield,
+  Star,
+  TrendingUp,
+  Users,
+  Zap,
+} from 'lucide-react';
+import { getModuleByIdOrAlias } from '../../services/moduleRegistry';
+import type { ModuleDefinition, ModuleStatus } from '../../types';
 
-const iconMap: Record<string, React.FC<any>> = {
-  Building2, Users, DollarSign, TrendingUp, BarChart3, Package,
-  Receipt, ClipboardCheck, AlertCircle, BookOpen, MessageCircle, LayoutTemplate,
-  Instagram, Bot, Zap, FileBarChart, Plug, Star, Boxes,
+type DetailStatus = ModuleStatus | 'unavailable';
+
+const iconMap: Record<string, ComponentType<{ size?: number; style?: CSSProperties }>> = {
+  Activity,
+  AlertCircle,
+  BarChart3,
+  Bot,
+  Boxes,
+  Building2,
+  CheckCircle,
+  ClipboardCheck,
+  ClipboardList,
+  DollarSign,
+  FileBarChart,
+  FlaskConical,
+  FolderOpen,
+  Instagram,
+  LayoutDashboard,
+  LayoutTemplate,
+  MessageCircle,
+  Package,
+  Plug,
+  Puzzle,
+  Receipt,
+  Rocket,
+  Settings,
+  Shield,
+  Star,
+  TrendingUp,
+  Users,
+  Zap,
 };
 
-const directModuleRoutes: Record<string, string> = {
-  "form-builder": "/settings/form-builder",
-  inventory: "/inventory",
+const blockedComponentIds = new Set(['reports', 'request-new-module', 'request-module-access', 'inventory-transfers', 'inventory-transfer-detail']);
+
+const statusColors: Record<DetailStatus, { color: string; bg: string; label: string }> = {
+  active: { color: '#10B981', bg: '#ECFDF5', label: 'Ativo' },
+  available: { color: '#64748B', bg: '#F8FAFC', label: 'N?o dispon?vel' },
+  review: { color: '#B45309', bg: '#FFFBEB', label: 'Em an?lise' },
+  development: { color: '#64748B', bg: '#F8FAFC', label: 'Em desenvolvimento' },
+  blocked: { color: '#EF4444', bg: '#FEF2F2', label: 'Bloqueado' },
+  unavailable: { color: '#64748B', bg: '#F8FAFC', label: 'Sem superf?cie ativa' },
 };
 
-const moduleDetails: Record<string, {
-  benefits: string[];
-  features: string[];
-  permissions: string[];
-  integrations: string[];
-  configs: string[];
-  history: { date: string; note: string }[];
-}> = {
-  financial: {
-    benefits: ["Visão gerencial rápida sem complexidade de ERP", "Comparativo mês a mês automático", "Alertas de desvio de resultado"],
-    features: ["Dashboard financeiro consolidado", "Comparativo por período", "Projeções simples", "Exportação PDF e Excel"],
-    permissions: ["Visualizar financeiro", "Editar lançamentos", "Aprovar despesas", "Exportar dados"],
-    integrations: ["Fluxo de Caixa", "DRE Gerencial", "Royalties"],
-    configs: ["Moeda e formato", "Alertas de desvio", "Permissões por perfil"],
-    history: [{ date: "Dez 2023", note: "Adicionado comparativo trimestral" }, { date: "Nov 2023", note: "Melhorias de performance" }],
-  },
-};
+function primaryOperationalRoute(module: ModuleDefinition) {
+  if (module.status !== 'active') return null;
+  return module.routes?.find(route => !blockedComponentIds.has(route.componentId))?.path ?? null;
+}
 
-const defaultDetails = {
-  benefits: ["Melhora a eficiência operacional", "Centraliza informações em um único painel", "Reduz retrabalho e erros manuais"],
-  features: ["Interface intuitiva e responsiva", "Relatórios automáticos", "Integração com outros módulos", "Controle de permissões granular"],
-  permissions: ["Visualizar", "Criar registros", "Editar registros", "Exportar dados"],
-  integrations: ["Dashboard principal", "Relatórios avançados"],
-  configs: ["Preferências de notificação", "Permissões por perfil", "Layout personalizado"],
-  history: [{ date: "Jan 2024", note: "Atualização de interface" }, { date: "Dez 2023", note: "Correções e melhorias" }],
-};
+function visibleStatus(module: ModuleDefinition): DetailStatus {
+  if (module.status === 'active' && !primaryOperationalRoute(module)) return 'unavailable';
+  return module.status;
+}
+
+function InfoPanel({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
+  return (
+    <div className="bg-white rounded-xl p-5" style={{ border: '1px solid rgba(0,0,0,0.06)' }}>
+      <div className="flex items-center gap-2 mb-3">
+        {icon}
+        <h3 style={{ color: '#0F172A' }}>{title}</h3>
+      </div>
+      {children}
+    </div>
+  );
+}
 
 export function ModuleDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const module = id ? getModuleByIdOrAlias(id) : undefined;
 
-  const module = mockModules.find(m => m.id === id) || mockModules[0];
+  if (!module) {
+    return (
+      <div className="p-6 max-w-[720px] mx-auto">
+        <button onClick={() => navigate('/modules')} className="flex items-center gap-2 mb-6 transition-opacity hover:opacity-70" style={{ fontSize: 13, color: '#64748B' }}>
+          <ArrowLeft size={16} />
+          Voltar para M?dulos
+        </button>
+        <div className="bg-white rounded-2xl p-8 text-center" style={{ border: '1px solid rgba(0,0,0,0.06)' }}>
+          <h1 style={{ color: '#0F172A' }}>M?dulo n?o encontrado</h1>
+          <p style={{ fontSize: 14, color: '#64748B', marginTop: 8 }}>O cat?logo n?o possui um m?dulo registrado para este endere?o.</p>
+        </div>
+      </div>
+    );
+  }
+
   const Icon = iconMap[module.icon] || Building2;
-  const details = moduleDetails[module.id] || defaultDetails;
-
-  const statusColors: Record<string, { color: string; bg: string; label: string }> = {
-    active: { color: "#10B981", bg: "#ECFDF5", label: "Ativo" },
-    available: { color: "#3B82F6", bg: "#EFF6FF", label: "Disponível" },
-    review: { color: "#F59E0B", bg: "#FFFBEB", label: "Em análise" },
-    development: { color: "#8B5CF6", bg: "#F5F3FF", label: "Em desenvolvimento" },
-    blocked: { color: "#EF4444", bg: "#FEF2F2", label: "Bloqueado" },
-  };
-
-  const sc = statusColors[module.status];
+  const route = primaryOperationalRoute(module);
+  const status = statusColors[visibleStatus(module)];
+  const visibleRoutes = module.routes?.filter(item => !blockedComponentIds.has(item.componentId)) ?? [];
+  const permissions = module.requiredPermissions ?? Array.from(new Set(visibleRoutes.flatMap(item => item.requiredPermissions ?? [])));
 
   return (
     <div className="p-6 max-w-[1000px] mx-auto">
-      {/* Back */}
-      <button onClick={() => navigate("/modules")}
-        className="flex items-center gap-2 mb-6 transition-opacity hover:opacity-70"
-        style={{ fontSize: "13px", color: "#64748B" }}>
+      <button onClick={() => navigate('/modules')} className="flex items-center gap-2 mb-6 transition-opacity hover:opacity-70" style={{ fontSize: 13, color: '#64748B' }}>
         <ArrowLeft size={16} />
-        Voltar para Módulos
+        Voltar para M?dulos
       </button>
 
-      {/* Hero */}
-      <div className="bg-white rounded-2xl p-6 mb-6" style={{ border: "1px solid rgba(0,0,0,0.06)" }}>
+      <div className="bg-white rounded-2xl p-6 mb-6" style={{ border: '1px solid rgba(0,0,0,0.06)' }}>
         <div className="flex flex-col md:flex-row gap-6">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0"
-            style={{ background: module.status === "active" ? "#EEF2FF" : "#F8FAFC" }}>
-            <Icon size={28} style={{ color: module.status === "active" ? "#6366F1" : "#64748B" }} />
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: route ? '#EEF2FF' : '#F8FAFC' }}>
+            <Icon size={28} style={{ color: route ? '#6366F1' : '#64748B' }} />
           </div>
           <div className="flex-1">
             <div className="flex flex-wrap items-start gap-3 mb-2">
-              <h1 style={{ color: "#0F172A" }}>{module.name}</h1>
-              <span className="flex items-center gap-1 px-3 py-1 rounded-full"
-                style={{ background: sc.bg, color: sc.color, fontSize: "12px", fontWeight: 600 }}>
-                {sc.label}
+              <h1 style={{ color: '#0F172A' }}>{module.name}</h1>
+              <span className="flex items-center gap-1 px-3 py-1 rounded-full" style={{ background: status.bg, color: status.color, fontSize: 12, fontWeight: 600 }}>
+                {status.label}
               </span>
             </div>
-            <p style={{ fontSize: "14px", color: "#64748B", lineHeight: 1.6 }}>{module.description}</p>
+            <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.6 }}>{module.description}</p>
             <div className="flex flex-wrap gap-3 mt-4">
-              <span className="px-3 py-1 rounded-lg" style={{ background: "#F8FAFC", color: "#94A3B8", fontSize: "12px" }}>
-                {module.category}
-              </span>
-              <span className="px-3 py-1 rounded-lg" style={{ background: "#F8FAFC", color: "#94A3B8", fontSize: "12px" }}>
-                {module.price}
+              {module.marketplace?.category && (
+                <span className="px-3 py-1 rounded-lg" style={{ background: '#F8FAFC', color: '#64748B', fontSize: 12 }}>
+                  {module.marketplace.category}
+                </span>
+              )}
+              <span className="px-3 py-1 rounded-lg" style={{ background: '#F8FAFC', color: '#64748B', fontSize: 12 }}>
+                {route ? 'Superf?cie produtiva ativa' : 'Sem ativa??o pela interface'}
               </span>
             </div>
           </div>
           <div className="flex flex-col gap-2">
-            {module.status === "active" && (
-              <button onClick={() => navigate(directModuleRoutes[module.id] ?? `/modules/${module.id}`)}
-                className="px-5 py-2.5 rounded-xl text-white transition-opacity hover:opacity-90"
-                style={{ background: "#6366F1", fontSize: "13px", fontWeight: 500 }}>
-                Configurar módulo
+            {route ? (
+              <button onClick={() => navigate(route)} className="px-5 py-2.5 rounded-xl text-white transition-opacity hover:opacity-90" style={{ background: '#6366F1', fontSize: 13, fontWeight: 500 }}>
+                Abrir m?dulo
               </button>
-            )}
-            {module.status === "available" && (
-              <button onClick={() => navigate(directModuleRoutes[module.id] ?? `/modules/${module.id}/request`)}
-                className="px-5 py-2.5 rounded-xl text-white transition-opacity hover:opacity-90"
-                style={{ background: "#6366F1", fontSize: "13px", fontWeight: 500 }}>
-                Ativar módulo
-              </button>
-            )}
-            {(module.status === "review" || module.status === "development") && (
-              <button className="px-5 py-2.5 rounded-xl transition-colors"
-                style={{ background: "#F8FAFC", color: "#94A3B8", fontSize: "13px", fontWeight: 500, border: "1px solid rgba(0,0,0,0.08)" }}>
-                Notificar quando disponível
+            ) : (
+              <button disabled className="px-5 py-2.5 rounded-xl" style={{ background: '#F8FAFC', color: '#64748B', fontSize: 13, fontWeight: 500, border: '1px solid rgba(0,0,0,0.08)', cursor: 'not-allowed' }}>
+                N?o dispon?vel
               </button>
             )}
           </div>
         </div>
       </div>
 
-      {/* Details grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        {/* Benefits */}
-        <div className="bg-white rounded-xl p-5" style={{ border: "1px solid rgba(0,0,0,0.06)" }}>
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp size={16} style={{ color: "#10B981" }} />
-            <h3 style={{ color: "#0F172A" }}>Benefícios</h3>
-          </div>
-          <div className="space-y-2">
-            {details.benefits.map((b, i) => (
-              <div key={i} className="flex items-start gap-2">
-                <CheckCircle size={14} style={{ color: "#10B981", marginTop: "2px", flexShrink: 0 }} />
-                <span style={{ fontSize: "13px", color: "#64748B" }}>{b}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Features */}
-        <div className="bg-white rounded-xl p-5" style={{ border: "1px solid rgba(0,0,0,0.06)" }}>
-          <div className="flex items-center gap-2 mb-4">
-            <Star size={16} style={{ color: "#6366F1" }} />
-            <h3 style={{ color: "#0F172A" }}>Funcionalidades</h3>
-          </div>
-          <div className="space-y-2">
-            {details.features.map((f, i) => (
-              <div key={i} className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: "#6366F1" }} />
-                <span style={{ fontSize: "13px", color: "#64748B" }}>{f}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Permissions */}
-        <div className="bg-white rounded-xl p-5" style={{ border: "1px solid rgba(0,0,0,0.06)" }}>
-          <div className="flex items-center gap-2 mb-4">
-            <Shield size={16} style={{ color: "#8B5CF6" }} />
-            <h3 style={{ color: "#0F172A" }}>Permissões relacionadas</h3>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {details.permissions.map((p, i) => (
-              <span key={i} className="px-2.5 py-1 rounded-lg" style={{ background: "#F5F3FF", color: "#8B5CF6", fontSize: "12px", fontWeight: 500 }}>
-                {p}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Integrations */}
-        <div className="bg-white rounded-xl p-5" style={{ border: "1px solid rgba(0,0,0,0.06)" }}>
-          <div className="flex items-center gap-2 mb-4">
-            <Link size={16} style={{ color: "#3B82F6" }} />
-            <h3 style={{ color: "#0F172A" }}>Integrações necessárias</h3>
-          </div>
-          <div className="space-y-2">
-            {details.integrations.map((int, i) => (
-              <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "#EFF6FF" }}>
-                <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#3B82F6" }} />
-                <span style={{ fontSize: "12px", color: "#3B82F6", fontWeight: 500 }}>{int}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Config + History */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white rounded-xl p-5" style={{ border: "1px solid rgba(0,0,0,0.06)" }}>
-          <div className="flex items-center gap-2 mb-4">
-            <Settings size={16} style={{ color: "#F59E0B" }} />
-            <h3 style={{ color: "#0F172A" }}>Configurações disponíveis</h3>
-          </div>
-          <div className="space-y-2">
-            {details.configs.map((c, i) => (
-              <div key={i} className="flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer transition-colors"
-                style={{ background: "#FFFBEB" }}
-                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "#FEF3C7"}
-                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "#FFFBEB"}>
-                <span style={{ fontSize: "13px", color: "#64748B" }}>{c}</span>
-                <ChevronRight size={14} style={{ color: "#94A3B8" }} />
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="bg-white rounded-xl p-5" style={{ border: "1px solid rgba(0,0,0,0.06)" }}>
-          <div className="flex items-center gap-2 mb-4">
-            <History size={16} style={{ color: "#64748B" }} />
-            <h3 style={{ color: "#0F172A" }}>Histórico de alterações</h3>
-          </div>
-          <div className="space-y-3">
-            {details.history.map((h, i) => (
-              <div key={i} className="flex items-start gap-3">
-                <span className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ background: "#E2E8F0" }} />
-                <div>
-                  <span style={{ fontSize: "11px", color: "#94A3B8", fontFamily: "monospace" }}>{h.date}</span>
-                  <p style={{ fontSize: "13px", color: "#64748B" }}>{h.note}</p>
+        <InfoPanel icon={<TrendingUp size={16} style={{ color: '#10B981' }} />} title="Estado operacional">
+          <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6 }}>
+            {route
+              ? 'Este m?dulo possui rota produtiva registrada no cat?logo da aplica??o.'
+              : 'Este m?dulo permanece no cat?logo para transpar?ncia de roadmap, mas n?o possui ativa??o, solicita??o ou execu??o pela interface.'}
+          </p>
+        </InfoPanel>
+
+        <InfoPanel icon={<Link size={16} style={{ color: '#3B82F6' }} />} title="Rotas registradas">
+          {visibleRoutes.length > 0 ? (
+            <div className="space-y-2">
+              {visibleRoutes.map(item => (
+                <div key={`${item.path}-${item.componentId}`} className="px-3 py-2 rounded-lg" style={{ background: '#EFF6FF', color: '#2563EB', fontSize: 12, fontWeight: 500 }}>
+                  {item.path}
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
+              ))}
+            </div>
+          ) : (
+            <p style={{ fontSize: 13, color: '#64748B' }}>Nenhuma rota produtiva publicada para este m?dulo.</p>
+          )}
+        </InfoPanel>
+
+        <InfoPanel icon={<Shield size={16} style={{ color: '#8B5CF6' }} />} title="Permiss?es relacionadas">
+          {permissions.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {permissions.map(permission => (
+                <span key={permission} className="px-2.5 py-1 rounded-lg" style={{ background: '#F5F3FF', color: '#8B5CF6', fontSize: 12, fontWeight: 500 }}>
+                  {permission}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p style={{ fontSize: 13, color: '#64748B' }}>Nenhuma permiss?o operacional publicada.</p>
+          )}
+        </InfoPanel>
+
+        <InfoPanel icon={<Star size={16} style={{ color: '#F59E0B' }} />} title="Cat?logo">
+          <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6 }}>
+            Os dados desta p?gina v?m do registro local de m?dulos usado pela navega??o. Pre?os, prazos e solicita??es n?o s?o exibidos sem contrato de backend.
+          </p>
+        </InfoPanel>
       </div>
     </div>
   );

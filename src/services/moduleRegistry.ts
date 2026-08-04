@@ -302,8 +302,8 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
       { path: '/inventory/balances', componentId: 'inventory-balances', requiredPermissions: ['tenant.inventory.view'] },
       { path: '/inventory/movements', componentId: 'inventory-movements', requiredPermissions: ['tenant.inventory.view'] },
       { path: '/inventory/settings', componentId: 'inventory-settings', requiredPermissions: ['tenant.inventory.configure'] },
-      { path: '/inventory/transfers', componentId: 'inventory-transfers', requiredPermissions: ['tenant.inventory.transfer'] },
-      { path: '/inventory/transfers/:id', componentId: 'inventory-transfer-detail', requiredPermissions: ['tenant.inventory.transfer'] },
+      { path: '/inventory/transfers', componentId: 'inventory-transfers', requiredPermissions: ['tenant.inventory.view'] },
+      { path: '/inventory/transfers/:id', componentId: 'inventory-transfer-detail', requiredPermissions: ['tenant.inventory.view'] },
       { path: '/inventory/counts', componentId: 'inventory-counts', requiredPermissions: ['tenant.inventory.stock_counts.view'] },
       { path: '/inventory/counts/new', componentId: 'inventory-count-detail', requiredPermissions: ['tenant.inventory.stock_counts.create'] },
       { path: '/inventory/counts/:id', componentId: 'inventory-count-detail', requiredPermissions: ['tenant.inventory.stock_counts.view'] },
@@ -445,9 +445,8 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     name: 'Atendimento WhatsApp',
     description: 'Central de atendimento multicanal via WhatsApp com distribuição por unidade.',
     icon: 'MessageCircle',
-    status: 'available',
-    marketplace: { show: true, category: 'Atendimento', price: 'R$ 297/mês' },
-    price: 'R$ 297/mês',
+    status: 'development',
+    marketplace: { show: true, category: 'Atendimento' },
   },
   {
     id: 'instagram',
@@ -455,8 +454,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     description: 'Gestão de mensagens e comentários do Instagram de todas as unidades.',
     icon: 'Instagram',
     status: 'review',
-    marketplace: { show: true, category: 'Atendimento', price: 'R$ 197/mês' },
-    price: 'R$ 197/mês',
+    marketplace: { show: true, category: 'Atendimento' },
   },
 
   // ─── IA ───────────────────────────────────────────────────────────────────────
@@ -467,7 +465,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     description: 'Assistente inteligente para resposta automática, análise e sugestões operacionais.',
     icon: 'Bot',
     status: 'development',
-    marketplace: { show: true, category: 'IA', price: 'Em breve' },
+    marketplace: { show: true, category: 'IA' },
   },
 
   // ─── Automações ───────────────────────────────────────────────────────────────
@@ -495,11 +493,8 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     name: 'Relatórios',
     description: 'Relatórios customizados com exportação e agendamento automático.',
     icon: 'BarChart3',
-    status: 'available',
-    nav: { show: true, order: 7, group: 'main' },
-    routes: [{ path: '/reports', componentId: 'reports' }],
-    marketplace: { show: true, category: 'Relatórios', price: 'R$ 97/mês' },
-    price: 'R$ 97/mês',
+    status: 'development',
+    marketplace: { show: true, category: 'Relatorios' },
   },
   // ─── Integrações ──────────────────────────────────────────────────────────────
 
@@ -508,9 +503,8 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     name: 'Integrações',
     description: 'Conexão com ERPs, gateways de pagamento, plataformas de delivery e mais.',
     icon: 'Plug',
-    status: 'available',
-    marketplace: { show: true, category: 'Integrações', price: 'Sob consulta' },
-    price: 'Sob consulta',
+    status: 'development',
+    marketplace: { show: true, category: 'Integracoes' },
   },
 
   // ─── CRM add-ons ─────────────────────────────────────────────────────────────
@@ -521,7 +515,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     description: 'Pesquisas de satisfação automatizadas e acompanhamento de NPS por unidade.',
     icon: 'Star',
     status: 'development',
-    marketplace: { show: true, category: 'Clientes e CRM', price: 'Em breve' },
+    marketplace: { show: true, category: 'Clientes e CRM' },
   },
 
   // ─── Insumos ──────────────────────────────────────────────────────────────────
@@ -532,7 +526,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     description: 'Controle de estoque, pedidos de reposição e centralização de compras.',
     icon: 'Boxes',
     status: 'blocked',
-    marketplace: { show: true, category: 'Operação', price: 'Sob consulta' },
+    marketplace: { show: true, category: 'Operacao' },
     plan: 'enterprise',
   },
 
@@ -541,7 +535,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
   {
     id: 'marketplace',
     name: 'Módulos',
-    description: 'Central de módulos — ative, solicite e gerencie os módulos da plataforma.',
+    description: 'Central de modulos registrados e superficies produtivas disponiveis.',
     icon: 'Puzzle',
     status: 'active',
     nav: { show: true, order: 8, group: 'main' },

@@ -410,7 +410,7 @@ function normalizeSettings(settings: InventorySettings): InventorySettings {
     balances: true,
     movements: true,
     costs: Boolean(settings.enable_cost_tracking),
-    transfers: Boolean(settings.enable_transfers),
+    transfers: false,
     counts: Boolean(settings.enable_inventory_counts),
     automation: false,
   };
@@ -699,10 +699,10 @@ export const inventoryService = {
 
   getSettings: async () => normalizeSettings((await apiClient.get<DataResponse<InventorySettings>>('/api/company/inventory/settings')).data),
   updateSettings: async (payload: Partial<InventorySettings>) => normalizeSettings((await apiClient.put<DataResponse<InventorySettings>>('/api/company/inventory/settings', payload)).data),
-  listTransfers: async () => (await apiClient.get<DataResponse<InventoryTransfer[]>>('/api/company/inventory/transfers')).data,
-  getTransfer: async (id: string) => (await apiClient.get<DataResponse<InventoryTransfer>>(`/api/company/inventory/transfers/${id}`)).data,
-  createTransfer: async (payload: Record<string, unknown>) => (await apiClient.post<DataResponse<InventoryTransfer>>('/api/company/inventory/transfers', payload)).data,
-  transferAction: async (id: number, action: 'approve' | 'ship' | 'receive' | 'cancel') => (await apiClient.patch<DataResponse<InventoryTransfer>>(`/api/company/inventory/transfers/${id}/${action}`, {})).data,
+  listTransfers: async (): Promise<InventoryTransfer[]> => Promise.reject(new Error('Transferencias estao temporariamente indisponiveis.')),
+  getTransfer: async (): Promise<InventoryTransfer> => Promise.reject(new Error('Transferencias estao temporariamente indisponiveis.')),
+  createTransfer: async (): Promise<InventoryTransfer> => Promise.reject(new Error('Transferencias estao temporariamente indisponiveis.')),
+  transferAction: async (): Promise<InventoryTransfer> => Promise.reject(new Error('Transferencias estao temporariamente indisponiveis.')),
   listCounts: async (filters: Record<string, string | number | boolean | undefined> = {}) => {
     const response = await apiClient.get<ListResponse<ApiCount>>(`/api/company/inventory/counts${queryString({ per_page: 100, ...filters })}`);
     return response.data.map(toCount);

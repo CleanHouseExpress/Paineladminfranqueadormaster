@@ -110,14 +110,16 @@ function Unavailable({ title, description, hint }: { title: string; description:
   if (!settings) return <ModuleStateView state="loading" />;
 
   return (
-    <Shell title={title} description={description} settings={settings}>
-      <ModuleStateView state="empty" emptyHint={hint} />
-    </Shell>
+    <div data-testid="inventory-transfers-unavailable">
+      <Shell title={title} description={description} settings={settings}>
+        <ModuleStateView state="empty" emptyHint={hint} />
+      </Shell>
+    </div>
   );
 }
 
 export function InventoryTransfersPage() {
-  return <Unavailable title="Transferencias" description="Reimplementacao planejada sobre o ledger novo." hint="Transferencias estao temporariamente indisponiveis nesta fase." />;
+  return <Unavailable title="Transferencias" description="Fluxo antigo bloqueado enquanto a reimplementacao sobre o ledger novo nao e publicada." hint="Transferencias estao temporariamente indisponiveis nesta fase." />;
 }
 
 export function InventoryTransferDetailPage() {

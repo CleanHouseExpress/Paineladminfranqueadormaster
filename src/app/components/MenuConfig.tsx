@@ -9,7 +9,6 @@ const defaultMenuItems = [
   { id: "operations", label: "Operação", icon: "⚙️", visible: true, favorite: false, path: "/operations" },
   { id: "support", label: "Atendimento", icon: "💬", visible: false, favorite: false, path: "/support" },
   { id: "automations", label: "Automações", icon: "⚡", visible: false, favorite: false, path: "/automations" },
-  { id: "reports", label: "Relatórios", icon: "📈", visible: true, favorite: false, path: "/reports" },
   { id: "modules", label: "Módulos", icon: "🧩", visible: true, favorite: false, path: "/modules" },
   { id: "access", label: "Acessos", icon: "🔐", visible: true, favorite: false, path: "/access" },
   { id: "settings", label: "Configurações", icon: "⚙️", visible: true, favorite: false, path: "/settings" },

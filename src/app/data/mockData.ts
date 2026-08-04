@@ -6,28 +6,6 @@ export const mockTenant = {
   plan: "Enterprise",
 };
 
-export const mockModules = [
-  { id: "units", name: "Gestão de Unidades", description: "Cadastro, monitoramento e controle de todas as unidades da rede em um único painel.", category: "Gestão da Rede", icon: "Building2", status: "active" as const, price: "Incluso" },
-  { id: "clients", name: "Clientes & CRM", description: "Visão consolidada de clientes, histórico de interações e segmentação por unidade.", category: "Clientes e CRM", icon: "Users", status: "active" as const, price: "Incluso" },
-  { id: "financial", name: "Financeiro Simplificado", description: "Visão gerencial de receitas, despesas e resultado da rede sem complexidade de ERP.", category: "Financeiro", icon: "DollarSign", status: "active" as const, price: "Incluso" },
-  { id: "cashflow", name: "Fluxo de Caixa", description: "Acompanhamento de entradas e saídas em tempo real por unidade ou consolidado.", category: "Financeiro", icon: "TrendingUp", status: "active" as const, price: "Incluso" },
-  { id: "dre", name: "DRE Gerencial", description: "Demonstração de resultado simplificada e visual para tomada de decisão rápida.", category: "Financeiro", icon: "BarChart3", status: "active" as const, price: "Incluso" },
-  { id: "cmv", name: "CMV & Custos", description: "Controle de custo de mercadoria vendida e análise de margem por produto.", category: "Financeiro", icon: "Package", status: "active" as const, price: "Incluso" },
-  { id: "royalties", name: "Royalties", description: "Cálculo, cobrança e controle de royalties e taxas de franquia por unidade.", category: "Financeiro", icon: "Receipt", status: "active" as const, price: "Incluso" },
-  { id: "checklists", name: "Checklists Operacionais", description: "Criação e acompanhamento de checklists para padronização de processos na rede.", category: "Operação", icon: "ClipboardCheck", status: "active" as const, price: "Incluso" },
-  { id: "pendencias", name: "Pendências & Tarefas", description: "Gestão de pendências críticas com atribuição, prazo e acompanhamento.", category: "Operação", icon: "AlertCircle", status: "active" as const, price: "Incluso" },
-  { id: "diario", name: "Diário de Bordo", description: "Registro diário das operações de cada unidade com histórico e auditoria.", category: "Operação", icon: "BookOpen", status: "active" as const, price: "Incluso" },
-  { id: "whatsapp", name: "Atendimento WhatsApp", description: "Central de atendimento multicanal via WhatsApp com distribuição por unidade.", category: "Atendimento", icon: "MessageCircle", status: "available" as const, price: "R$ 297/mês" },
-  { id: "instagram", name: "Atendimento Instagram", description: "Gestão de mensagens e comentários do Instagram de todas as unidades.", category: "Atendimento", icon: "Instagram", status: "review" as const, price: "R$ 197/mês" },
-  { id: "form-builder", name: "Form Builder", description: "Configure formularios, campos e templates operacionais sem escrever codigo.", category: "Configurações", icon: "LayoutTemplate", status: "active" as const, price: "Incluso" },
-  { id: "agente-ia", name: "Agente IA", description: "Assistente inteligente para resposta automática, análise e sugestões operacionais.", category: "IA", icon: "Bot", status: "development" as const, price: "Em breve" },
-  { id: "automacoes", name: "Automações", description: "Fluxos automatizados para notificações, cobranças e processos repetitivos.", category: "Automações", icon: "Zap", status: "available" as const, price: "R$ 197/mês" },
-  { id: "relatorios", name: "Relatórios Avançados", description: "Relatórios customizados com exportação e agendamento automático.", category: "Relatórios", icon: "FileBarChart", status: "available" as const, price: "R$ 97/mês" },
-  { id: "integracoes", name: "Integrações", description: "Conexão com ERPs, gateways de pagamento, plataformas de delivery e mais.", category: "Integrações", icon: "Plug", status: "available" as const, price: "Sob consulta" },
-  { id: "nps", name: "NPS & Satisfação", description: "Pesquisas de satisfação automatizadas e acompanhamento de NPS por unidade.", category: "Clientes e CRM", icon: "Star", status: "development" as const, price: "Em breve" },
-  { id: "inventory", name: "Estoque & Suprimentos", description: "Controle de insumos, fornecedores, saldos por unidade, movimentacoes e custos medios.", category: "Operação", icon: "Boxes", status: "active" as const, price: "Incluso" },
-];
-
 export const mockUnits = [
   { id: 1, name: "Unidade Centro SP", code: "BV-001", city: "São Paulo", state: "SP", manager: "Carlos Menezes", status: "active", score: 94, clients: 342, revenue: 87400, since: "2021-03" },
   { id: 2, name: "Unidade Moema", code: "BV-002", city: "São Paulo", state: "SP", manager: "Ana Ferreira", status: "active", score: 88, clients: 289, revenue: 72100, since: "2021-08" },
@@ -122,7 +100,6 @@ export const mockRoyalties = [
   { unit: "Unidade BH Savassi", code: "BV-007", revenue: 22100, royaltyRate: 5, royaltyValue: 1105, adFundRate: 2, adFundValue: 442, total: 1547, status: "overdue" as const, dueDate: "2024-01-15", paidDate: null },
 ];
 
-export const moduleCategories = ["Todos", "Gestão da Rede", "Clientes e CRM", "Financeiro", "Operação", "Atendimento", "Configurações", "IA", "Automações", "Relatórios", "Integrações"];
 
 export const roles = [
   { id: "master", name: "Franqueador Master", description: "Acesso total à plataforma e todas as unidades", users: 1, color: "#6366F1" },

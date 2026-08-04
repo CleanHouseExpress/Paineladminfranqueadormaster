@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import type { ReactNode } from 'react';
 import {
   Loader2, AlertTriangle, Lock, Clock, Package, ShieldOff,
   Settings, Inbox, RefreshCw, Zap, ArrowRight,
@@ -21,12 +22,12 @@ interface ModuleStateViewProps {
 }
 
 interface StateConfig {
-  icon: React.ReactNode;
+  icon: ReactNode;
   iconBg: string;
   iconColor: string;
   title: string;
   description: string;
-  action?: React.ReactNode;
+  action?: ReactNode;
 }
 
 export function ModuleStateView({
@@ -78,15 +79,15 @@ export function ModuleStateView({
       icon: <Zap size={28} />,
       iconBg: '#EEF2FF',
       iconColor: '#6366F1',
-      title: `${name} está disponível`,
-      description: 'Este módulo está disponível para ativação na sua rede. Solicite o acesso para começar a usar.',
+      title: `${name} nao esta disponivel pela interface`,
+      description: 'Este modulo esta registrado no catalogo, mas nao possui fluxo de ativacao publicado na API.',
       action: (
         <Link
           to="/modules"
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-white"
-          style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)', fontSize: '13px', fontWeight: 500 }}
+          style={{ background: '#6366F1', fontSize: '13px', fontWeight: 500 }}
         >
-          Ver na Central de Módulos <ArrowRight size={14} />
+          Ver catalogo <ArrowRight size={14} />
         </Link>
       ),
     },
@@ -129,17 +130,8 @@ export function ModuleStateView({
       icon: <ShieldOff size={28} />,
       iconBg: '#FEF2F2',
       iconColor: '#EF4444',
-      title: 'Sem permissão',
-      description: `Você não tem permissão para acessar ${name}. O perfil necessário é: ${requiredRole}.`,
-      action: (
-        <Link
-          to="/access/requests"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl"
-          style={{ background: '#F8FAFC', color: '#64748B', border: '1px solid rgba(0,0,0,0.08)', fontSize: '13px', fontWeight: 500 }}
-        >
-          Solicitar acesso <ArrowRight size={14} />
-        </Link>
-      ),
+      title: 'Sem permissao',
+      description: `Voce nao tem permissao para acessar ${name}. O perfil necessario e: ${requiredRole}. Peca a alteracao a um administrador da rede.`,
     },
 
     'no-config': {

@@ -50,7 +50,8 @@ export interface RouteConfig {
 export interface MarketplaceConfig {
   show: boolean;
   category: string;
-  price: string;
+  /** Display-only contract label. Omit when commercial terms are not backed by product data. */
+  price?: string;
 }
 
 /** Single source of truth for every module in the platform */
