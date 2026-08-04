@@ -391,14 +391,14 @@ export function DynamicFormRenderer({
             </p>
           ) : null}
 
-          {fields.map(field => {
+          {fields.map((field, index) => {
             const key = String(field.key);
             const current = formValues[key];
             const hasError = Boolean(highlightRequired && field.required && isEmpty(current));
             const isCheckboxLike = field.type === 'boolean';
 
             return (
-              <div key={key}>
+              <div key={`${key}-${index}`}>
                 {!isCheckboxLike ? (
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '5px' }}>
                     {field.label}

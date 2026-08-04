@@ -619,12 +619,13 @@ export function DynamicTableRenderer({
               </tr>
             ) : (
               sorted.map((row, rowIdx) => {
-                const id = String(row[keyField] ?? rowIdx);
+                const rawId = row[keyField] ?? rowIdx;
+                const id = String(rawId);
                 const isSelected = selectedIds.includes(id);
 
                 return (
                   <tr
-                    key={id}
+                    key={`${id}-${rowIdx}`}
                     onClick={() => onRowClick?.(row)}
                     style={{
                       borderBottom: rowIdx < sorted.length - 1
