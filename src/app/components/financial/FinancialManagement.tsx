@@ -117,6 +117,11 @@ const emptyTransactionForm = (): FinancialTransactionPayload => ({
 });
 
 export function FinancialTransactions() {
+  const { hasPermission } = usePermission();
+  const canCreate = hasPermission(FINANCIAL_PERMISSIONS.transactionsCreate);
+  const canUpdate = hasPermission(FINANCIAL_PERMISSIONS.transactionsUpdate);
+  const canDelete = hasPermission(FINANCIAL_PERMISSIONS.transactionsDelete);
+  const canPay = hasPermission(FINANCIAL_PERMISSIONS.transactionsPay);
   const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
   const [accounts, setAccounts] = useState<FinancialAccountOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -254,7 +259,7 @@ export function FinancialTransactions() {
   return (
     <div style={pageStyle}>
       <PageHeader title="Transações Financeiras" description="Registre receitas e despesas e movimente o saldo das contas ao pagar ou receber." action={
-        <PrimaryButton onClick={() => showForm()}><Plus size={15} /> Nova transação</PrimaryButton>
+        canCreate ? <PrimaryButton onClick={() => showForm()}><Plus size={15} /> Nova transação</PrimaryButton> : undefined
       } />
 
       <Filters>
@@ -273,12 +278,12 @@ export function FinancialTransactions() {
       </Filters>
 
       <DynamicTableRenderer columns={columns} data={tableData as unknown as Record<string, unknown>[]} loading={loading} emptyMessage="Nenhuma transação encontrada." actions={[
-        { label: 'Editar', icon: <Edit size={13} />, onClick: row => showForm(row as unknown as FinancialTransaction), showCondition: row => row.status !== 'paid' },
+        { label: 'Editar', icon: <Edit size={13} />, onClick: row => showForm(row as unknown as FinancialTransaction), showCondition: row => canUpdate && row.status !== 'paid' },
         {
-          label: 'Marcar como pago', icon: <CheckCircle2 size={13} />, showCondition: row => !['paid', 'canceled'].includes(String(row.status)),
+          label: 'Marcar como pago', icon: <CheckCircle2 size={13} />, showCondition: row => canPay && !['paid', 'canceled'].includes(String(row.status)),
           onClick: row => { setPaying(row as unknown as FinancialTransaction); setPayAccountId(''); },
         },
-        { label: 'Excluir', icon: <Trash2 size={13} />, variant: 'danger', onClick: row => void remove(row as unknown as FinancialTransaction), showCondition: row => row.status !== 'paid' },
+        { label: 'Excluir', icon: <Trash2 size={13} />, variant: 'danger', onClick: row => void remove(row as unknown as FinancialTransaction), showCondition: row => canDelete && row.status !== 'paid' },
       ]} />
 
       <Modal title={editing ? 'Editar transação' : 'Nova transação'} open={open} onClose={() => setOpen(false)}>

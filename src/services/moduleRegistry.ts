@@ -155,7 +155,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     },
     routes: [
       { path: '/financial', componentId: 'financial-overview', requiredPermissions: ['tenant.finance.view'] },
-      { path: '/financial/transactions', componentId: 'financial-transactions', moduleId: 'financial', requiredPermissions: ['tenant.finance.view'] },
+      { path: '/financial/transactions', componentId: 'financial-transactions', moduleId: 'financial', requiredPermissions: ['tenant.financial.transactions.view'] },
       { path: '/financial/accounts', componentId: 'financial-accounts', moduleId: 'financial', requiredPermissions: ['tenant.financial.accounts.view'] },
       { path: '/financial/cashflow', componentId: 'cashflow', requiredPermissions: ['tenant.finance.view'] },
       { path: '/dre', componentId: 'dre', moduleId: 'financial', requiredPermissions: ['tenant.finance.view'] },
