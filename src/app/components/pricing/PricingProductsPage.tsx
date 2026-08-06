@@ -225,6 +225,9 @@ function ProductDetails({ row, onClose, canUpdateUnit }: { row: PriceRow; onClos
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [editingUnit, setEditingUnit] = useState<UnitPriceRow | null>(null);
+  const [restoreUnit, setRestoreUnit] = useState<UnitPriceRow | null>(null);
+  const [restoreError, setRestoreError] = useState('');
+  const [restoringUnitId, setRestoringUnitId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -248,6 +251,26 @@ function ProductDetails({ row, onClose, canUpdateUnit }: { row: PriceRow; onClos
   };
 
   useEffect(() => { void load(); }, [row.item.id]);
+
+  const confirmRestore = async () => {
+    if (!restoreUnit || restoringUnitId) return;
+    const unitId = String(restoreUnit.unit.id);
+    setRestoringUnitId(unitId);
+    setRestoreError('');
+    try {
+      await pricingService.restoreUnitDefaultPrice(row.item.id, restoreUnit.unit.id);
+      toast.success('A unidade voltou a utilizar o preco padrao da rede.');
+      await load();
+      setRestoreUnit(null);
+    } catch (err) {
+      const message = getApiErrorMessage(err, 'Nao foi possivel restaurar o preco padrao da unidade.');
+      setRestoreError(message);
+      toast.error(message);
+      await load();
+    } finally {
+      setRestoringUnitId(null);
+    }
+  };
 
   return (
     <div style={{ ...cardStyle, padding: 18 }} data-testid="pricing-details-panel">
@@ -284,7 +307,16 @@ function ProductDetails({ row, onClose, canUpdateUnit }: { row: PriceRow; onClos
                       <td style={{ padding: 10, fontWeight: 800 }}>{money(unitRow.effective?.effectivePrice ?? null, unitRow.effective?.currency)}</td>
                       <td style={{ padding: 10 }}><Badge tone={customized ? 'info' : 'muted'}>{customized ? 'Personalizado' : 'Herdado'}</Badge></td>
                       <td style={{ padding: 10 }}>
-                        {canUpdateUnit ? <Button secondary onClick={() => setEditingUnit(unitRow)}><Edit size={13} /> Personalizar</Button> : <span style={smallMuted}>Somente leitura</span>}
+                        {canUpdateUnit ? (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                            <Button secondary onClick={() => setEditingUnit(unitRow)} disabled={restoringUnitId === String(unitRow.unit.id)}><Edit size={13} /> Personalizar</Button>
+                            {customized && (
+                              <Button secondary onClick={() => { setRestoreError(''); setRestoreUnit(unitRow); }} disabled={restoringUnitId === String(unitRow.unit.id)}>
+                                <RefreshCw size={13} /> {restoringUnitId === String(unitRow.unit.id) ? 'Restaurando...' : 'Restaurar preco padrao'}
+                              </Button>
+                            )}
+                          </div>
+                        ) : <span style={smallMuted}>Somente leitura</span>}
                       </td>
                     </tr>
                   );
@@ -292,12 +324,29 @@ function ProductDetails({ row, onClose, canUpdateUnit }: { row: PriceRow; onClos
               </tbody>
             </table>
           </div>
-          <div style={{ marginTop: 12, padding: 12, borderRadius: 9, background: '#F8FAFC', color: '#64748B', fontSize: 12 }}>
-            Restaurar preco padrao ainda nao esta disponivel no contrato atual da API; a interface nao envia zero nem valor vazio para simular remocao de sobrescrita.
-          </div>
         </>
       )}
       {editingUnit && <Modal title="Personalizar preco da unidade" onClose={() => setEditingUnit(null)}><UnitPriceForm item={row.item} row={editingUnit} onClose={() => setEditingUnit(null)} onSaved={load} /></Modal>}
+      {restoreUnit && (
+        <Modal title="Restaurar preco padrao?" onClose={() => restoringUnitId ? undefined : setRestoreUnit(null)}>
+          <div style={{ display: 'grid', gap: 14 }} data-testid="pricing-restore-confirmation">
+            <p style={{ margin: 0, color: '#334155', fontSize: 13, lineHeight: 1.6 }}>
+              O preco personalizado desta unidade sera removido. A unidade voltara a utilizar automaticamente o preco padrao da rede e acompanhara futuras alteracoes desse valor.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+              <div style={{ ...cardStyle, padding: 12 }}><div style={smallMuted}>Unidade</div><strong>{restoreUnit.unit.name}</strong></div>
+              <div style={{ ...cardStyle, padding: 12 }}><div style={smallMuted}>Preco personalizado atual</div><strong>{money(restoreUnit.effective?.unitPrice ?? null, restoreUnit.effective?.currency)}</strong></div>
+              <div style={{ ...cardStyle, padding: 12 }}><div style={smallMuted}>Preco padrao atual</div><strong>{money(restoreUnit.effective?.networkPrice ?? networkEffective?.networkPrice ?? null, restoreUnit.effective?.currency ?? networkEffective?.currency)}</strong></div>
+              <div style={{ ...cardStyle, padding: 12 }}><div style={smallMuted}>Efetivo apos restaurar</div><strong>{money(restoreUnit.effective?.networkPrice ?? networkEffective?.networkPrice ?? null, restoreUnit.effective?.currency ?? networkEffective?.currency)}</strong></div>
+            </div>
+            {restoreError && <div role="alert" style={{ color: '#B91C1C', background: '#FEF2F2', padding: 10, borderRadius: 8, fontSize: 13 }}>{restoreError}</div>}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+              <Button secondary onClick={() => setRestoreUnit(null)} disabled={Boolean(restoringUnitId)}>Cancelar</Button>
+              <Button danger onClick={() => void confirmRestore()} disabled={Boolean(restoringUnitId)}><RefreshCw size={14} /> {restoringUnitId ? 'Restaurando...' : 'Restaurar preco padrao'}</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

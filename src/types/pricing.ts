@@ -46,6 +46,25 @@ export interface EffectivePrice {
   currency: string;
 }
 
+export interface UnitDefaultPriceRestore {
+  tenantId: number | string;
+  catalogItemId: number | string;
+  catalogItem: PricingCatalogItemRef | null;
+  unitId: number | string;
+  unit: {
+    id: number | string;
+    name: string;
+    code?: string | null;
+  } | null;
+  defaultPrice: number | null;
+  effectivePrice: number | null;
+  priceOrigin: PriceOrigin;
+  hasOverride: boolean;
+  networkPrice: number | null;
+  unitPrice: number | null;
+  currency: string;
+}
+
 export interface PricingListMeta {
   current_page: number;
   last_page: number;

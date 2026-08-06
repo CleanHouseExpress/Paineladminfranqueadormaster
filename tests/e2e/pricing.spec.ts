@@ -30,11 +30,12 @@ async function mockAuth(page: Page, permissions: string[]) {
   await page.route('**/api/me/units', route => json(route, []));
 }
 
-async function mockPricingApi(page: Page) {
+async function mockPricingApi(page: Page, options: { restoreError?: boolean } = {}) {
   let prices = [
     { id: 1, tenant_id: 1, catalog_item_id: 11, catalog_item: { id: 11, name: 'Acai Bowl', sku: 'ACA-002', item_type: 'product', unit_of_measure: 'un' }, sale_price: 19.9, cost_price: 8, currency: 'BRL', active: true, created_at: '2026-08-02T10:00:00.000Z', updated_at: '2026-08-02T10:00:00.000Z' },
   ];
   let unitPrices: Array<Record<string, unknown>> = [];
+  let restoreRequests = 0;
 
   await page.route('**/api/company/catalog/items**', route => json(route, { data: catalogItems }));
   await page.route('**/api/company/units?**', route => json(route, { data: units, meta: { current_page: 1, last_page: 1, per_page: 100, total: units.length } }));
@@ -72,6 +73,18 @@ async function mockPricingApi(page: Page) {
       return json(route, { data: unitPrices.filter(price => Number(price.catalog_item_id) === Number(productId)) });
     }
 
+    if (url.pathname.includes('/units/') && request.method() === 'DELETE') {
+      restoreRequests += 1;
+      const unitId = Number(parts.at(-1));
+      const network = prices.find(price => Number(price.catalog_item_id) === Number(productId) && price.active);
+      const unit = units.find(item => item.id === unitId);
+      if (options.restoreError) {
+        return json(route, { message: 'Configure o preco padrao da rede antes de restaurar a heranca desta unidade.', errors: { sale_price: ['Configure o preco padrao da rede antes de restaurar a heranca desta unidade.'] } }, 422);
+      }
+      unitPrices = unitPrices.filter(price => !(Number(price.catalog_item_id) === Number(productId) && Number(price.unit_id) === unitId));
+      return json(route, { data: { tenant_id: 1, catalog_item_id: Number(productId), unit_id: unitId, unit, default_price: network?.sale_price ?? null, effective_price: network?.sale_price ?? null, price_origin: network ? 'network' : null, has_override: false, network_price: network?.sale_price ?? null, unit_price: null, currency: 'BRL' } });
+    }
+
     if (url.pathname.includes('/units/') && request.method() === 'PUT') {
       const unitId = Number(parts.at(-1));
       const payload = request.postDataJSON();
@@ -84,11 +97,17 @@ async function mockPricingApi(page: Page) {
 
     return json(route, { data: prices, meta: { current_page: 1, last_page: 1, per_page: 100, total: prices.length } });
   });
+
+  return {
+    get restoreRequests() {
+      return restoreRequests;
+    },
+  };
 }
 
 test('@smoke pricing gerencia preco padrao e personalizacao por unidade', async ({ page }) => {
   await mockAuth(page, ['tenant.pricing.view', 'tenant.pricing.create', 'tenant.pricing.update', 'tenant.pricing.unit.update']);
-  await mockPricingApi(page);
+  const api = await mockPricingApi(page);
 
   await page.goto('/pricing/products');
 
@@ -106,13 +125,37 @@ test('@smoke pricing gerencia preco padrao e personalizacao por unidade', async 
 
   await page.getByRole('row', { name: /Cafe Gelado/i }).getByRole('button', { name: /Detalhes/i }).click();
   await expect(page.getByTestId('pricing-details-panel')).toContainText('Herdado');
-  await expect(page.getByTestId('pricing-details-panel')).toContainText('Restaurar preco padrao ainda nao esta disponivel');
+  await expect(page.getByRole('row', { name: /Centro/i }).getByRole('button', { name: /Restaurar preco padrao/i })).toHaveCount(0);
 
   await page.getByRole('row', { name: /Centro/i }).getByRole('button', { name: /Personalizar/i }).click();
   await page.getByLabel('Preco personalizado').fill('14,99');
   await page.getByRole('button', { name: /Salvar personalizacao/i }).click();
   await expect(page.getByTestId('pricing-details-panel')).toContainText('Personalizado');
   await expect(page.getByTestId('pricing-details-panel')).toContainText('R$ 14,99');
+  await expect(page.getByRole('row', { name: /Centro/i }).getByRole('button', { name: /Restaurar preco padrao/i })).toBeVisible();
+
+  await page.getByRole('row', { name: /Centro/i }).getByRole('button', { name: /Restaurar preco padrao/i }).click();
+  await expect(page.getByRole('dialog', { name: /Restaurar preco padrao/i })).toBeVisible();
+  await expect(page.getByTestId('pricing-restore-confirmation')).toContainText('Centro');
+  await expect(page.getByTestId('pricing-restore-confirmation')).toContainText('R$ 14,99');
+  await page.getByRole('button', { name: /Cancelar/i }).click();
+  expect(api.restoreRequests).toBe(0);
+  await expect(page.getByRole('row', { name: /Centro/i })).toContainText('Personalizado');
+
+  await page.getByRole('row', { name: /Centro/i }).getByRole('button', { name: /Restaurar preco padrao/i }).click();
+  await page.getByRole('dialog', { name: /Restaurar preco padrao/i }).getByRole('button', { name: /^Restaurar preco padrao$/i }).click();
+  await expect(page.getByRole('row', { name: /Centro/i })).toContainText('Herdado');
+  await expect(page.getByRole('row', { name: /Centro/i })).toContainText('R$ 12,50');
+  await expect(page.getByRole('row', { name: /Centro/i }).getByRole('button', { name: /Restaurar preco padrao/i })).toHaveCount(0);
+  expect(api.restoreRequests).toBe(1);
+
+  await page.getByRole('button', { name: /Fechar/i }).click();
+  await page.getByRole('row', { name: /Cafe Gelado/i }).getByRole('button', { name: /Editar/i }).click();
+  await page.getByLabel('Preco de venda padrao').fill('13,50');
+  await page.getByRole('button', { name: /Salvar preco/i }).click();
+  await page.getByRole('row', { name: /Cafe Gelado/i }).getByRole('button', { name: /Detalhes/i }).click();
+  await expect(page.getByRole('row', { name: /Centro/i })).toContainText('Herdado');
+  await expect(page.getByRole('row', { name: /Centro/i })).toContainText('R$ 13,50');
 });
 
 test('pricing edita preco padrao e mantem heranca resolvida pelo backend', async ({ page }) => {
@@ -153,4 +196,24 @@ test('pricing respeita usuario somente leitura', async ({ page }) => {
   await expect(page.getByRole('button', { name: /Editar/i })).toHaveCount(0);
   await page.getByRole('row', { name: /Acai Bowl/i }).getByRole('button', { name: /Detalhes/i }).click();
   await expect(page.getByText('Somente leitura').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /Restaurar preco padrao/i })).toHaveCount(0);
+});
+
+test('pricing mantem personalizacao quando restauracao falha', async ({ page }) => {
+  await mockAuth(page, ['tenant.pricing.view', 'tenant.pricing.unit.update']);
+  await mockPricingApi(page, { restoreError: true });
+
+  await page.goto('/pricing/products');
+
+  await page.getByRole('row', { name: /Acai Bowl/i }).getByRole('button', { name: /Detalhes/i }).click();
+  await page.getByRole('row', { name: /Centro/i }).getByRole('button', { name: /Personalizar/i }).click();
+  await page.getByLabel('Preco personalizado').fill('22,00');
+  await page.getByRole('button', { name: /Salvar personalizacao/i }).click();
+  await page.getByRole('row', { name: /Centro/i }).getByRole('button', { name: /Restaurar preco padrao/i }).click();
+  await page.getByRole('dialog', { name: /Restaurar preco padrao/i }).getByRole('button', { name: /^Restaurar preco padrao$/i }).click();
+
+  await expect(page.getByRole('alert')).toContainText('Configure o preco padrao');
+  await page.getByRole('button', { name: /Cancelar/i }).click();
+  await expect(page.getByRole('row', { name: /Centro/i })).toContainText('Personalizado');
+  await expect(page.getByRole('row', { name: /Centro/i })).toContainText('R$ 22,00');
 });

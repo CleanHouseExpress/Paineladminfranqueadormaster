@@ -5,6 +5,7 @@ import type {
   PricingListResult,
   ProductPrice,
   ProductPricePayload,
+  UnitDefaultPriceRestore,
   ProductUnitPrice,
   ProductUnitPricePayload,
 } from '../types/pricing';
@@ -15,6 +16,7 @@ interface ApiList<T> { data: T[]; meta?: PricingListResult['meta'] }
 type ApiProductPrice = Record<string, any>;
 type ApiProductUnitPrice = Record<string, any>;
 type ApiEffectivePrice = Record<string, any>;
+type ApiUnitDefaultPriceRestore = Record<string, any>;
 
 function numberOrNull(value: unknown): number | null {
   if (value === null || value === undefined || value === '') return null;
@@ -74,6 +76,24 @@ function toEffectivePrice(api: ApiEffectivePrice): EffectivePrice {
   };
 }
 
+function toUnitDefaultPriceRestore(api: ApiUnitDefaultPriceRestore): UnitDefaultPriceRestore {
+  const origin = api.price_origin === 'unit' || api.price_origin === 'network' ? api.price_origin : null;
+  return {
+    tenantId: api.tenant_id,
+    catalogItemId: api.catalog_item_id,
+    catalogItem: api.catalog_item ?? null,
+    unitId: api.unit_id,
+    unit: api.unit ?? null,
+    defaultPrice: numberOrNull(api.default_price),
+    effectivePrice: numberOrNull(api.effective_price),
+    priceOrigin: origin,
+    hasOverride: Boolean(api.has_override),
+    networkPrice: numberOrNull(api.network_price),
+    unitPrice: numberOrNull(api.unit_price),
+    currency: String(api.currency ?? 'BRL'),
+  };
+}
+
 function toProductPayload(payload: ProductPricePayload) {
   return {
     ...(payload.catalogItemId ? { catalog_item_id: Number(payload.catalogItemId) } : {}),
@@ -120,5 +140,10 @@ export const pricingService = {
       active: payload.active ?? true,
     });
     return toProductUnitPrice(response.data);
+  },
+
+  async restoreUnitDefaultPrice(catalogItemId: string | number, unitId: string | number) {
+    const response = await apiClient.delete<ApiItem<ApiUnitDefaultPriceRestore>>(`/api/company/pricing/products/${catalogItemId}/units/${unitId}`);
+    return toUnitDefaultPriceRestore(response.data);
   },
 };
