@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import {
   Camera, Link2, Mail, Paperclip, PenLine, Phone,
 } from 'lucide-react';
@@ -20,6 +20,8 @@ interface DynamicFormRendererProps {
   compact?: boolean;
   showProgress?: boolean;
   highlightRequired?: boolean;
+  layout?: 'cards' | 'plain';
+  getFieldClassName?: (field: SupportedField) => string;
 }
 
 function isEmpty(value: unknown): boolean {
@@ -144,7 +146,10 @@ export function DynamicFormRenderer({
   compact = false,
   showProgress = false,
   highlightRequired = false,
+  layout = 'cards',
+  getFieldClassName,
 }: DynamicFormRendererProps) {
+  const instanceId = useId();
   const formValues = (values ?? value ?? {}) as FormValues;
   const blocked = readOnly || disabled;
   const [remoteOptions, setRemoteOptions] = useState<Record<string, DynamicFieldOption[]>>({});
@@ -195,7 +200,9 @@ export function DynamicFormRenderer({
     return map;
   }, [schema]);
 
-  const renderInput = (field: SupportedField) => {
+  const fieldInputId = (key: string, index: number) => `${instanceId}-${key}-${index}`.replace(/[^a-zA-Z0-9_-]/g, '-');
+
+  const renderInput = (field: SupportedField, inputId: string, describedBy?: string) => {
     const key = String(field.key);
     const current = formValues[key];
     const stringValue = current === null || current === undefined ? '' : String(current);
@@ -216,6 +223,7 @@ export function DynamicFormRenderer({
               <button
                 key={option.label}
                 type="button"
+                aria-pressed={active}
                 disabled={blocked}
                 onClick={() => emitChange(key, option.value)}
                 style={{
@@ -257,6 +265,7 @@ export function DynamicFormRenderer({
                 borderTop: index > 0 ? '1px solid rgba(0,0,0,0.06)' : undefined,
               }}>
                 <input
+                  id={`${inputId}-${optionKey}`}
                   type="checkbox"
                   checked={checked}
                   disabled={blocked}
@@ -277,7 +286,17 @@ export function DynamicFormRenderer({
 
     if (isSelectLike(fieldType(field))) {
       return (
-        <select value={stringValue} disabled={blocked} style={style} onChange={event => emitChange(key, event.target.value)}>
+        <select
+          id={inputId}
+          value={stringValue}
+          required={field.required}
+          aria-required={field.required || undefined}
+          aria-invalid={hasError || undefined}
+          aria-describedby={describedBy}
+          disabled={blocked}
+          style={style}
+          onChange={event => emitChange(key, event.target.value)}
+        >
           <option value="">{field.placeholder ?? 'Selecione...'}</option>
           {optionsFor(field).map(option => (
             <option key={optionValue(option)} value={optionValue(option)}>{option.label}</option>
@@ -308,10 +327,15 @@ export function DynamicFormRenderer({
       const jsonValue = Array.isArray(current) ? JSON.stringify(current, null, 2) : stringValue;
       return (
         <textarea
+          id={inputId}
           value={jsonValue}
           placeholder={field.placeholder ?? '[]'}
           rows={5}
           disabled={blocked}
+          required={field.required}
+          aria-required={field.required || undefined}
+          aria-invalid={hasError || undefined}
+          aria-describedby={describedBy}
           style={{ ...style, resize: 'vertical', lineHeight: 1.5, fontFamily: 'monospace' }}
           onChange={event => {
             try {
@@ -334,10 +358,15 @@ export function DynamicFormRenderer({
     if (field.type === 'textarea') {
       return (
         <textarea
+          id={inputId}
           value={stringValue}
           placeholder={field.placeholder ?? ''}
           rows={3}
           disabled={blocked}
+          required={field.required}
+          aria-required={field.required || undefined}
+          aria-invalid={hasError || undefined}
+          aria-describedby={describedBy}
           style={{ ...style, resize: 'vertical', lineHeight: 1.5 }}
           onChange={event => emitChange(key, event.target.value)}
         />
@@ -352,10 +381,14 @@ export function DynamicFormRenderer({
           </span>
         ) : null}
         <input
+          id={inputId}
           type={inputType}
           value={stringValue}
           placeholder={field.placeholder ?? ''}
           required={field.required}
+          aria-required={field.required || undefined}
+          aria-invalid={hasError || undefined}
+          aria-describedby={describedBy}
           disabled={blocked}
           style={InlineIcon ? { ...style, paddingLeft: '32px' } : style}
           onChange={event => {
@@ -368,6 +401,50 @@ export function DynamicFormRenderer({
       </div>
     );
   };
+
+  const renderField = (field: SupportedField, index: number) => {
+    const key = String(field.key);
+    const current = formValues[key];
+    const hasError = Boolean(highlightRequired && field.required && isEmpty(current));
+    const isCheckboxLike = field.type === 'boolean';
+    const inputId = fieldInputId(key, index);
+    const helpId = `${inputId}-help`;
+    const errorId = `${inputId}-error`;
+    const describedBy = [
+      'helpText' in field && field.helpText ? helpId : null,
+      hasError ? errorId : null,
+    ].filter(Boolean).join(' ') || undefined;
+
+    return (
+      <div key={`${key}-${index}`} className={getFieldClassName?.(field)}>
+        <label
+          htmlFor={isCheckboxLike ? undefined : inputId}
+          style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '5px' }}
+        >
+          {field.label}
+          {field.required ? (
+            <span aria-label="obrigatorio" style={{ color: '#EF4444', marginLeft: '3px' }}>*</span>
+          ) : null}
+        </label>
+        {renderInput(field, inputId, describedBy)}
+        {'helpText' in field && field.helpText ? (
+          <p id={helpId} style={{ fontSize: '11px', color: '#94A3B8', fontStyle: 'italic', margin: '4px 0 0' }}>{field.helpText}</p>
+        ) : null}
+        {hasError ? <p id={errorId} style={{ fontSize: '11px', color: '#EF4444', margin: '4px 0 0' }}>Campo obrigatorio</p> : null}
+      </div>
+    );
+  };
+
+  if (layout === 'plain') {
+    const sorted = [...schema].sort((a, b) => fieldOrder(a) - fieldOrder(b));
+
+    return (
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+        {showProgress ? <ProgressBar schema={schema} values={formValues} /> : null}
+        {sorted.map((field, index) => renderField(field, index))}
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: compact ? '10px' : '14px' }}>
@@ -391,34 +468,7 @@ export function DynamicFormRenderer({
             </p>
           ) : null}
 
-          {fields.map((field, index) => {
-            const key = String(field.key);
-            const current = formValues[key];
-            const hasError = Boolean(highlightRequired && field.required && isEmpty(current));
-            const isCheckboxLike = field.type === 'boolean';
-
-            return (
-              <div key={`${key}-${index}`}>
-                {!isCheckboxLike ? (
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '5px' }}>
-                    {field.label}
-                    {field.required ? <span style={{ color: '#EF4444', marginLeft: '3px' }}>*</span> : null}
-                  </label>
-                ) : null}
-                {isCheckboxLike ? (
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '5px' }}>
-                    {field.label}
-                    {field.required ? <span style={{ color: '#EF4444', marginLeft: '3px' }}>*</span> : null}
-                  </label>
-                ) : null}
-                {renderInput(field)}
-                {'helpText' in field && field.helpText ? (
-                  <p style={{ fontSize: '11px', color: '#94A3B8', fontStyle: 'italic', margin: '4px 0 0' }}>{field.helpText}</p>
-                ) : null}
-                {hasError ? <p style={{ fontSize: '11px', color: '#EF4444', margin: '4px 0 0' }}>Campo obrigatorio</p> : null}
-              </div>
-            );
-          })}
+          {fields.map((field, index) => renderField(field, index))}
         </div>
       ))}
     </div>

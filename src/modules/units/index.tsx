@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { ArrowLeft, ClipboardCheck, Edit, Plus, RefreshCw, Save, Search, Settings, Trash2 } from 'lucide-react';
@@ -13,7 +13,10 @@ import { UnitImplementationTab } from '../../app/components/units/UnitImplementa
 import { implementationService } from '../../services/implementationService';
 import type { ImplementationTemplate } from '../../types/implementation';
 import { userManagementService } from '../../services/userManagementService';
-import type { TenantRole, TenantUser, TenantUserPayload } from '../../types/userManagement';
+import type { DynamicFieldSchema, TenantRole, TenantUser, TenantUserPayload } from '../../types/userManagement';
+import { isValidCep, normalizeCep } from '../../services/postalCodeService';
+import { UnitAddressFields, visibleUnitAddressFieldKeys } from './components/UnitAddressFields';
+import { UnitFormSection } from './components/UnitFormSection';
 import { Button } from '../../app/components/ui/button';
 import { Input } from '../../app/components/ui/input';
 import { Label } from '../../app/components/ui/label';
@@ -73,6 +76,97 @@ const UNIT_CREATE_MANAGED_FIELDS = new Set([
   'status',
   'opening_date',
 ]);
+
+const UNIT_IDENTIFICATION_FIELD_KEYS = ['name', 'code', 'document', 'status', 'opening_date'];
+const UNIT_CONTACT_FIELD_KEYS = ['phone', 'email'];
+const UNIT_RESPONSIBLE_FIELD_KEYS = ['responsible_name', 'responsible_email', 'responsible_phone'];
+const UNIT_ADDITIONAL_FIELD_KEYS = ['notes'];
+const UNIT_STANDARD_FIELD_KEYS = new Set([
+  ...UNIT_IDENTIFICATION_FIELD_KEYS,
+  ...UNIT_CONTACT_FIELD_KEYS,
+  ...UNIT_RESPONSIBLE_FIELD_KEYS,
+  ...UNIT_ADDITIONAL_FIELD_KEYS,
+]);
+
+const UNIT_FIELD_LABELS: Record<string, string> = {
+  name: 'Nome da unidade',
+  code: 'Codigo',
+  document: 'CNPJ',
+  status: 'Status',
+  opening_date: 'Data de abertura',
+  phone: 'Telefone',
+  email: 'E-mail',
+  responsible_name: 'Nome do responsavel',
+  responsible_email: 'E-mail do responsavel',
+  responsible_phone: 'Telefone do responsavel',
+  notes: 'Observacoes',
+};
+
+const UNIT_FIELD_CLASS_NAMES: Record<string, string> = {
+  name: 'md:col-span-2 xl:col-span-3',
+  code: 'xl:col-span-1',
+  document: 'xl:col-span-2',
+  status: 'xl:col-span-2',
+  opening_date: 'xl:col-span-2',
+  phone: 'md:col-span-1 xl:col-span-2',
+  email: 'md:col-span-1 xl:col-span-4',
+  responsible_name: 'md:col-span-2 xl:col-span-3',
+  responsible_email: 'md:col-span-1 xl:col-span-3',
+  responsible_phone: 'md:col-span-1 xl:col-span-2',
+  notes: 'md:col-span-2 xl:col-span-6',
+};
+
+function unitFieldClassName(field: { key: string }) {
+  return UNIT_FIELD_CLASS_NAMES[String(field.key)] ?? '';
+}
+
+function humanizeSectionLabel(section?: string) {
+  if (!section) return 'Campos personalizados';
+
+  const normalized = section.replace(/[_-]+/g, ' ').trim();
+  if (!normalized) return 'Campos personalizados';
+
+  const knownLabels: Record<string, string> = {
+    general: 'Campos personalizados',
+    address: 'Campos personalizados de endereco',
+    responsible: 'Campos personalizados de responsavel',
+    operation: 'Campos personalizados operacionais',
+    notes: 'Campos personalizados',
+  };
+
+  return knownLabels[section] ?? normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function presentUnitField(field: DynamicFieldSchema): DynamicFieldSchema {
+  return {
+    ...field,
+    label: UNIT_FIELD_LABELS[field.key] ?? field.label,
+  };
+}
+
+function sectionFields(schema: DynamicFieldSchema[], keys: string[]) {
+  const keySet = new Set(keys);
+  return schema.filter(field => keySet.has(String(field.key))).map(presentUnitField);
+}
+
+function customSectionFields(schema: DynamicFieldSchema[], addressFieldKeys: Set<string>) {
+  return schema
+    .filter(field => !addressFieldKeys.has(String(field.key)) && !UNIT_STANDARD_FIELD_KEYS.has(String(field.key)))
+    .map(field => ({
+      ...field,
+      sectionLabel: humanizeSectionLabel(field.section),
+    }) as DynamicFieldSchema & { sectionLabel: string });
+}
+
+function normalizeUnitFormPayload(payload: Record<string, unknown>) {
+  const nextPayload = { ...payload };
+
+  if (Object.prototype.hasOwnProperty.call(nextPayload, 'address_zipcode')) {
+    nextPayload.address_zipcode = normalizeCep(String(nextPayload.address_zipcode ?? ''));
+  }
+
+  return nextPayload;
+}
 
 export function UnitsListPage() {
   const [metadata, setMetadata] = useState<UnitMetadata>(DEFAULT_UNIT_METADATA);
@@ -251,6 +345,8 @@ export function UnitFormPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [implementationError, setImplementationError] = useState<string | null>(null);
+  const [cepSaveError, setCepSaveError] = useState<string | null>(null);
+  const savingRef = useRef(false);
 
   useEffect(() => {
     async function load() {
@@ -263,9 +359,9 @@ export function UnitFormPage() {
 
         if (editing && id) {
           const unit = await unitManagementService.getUnit(id);
-          setForm({ ...emptyUnit(nextMetadata), ...unit });
+          setForm(normalizeUnitFormPayload({ ...emptyUnit(nextMetadata), ...unit }));
         } else {
-          setForm(emptyUnit(nextMetadata));
+          setForm(normalizeUnitFormPayload(emptyUnit(nextMetadata)));
           try {
             const [templates, usersPayload, rolesPayload] = await Promise.all([
               implementationService.listTemplates(),
@@ -294,21 +390,46 @@ export function UnitFormPage() {
     void load();
   }, [editing, id]);
 
+  const validateCepForSave = () => {
+    const hasCepField = unitFormSchema.some(field => field.visible !== false && field.key === 'address_zipcode');
+    if (!hasCepField) return true;
+
+    const cep = normalizeCep(String(form.address_zipcode ?? ''));
+    if (!cep) {
+      setCepSaveError(null);
+      return true;
+    }
+    if (isValidCep(cep)) {
+      setCepSaveError(null);
+      return true;
+    }
+
+    setCepSaveError('Informe um CEP valido com oito digitos.');
+    return false;
+  };
+
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (savingRef.current) return;
+    if (!validateCepForSave()) return;
+
+    savingRef.current = true;
     setSaving(true);
     setError(null);
+    setCepSaveError(null);
 
     try {
+      const normalizedForm = normalizeUnitFormPayload(form);
+
       if (editing && id) {
-        await unitManagementService.updateUnit(id, form);
+        await unitManagementService.updateUnit(id, normalizedForm);
       } else {
         if (!selectedResponsibleUserId) {
           setError('Selecione ou crie o admin da unidade antes de salvar.');
           return;
         }
 
-        const payload = { ...form };
+        const payload = { ...normalizedForm };
         payload.unit_responsible_user_id = selectedResponsibleUserId;
 
         if (implementationSetup.initialStatus !== 'none') {
@@ -332,6 +453,7 @@ export function UnitFormPage() {
     } catch (saveError) {
       setError(getApiErrorMessage(saveError, `Nao foi possivel salvar ${metadata.singular_label.toLowerCase()}.`));
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
@@ -365,9 +487,35 @@ export function UnitFormPage() {
   );
   const unitFormSchema = useMemo(
     () => [...metadata.fields]
+      .filter(field => field.visible !== false)
       .filter(field => editing || !UNIT_CREATE_MANAGED_FIELDS.has(String(field.key)))
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
     [editing, metadata.fields],
+  );
+  const addressFieldKeys = useMemo(() => visibleUnitAddressFieldKeys(unitFormSchema), [unitFormSchema]);
+  const addressFields = useMemo(
+    () => unitFormSchema.filter(field => addressFieldKeys.has(String(field.key))).map(presentUnitField),
+    [addressFieldKeys, unitFormSchema],
+  );
+  const identificationFields = useMemo(
+    () => sectionFields(unitFormSchema, UNIT_IDENTIFICATION_FIELD_KEYS),
+    [unitFormSchema],
+  );
+  const contactFields = useMemo(
+    () => sectionFields(unitFormSchema, UNIT_CONTACT_FIELD_KEYS),
+    [unitFormSchema],
+  );
+  const responsibleFields = useMemo(
+    () => sectionFields(unitFormSchema, UNIT_RESPONSIBLE_FIELD_KEYS),
+    [unitFormSchema],
+  );
+  const additionalFields = useMemo(
+    () => sectionFields(unitFormSchema, UNIT_ADDITIONAL_FIELD_KEYS),
+    [unitFormSchema],
+  );
+  const customFields = useMemo(
+    () => customSectionFields(unitFormSchema, addressFieldKeys),
+    [addressFieldKeys, unitFormSchema],
   );
   const selectedResponsibleUser = useMemo(
     () => tenantUsers.find(user => String(user.id) === selectedResponsibleUserId) ?? null,
@@ -454,7 +602,11 @@ export function UnitFormPage() {
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-normal">{editing ? `Editar ${metadata.singular_label}` : `Nova ${metadata.singular_label}`}</h1>
-          <p className="text-sm text-muted-foreground">Formulario controlado pela Metadata Engine.</p>
+          <p className="text-sm text-muted-foreground">
+            {editing
+              ? 'Atualize os dados cadastrais e operacionais da unidade.'
+              : 'Cadastre os dados de identificacao, endereco e responsaveis pela unidade.'}
+          </p>
         </div>
         <Button asChild variant="outline">
           <Link to="/units">
@@ -490,22 +642,126 @@ export function UnitFormPage() {
       {activeTab === 'implantacao' && editing ? (
         <UnitImplementationTab unit={unitForImplementation} />
       ) : (
-        <form className="space-y-5 rounded-md border p-4" onSubmit={save}>
+        <form className="space-y-5" onSubmit={save} data-testid="unit-form">
           {loading ? (
-            <div className="h-32 content-center text-center text-sm text-muted-foreground">Carregando formulario</div>
+            <UnitFormSection title="Carregando formulario">
+              <div className="h-24 content-center text-center text-sm text-muted-foreground">Carregando dados da unidade</div>
+            </UnitFormSection>
           ) : (
             <>
-              <DynamicFormRenderer
-                schema={unitFormSchema}
-                value={form}
-                disabled={saving}
-                onChange={patch => setForm(current => ({ ...current, ...patch }))}
-              />
+              {identificationFields.length > 0 ? (
+                <UnitFormSection
+                  title="Identificacao da unidade"
+                  description="Dados cadastrais e situacao operacional da unidade."
+                  testId="unit-section-identification"
+                >
+                  <DynamicFormRenderer
+                    schema={identificationFields}
+                    value={form}
+                    disabled={saving}
+                    layout="plain"
+                    getFieldClassName={unitFieldClassName}
+                    onChange={patch => setForm(current => ({ ...current, ...patch }))}
+                  />
+                </UnitFormSection>
+              ) : null}
+
+              {contactFields.length > 0 ? (
+                <UnitFormSection
+                  title="Contato da unidade"
+                  description="Canais usados para comunicacao com a unidade."
+                  testId="unit-section-contact"
+                >
+                  <DynamicFormRenderer
+                    schema={contactFields}
+                    value={form}
+                    disabled={saving}
+                    layout="plain"
+                    getFieldClassName={unitFieldClassName}
+                    onChange={patch => setForm(current => ({ ...current, ...patch }))}
+                  />
+                </UnitFormSection>
+              ) : null}
+
+              {addressFields.length > 0 ? (
+                <UnitFormSection
+                  title="Endereco"
+                  description="Informe o CEP para preencher automaticamente os dados disponiveis."
+                  testId="unit-section-address"
+                >
+                  <UnitAddressFields
+                    fields={addressFields}
+                    value={form}
+                    disabled={saving}
+                    cepErrorMessage={cepSaveError}
+                    onCepValidityChange={valid => {
+                      if (valid) setCepSaveError(null);
+                    }}
+                    onChange={patch => {
+                      if (Object.prototype.hasOwnProperty.call(patch, 'address_zipcode')) {
+                        setCepSaveError(null);
+                      }
+                      setForm(current => ({ ...current, ...patch }));
+                    }}
+                  />
+                </UnitFormSection>
+              ) : null}
+
+              {responsibleFields.length > 0 ? (
+                <UnitFormSection
+                  title="Responsavel pela unidade"
+                  description="Informacoes de contato do responsavel operacional."
+                  testId="unit-section-responsible"
+                >
+                  <DynamicFormRenderer
+                    schema={responsibleFields}
+                    value={form}
+                    disabled={saving}
+                    layout="plain"
+                    getFieldClassName={unitFieldClassName}
+                    onChange={patch => setForm(current => ({ ...current, ...patch }))}
+                  />
+                </UnitFormSection>
+              ) : null}
+
+              {additionalFields.length > 0 ? (
+                <UnitFormSection
+                  title="Informacoes adicionais"
+                  testId="unit-section-additional"
+                >
+                  <DynamicFormRenderer
+                    schema={additionalFields}
+                    value={form}
+                    disabled={saving}
+                    layout="plain"
+                    getFieldClassName={unitFieldClassName}
+                    onChange={patch => setForm(current => ({ ...current, ...patch }))}
+                  />
+                </UnitFormSection>
+              ) : null}
+
+              {customFields.length > 0 ? (
+                <UnitFormSection
+                  title="Campos personalizados"
+                  description="Campos configurados pela Metadata Engine para este tenant."
+                  testId="unit-section-custom"
+                >
+                  <DynamicFormRenderer
+                    schema={customFields}
+                    value={form}
+                    disabled={saving}
+                    onChange={patch => setForm(current => ({ ...current, ...patch }))}
+                  />
+                </UnitFormSection>
+              ) : null}
 
               {!editing ? (
                 <>
-                  <section className="space-y-3 border-t pt-4">
-                    <div className="text-sm font-medium">Admin da unidade</div>
+                  <UnitFormSection
+                    title="Admin da unidade"
+                    description="Selecione o usuario que tera acesso administrativo a esta unidade."
+                    testId="unit-section-admin"
+                  >
                     <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
                       <div className="grid gap-2">
                         <Label htmlFor="unit_responsible_user_id">Usuario com acesso admin nesta unidade</Label>
@@ -534,9 +790,13 @@ export function UnitFormPage() {
                         {selectedResponsibleUser.phone ? <div className="text-muted-foreground">{selectedResponsibleUser.phone}</div> : null}
                       </div>
                     ) : null}
-                  </section>
+                  </UnitFormSection>
 
-                  <section className="space-y-3 border-t pt-4">
+                  <UnitFormSection
+                    title="Implantacao inicial"
+                    description="Defina se a unidade ja deve nascer vinculada a um fluxo de implantacao."
+                    testId="unit-section-implementation"
+                  >
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <ClipboardCheck className="size-4" />
                       Implantacao inicial
@@ -626,19 +886,19 @@ export function UnitFormPage() {
                         </div>
                       ) : null}
                     </div>
-                  </section>
+                  </UnitFormSection>
                 </>
               ) : null}
             </>
           )}
 
-          <div className="flex justify-end gap-2">
-            <Button asChild type="button" variant="outline">
+          <div className="flex flex-col-reverse gap-2 rounded-lg border bg-background p-3 sm:flex-row sm:justify-end">
+            <Button asChild type="button" variant="outline" className="w-full sm:w-auto">
               <Link to="/units">Cancelar</Link>
             </Button>
-            <Button type="submit" disabled={saving || loading}>
+            <Button type="submit" disabled={saving || loading} aria-busy={saving || undefined} className="w-full sm:w-auto" data-testid="unit-save-button">
               {saving ? <RefreshCw className="size-4 animate-spin" /> : <Save className="size-4" />}
-              Salvar
+              {saving ? 'Salvando...' : 'Salvar'}
             </Button>
           </div>
         </form>
