@@ -272,12 +272,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (brandingPayload) {
           const logoUrl = brandingPayload.logo ?? brandingPayload.logo_url ?? (brandingPayload.logo_url ? await getWhiteLabelLogoObjectUrl() : null);
 
+          const appendCacheBuster = (value: string) => `${value}${value.includes('?') ? '&' : '?'}v=${Date.now()}`;
+
           tenantPatch.whiteLabel = {
             ...tenantPatch.whiteLabel,
-            ...(logoUrl ? { logoUrl } : {}),
-            ...(brandingPayload.compact_logo ? { compactLogoUrl: brandingPayload.compact_logo } : {}),
-            ...(brandingPayload.favicon ? { favicon: brandingPayload.favicon } : {}),
-            ...(brandingPayload.authentication_background_image ? { loginBg: brandingPayload.authentication_background_image } : {}),
+            ...(logoUrl ? { logoUrl: appendCacheBuster(logoUrl) } : {}),
+            ...(brandingPayload.compact_logo ? { compactLogoUrl: appendCacheBuster(brandingPayload.compact_logo) } : {}),
+            ...(brandingPayload.favicon ? { favicon: appendCacheBuster(brandingPayload.favicon) } : {}),
+            ...(brandingPayload.authentication_background_image ? { loginBg: appendCacheBuster(brandingPayload.authentication_background_image) } : {}),
             ...(brandingPayload.primary_color ? { primaryColor: brandingPayload.primary_color } : {}),
             ...(brandingPayload.secondary_color ? { secondaryColor: brandingPayload.secondary_color } : {}),
             ...(brandingPayload.accent_color ? { accentColor: brandingPayload.accent_color } : {}),

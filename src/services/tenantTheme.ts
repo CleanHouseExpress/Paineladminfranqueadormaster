@@ -251,7 +251,7 @@ export function applyDocumentBranding(theme: TenantTheme, doc: Document = docume
     const link = doc.createElement('link');
     link.id = TENANT_FAVICON_ID;
     link.rel = 'icon';
-    link.href = theme.branding.favicon;
+    link.href = addCacheBuster(theme.branding.favicon);
     doc.head.appendChild(link);
   }
 
@@ -263,6 +263,16 @@ export function applyDocumentBranding(theme: TenantTheme, doc: Document = docume
 export function resetDocumentBranding(doc: Document = document) {
   doc.getElementById(TENANT_FAVICON_ID)?.remove();
   doc.title = DEFAULT_DOCUMENT_TITLE;
+}
+
+export function addCacheBuster(url: string): string {
+  try {
+    const parsed = new URL(url, typeof window !== 'undefined' ? window.location.href : 'http://localhost');
+    parsed.searchParams.set('v', String(Date.now()));
+    return parsed.toString();
+  } catch {
+    return url;
+  }
 }
 
 export async function loadTenantBranding(): Promise<TenantBrandingContract | null> {
