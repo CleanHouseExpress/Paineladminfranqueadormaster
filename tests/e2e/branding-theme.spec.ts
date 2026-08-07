@@ -4,7 +4,7 @@ const initialBranding = {
   display_name: 'Orchestra E2E',
   logo: null,
   compact_logo: null,
-  favicon: null,
+  favicon: '/api/tenant/branding/assets/favicon',
   primary_color: '#6366F1',
   secondary_color: '#8B5CF6',
   accent_color: '#E9EBEF',
@@ -21,6 +21,7 @@ const initialBranding = {
 const restoredBranding = {
   ...initialBranding,
   display_name: 'Orchestra',
+  favicon: null,
   primary_color: '#030213',
   secondary_color: '#6366F1',
   sidebar_color: '#0F172A',
@@ -59,6 +60,15 @@ test('@branding configuracao aplica preview, salva e restaura tema', async ({ pa
   }));
   await page.route('**/api/me/roles', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [{ id: 1, name: 'Admin Master' }] }) }));
   await page.route('**/api/me/permissions', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: ['tenant.onboarding.manage'] }) }));
+  await page.route('**/api/company/logout', route => route.fulfill({ status: 204 }));
+  await page.route('**/api/tenant/branding/assets/favicon', route => route.fulfill({
+    status: 200,
+    contentType: 'image/png',
+    body: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      'base64',
+    ),
+  }));
   await page.route('**/api/me/onboarding', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -94,9 +104,13 @@ test('@branding configuracao aplica preview, salva e restaura tema', async ({ pa
   await page.goto('/settings/whitelabel');
 
   await expect(page.getByRole('heading', { name: 'Personalizacao White Label' })).toBeVisible();
+  await expect(page).toHaveTitle('Orchestra E2E - Orchestra');
+  await expect(page.locator('#tenant-branding-favicon')).toHaveAttribute('href', /\/api\/tenant\/branding\/assets\/favicon$/);
   await page.locator('#branding-primaryColor').fill('#0EA5E9');
   await page.locator('#branding-sidebarColor').fill('#111827');
   await expect(page.getByTestId('branding-preview')).toContainText('Contraste calculado');
+  await expect(page.getByTestId('branding-preview').locator('aside')).toHaveCSS('background-color', 'rgb(17, 24, 39)');
+  await expect(page.locator('aside').first()).toHaveCSS('background-color', 'rgb(15, 23, 42)');
 
   await page.locator('#branding-secondaryColor').fill('url(javascript:alert(1))');
   await expect(page.getByText('Use #RGB ou #RRGGBB.')).toBeVisible();
@@ -118,4 +132,14 @@ test('@branding configuracao aplica preview, salva e restaura tema', async ({ pa
   await expect(page.getByText('Tema padrao Orchestra restaurado.')).toBeVisible();
   expect(restoreCalls).toBe(1);
   await expect(page.locator('#branding-primaryColor')).toHaveValue('#030213');
+  await expect(page.locator('#tenant-branding-favicon')).toHaveCount(0);
+  await expect(page).toHaveTitle('Orchestra');
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole('button', { name: 'Salvar alteracoes' })).toBeVisible();
+  await page.setViewportSize({ width: 1280, height: 720 });
+
+  await page.getByTestId('logout-button').click();
+  await expect(page.getByTestId('login-submit')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Entrar no Orchestra' })).toBeVisible();
 });

@@ -173,7 +173,7 @@ function buildTenantPatch(company: AuthCompany, modules: AuthModule[]): Partial<
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { hydrateTenant } = useTenant();
+  const { hydrateTenant, resetTenant } = useTenant();
   const { refreshTheme } = useTenantTheme();
   const [token, setToken] = useState<string | null>(() => readStoredToken());
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -201,6 +201,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setRoles([]);
       setPermissions([]);
       setContext(null);
+      resetTenant();
       setIsLoading(false);
       setError(null);
       return;
@@ -306,10 +307,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setRoles([]);
       setPermissions([]);
       setContext(null);
+      resetTenant();
     } finally {
       setIsLoading(false);
     }
-  }, [hydrateTenant, refreshTheme]);
+  }, [hydrateTenant, refreshTheme, resetTenant]);
 
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
@@ -358,10 +360,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setRoles([]);
       setPermissions([]);
       setContext(null);
+      resetTenant();
       void refreshTheme();
       setIsLoading(false);
     }
-  }, [refreshTheme]);
+  }, [refreshTheme, resetTenant]);
 
   useEffect(() => {
     void hydrateSession();
@@ -378,13 +381,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setPermissions([]);
       setContext(null);
       setError(null);
+      resetTenant();
+      void refreshTheme();
       setIsLoading(false);
     };
 
     window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, resetExpiredSession);
 
     return () => window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, resetExpiredSession);
-  }, []);
+  }, [refreshTheme, resetTenant]);
 
   const value = useMemo<AuthContextValue>(() => ({
     user,

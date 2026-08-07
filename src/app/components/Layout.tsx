@@ -104,14 +104,14 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
                     to={child.path}
                     className="flex items-center justify-between px-3 py-1.5 rounded-md mb-0.5 transition-colors"
                     style={{
-                      color: childActive ? '#818CF8' : '#64748B',
+                      color: childActive ? 'var(--sidebar-active-foreground)' : 'color-mix(in srgb, var(--sidebar-foreground) 72%, transparent)',
                       background: childActive ? 'color-mix(in srgb, var(--sidebar-active) 18%, transparent)' : 'transparent',
                       fontSize: '12px',
                       fontWeight: childActive ? 500 : 400,
                       borderLeft: childActive ? '2px solid var(--sidebar-active)' : '2px solid transparent',
                     }}
-                    onMouseEnter={e => { if (!childActive) (e.currentTarget as HTMLElement).style.color = '#94A3B8'; }}
-                    onMouseLeave={e => { if (!childActive) (e.currentTarget as HTMLElement).style.color = '#64748B'; }}
+                    onMouseEnter={e => { if (!childActive) (e.currentTarget as HTMLElement).style.color = 'var(--sidebar-foreground)'; }}
+                    onMouseLeave={e => { if (!childActive) (e.currentTarget as HTMLElement).style.color = 'color-mix(in srgb, var(--sidebar-foreground) 72%, transparent)'; }}
                   >
                     {child.label}
                     {child.badge ? (
@@ -208,7 +208,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           {!collapsed && (
             <div className="min-w-0">
               <div style={{ color: 'var(--sidebar-foreground)', fontWeight: 600, fontSize: '13px', lineHeight: 1.2 }} className="truncate">{brandTitle}</div>
-              <div style={{ color: '#64748B', fontSize: '11px' }} className="truncate">{brandSubtitle}</div>
+              <div style={{ color: 'color-mix(in srgb, var(--sidebar-foreground) 72%, transparent)', fontSize: '11px' }} className="truncate">{brandSubtitle}</div>
             </div>
           )}
           <button onClick={() => setCollapsed(c => !c)} className="ml-auto hidden lg:flex items-center justify-center w-6 h-6 rounded" style={{ color: 'var(--sidebar-foreground)' }}>
@@ -227,7 +227,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <div className="px-3 py-2 mb-2 rounded-lg" style={{ background: 'color-mix(in srgb, var(--sidebar-active) 16%, transparent)', border: '1px solid color-mix(in srgb, var(--sidebar-active) 28%, transparent)' }}>
               <div style={{ color: 'var(--sidebar-active-foreground)', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Plano</div>
               <div style={{ color: 'var(--sidebar-foreground)', fontSize: '12px', fontWeight: 600 }}>{tenant.plan.charAt(0).toUpperCase() + tenant.plan.slice(1)}</div>
-              <div style={{ color: '#64748B', fontSize: '11px' }}>{tenant.enabledModuleIds.length} módulos ativos</div>
+              <div style={{ color: 'color-mix(in srgb, var(--sidebar-foreground) 72%, transparent)', fontSize: '11px' }}>{tenant.enabledModuleIds.length} módulos ativos</div>
             </div>
           )}
           <button
@@ -240,8 +240,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
             }}
             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors"
             style={{ color: 'var(--sidebar-foreground)', opacity: loggingOut ? 0.6 : 1 }}
-            onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = '#94A3B8'}
-            onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = '#64748B'}>
+            onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--sidebar-foreground)'}
+            onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'color-mix(in srgb, var(--sidebar-foreground) 72%, transparent)'}>
             <LogOut size={15} style={{ flexShrink: 0 }} />
             {!collapsed && <span style={{ fontSize: '12px' }}>{loggingOut ? 'Saindo...' : 'Sair'}</span>}
           </button>
@@ -251,13 +251,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <header className="flex items-center gap-4 px-6 py-3.5 flex-shrink-0" style={{ background: 'var(--header)', color: 'var(--header-foreground)', borderBottom: '1px solid rgba(0,0,0,0.06)', minHeight: '56px' }}>
-          <button onClick={() => setMobileOpen(true)} className="lg:hidden" style={{ color: '#64748B' }}><Menu size={20} /></button>
+          <button onClick={() => setMobileOpen(true)} className="lg:hidden" style={{ color: 'var(--header-foreground)' }}><Menu size={20} /></button>
 
           <div className="flex-1 max-w-md">
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-              <Search size={14} style={{ color: '#94A3B8' }} />
+              <Search size={14} style={{ color: 'var(--muted-text)' }} />
               <input placeholder={`Buscar unidades, ${customersLabel}, modulos...`} className="bg-transparent flex-1 outline-none focus:ring-2 focus:ring-[var(--focus-ring)]" style={{ fontSize: '13px', color: 'var(--text)' }} />
-              <span className="hidden md:block px-1.5 py-0.5 rounded" style={{ background: '#EFF2F7', color: '#94A3B8', fontSize: '10px', fontFamily: 'monospace' }}>⌘K</span>
+              <span className="hidden md:block px-1.5 py-0.5 rounded" style={{ background: 'var(--accent)', color: 'var(--accent-foreground)', fontSize: '10px', fontFamily: 'monospace' }}>⌘K</span>
             </div>
           </div>
 
@@ -281,8 +281,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 {(user?.name ?? 'Usuário').split(' ').filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase()}
               </div>
               <div className="hidden md:block">
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A', lineHeight: 1.2 }}>{user?.name ?? 'Usuário'}</div>
-                <div style={{ fontSize: '11px', color: '#94A3B8' }}>{user?.email ?? ''}</div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--header-foreground)', lineHeight: 1.2 }}>{user?.name ?? 'Usuário'}</div>
+                <div style={{ fontSize: '11px', color: 'color-mix(in srgb, var(--header-foreground) 65%, transparent)' }}>{user?.email ?? ''}</div>
               </div>
             </div>
           </div>

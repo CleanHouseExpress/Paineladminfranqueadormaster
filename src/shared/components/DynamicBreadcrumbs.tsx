@@ -15,17 +15,17 @@ export function DynamicBreadcrumbs() {
   if (crumbs.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-1.5" style={{ fontSize: '12px', color: '#94A3B8' }}>
+    <div className="flex items-center gap-1.5" style={{ fontSize: '12px', color: 'var(--muted-text)' }}>
       <span>Orchestra</span>
       {crumbs.map((crumb, i) => (
         <span key={crumb.path} className="flex items-center gap-1.5">
           <ChevronRight size={12} />
           {i < crumbs.length - 1 ? (
-            <Link to={crumb.path} className="hover:text-indigo-400 transition-colors">
+            <Link to={crumb.path} className="transition-colors" style={{ color: 'var(--link)' }}>
               {crumb.label}
             </Link>
           ) : (
-            <span style={{ color: '#64748B' }}>{crumb.label}</span>
+            <span style={{ color: 'var(--text)' }}>{crumb.label}</span>
           )}
         </span>
       ))}

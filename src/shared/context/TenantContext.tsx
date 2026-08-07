@@ -35,6 +35,8 @@ interface TenantContextValue {
   isModuleBlocked: (moduleId: string) => boolean;
   /** Update the entire tenant config from a hydrated session payload */
   hydrateTenant: (patch: Partial<TenantConfig>) => void;
+  /** Restore the local tenant shell to the Orchestra fallback */
+  resetTenant: () => void;
   /** Update white-label settings (persists in context for session) */
   updateWhiteLabel: (patch: Partial<TenantConfig['whiteLabel']>) => void;
   /** Enable or disable a module for this tenant */
@@ -86,6 +88,10 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
     setTenant(t => ({ ...t, whiteLabel: { ...t.whiteLabel, ...patch } }));
   }, []);
 
+  const resetTenant = useCallback(() => {
+    setTenant(DEFAULT_TENANT);
+  }, []);
+
   const setModuleEnabled = useCallback((moduleId: string, enabled: boolean) => {
     setTenant(t => ({
       ...t,
@@ -101,10 +107,11 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
       isModuleEnabled,
       isModuleBlocked,
       hydrateTenant,
+      resetTenant,
       updateWhiteLabel,
       setModuleEnabled,
     }),
-    [tenant, isModuleEnabled, isModuleBlocked, hydrateTenant, updateWhiteLabel, setModuleEnabled],
+    [tenant, isModuleEnabled, isModuleBlocked, hydrateTenant, resetTenant, updateWhiteLabel, setModuleEnabled],
   );
 
   return (

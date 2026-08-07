@@ -7,10 +7,10 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#F8FAFC' }}>
-        <div className="bg-white rounded-2xl p-8 text-center max-w-sm" style={{ border: '1px solid rgba(0,0,0,0.06)' }}>
-          <h1 style={{ color: '#0F172A', marginBottom: '8px' }}>Carregando sessão</h1>
-          <p style={{ fontSize: '14px', color: '#64748B', lineHeight: 1.6 }}>
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: 'var(--background)' }}>
+        <div className="rounded-2xl p-8 text-center max-w-sm" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <h1 style={{ color: 'var(--text)', marginBottom: '8px' }}>Carregando sessao</h1>
+          <p style={{ fontSize: '14px', color: 'var(--muted-text)', lineHeight: 1.6 }}>
             Aguarde enquanto validamos seu acesso.
           </p>
         </div>
