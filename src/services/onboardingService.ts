@@ -205,6 +205,8 @@ function checklistFromBackend(params: {
     && inventoryOnboarding.steps.length > 0,
   );
 
+  const tourCompleted = params.settings?.dashboard_preferences?.onboarding_tour_completed === true;
+
   const completed: Record<string, boolean> = {
     network: backendStepCompleted(params.onboarding, 'company_profile'),
     whitelabel: backendStepCompleted(params.onboarding, 'branding'),
@@ -214,7 +216,7 @@ function checklistFromBackend(params: {
     inventory: inventoryOnboarding?.completed === true,
     royalties: royaltiesConfigured || Boolean(params.settings?.dashboard_preferences?.onboarding_financial),
     clients: customersConfigured(params.settings),
-    tour: params.onboarding?.status === 'completed',
+    tour: tourCompleted,
   };
 
   return INITIAL_CHECKLIST
@@ -283,6 +285,7 @@ export async function getOnboardingStatus(): Promise<OnboardingState> {
     ? await optional(apiClient.get<DataResponse<InventoryOnboardingSummary>>('/api/company/inventory/onboarding?context=network', { expireSessionOnUnauthorized: false }))
     : null;
   const completed = isWizardCompleted(onboarding);
+  const tourCompleted = settings?.dashboard_preferences?.onboarding_tour_completed === true;
 
   return {
     ...INITIAL_ONBOARDING_STATE,
@@ -298,7 +301,7 @@ export async function getOnboardingStatus(): Promise<OnboardingState> {
       financial: toFinancial(settings),
       clientsImported: customersConfigured(settings),
     },
-    tourCompleted: completed,
+    tourCompleted: tourCompleted,
     tourActive: false,
     currentTourStop: 0,
     checklist: checklistFromBackend({
@@ -383,14 +386,40 @@ async function saveSettings(data: Partial<WizardStepData>) {
   if (data.clientsImported !== undefined) preferences.onboarding_clients_imported = data.clientsImported;
 
   await apiClient.put('/api/me/settings', {
-    timezone: 'America/Sao_Paulo',
-    language: 'pt-BR',
-    currency: 'BRL',
-    network_type: 'franchise',
-    unit_management_mode: 'hybrid',
-    email_notifications: true,
-    system_notifications: true,
-    critical_alerts: true,
+    timezone: current?.timezone ?? 'America/Sao_Paulo',
+    language: current?.language ?? 'pt-BR',
+    currency: current?.currency ?? 'BRL',
+    default_city: current?.default_city ?? null,
+    default_state: current?.default_state ?? null,
+    network_type: current?.network_type ?? 'franchise',
+    unit_management_mode: current?.unit_management_mode ?? 'hybrid',
+    email_notifications: current?.email_notifications ?? true,
+    system_notifications: current?.system_notifications ?? true,
+    critical_alerts: current?.critical_alerts ?? true,
+    dashboard_preferences: preferences,
+  });
+}
+
+async function saveTourCompletion(completed: boolean): Promise<void> {
+  const current = dataOf(await optional(apiClient.get<DataResponse<TenantSettings>>('/api/me/settings')));
+  const preferences: Record<string, unknown> = { ...(current?.dashboard_preferences ?? {}) };
+  if (completed) {
+    preferences.onboarding_tour_completed = true;
+  } else {
+    delete preferences.onboarding_tour_completed;
+  }
+
+  await apiClient.put('/api/me/settings', {
+    timezone: current?.timezone ?? 'America/Sao_Paulo',
+    language: current?.language ?? 'pt-BR',
+    currency: current?.currency ?? 'BRL',
+    default_city: current?.default_city ?? null,
+    default_state: current?.default_state ?? null,
+    network_type: current?.network_type ?? 'franchise',
+    unit_management_mode: current?.unit_management_mode ?? 'hybrid',
+    email_notifications: current?.email_notifications ?? true,
+    system_notifications: current?.system_notifications ?? true,
+    critical_alerts: current?.critical_alerts ?? true,
     dashboard_preferences: preferences,
   });
 }
@@ -429,14 +458,17 @@ export async function updateTourProgress(
 ): Promise<OnboardingState> {
   const current = await getOnboardingStatus();
 
+  if (completed) {
+    await saveTourCompletion(true);
+    return getOnboardingStatus();
+  }
+
   return {
     ...current,
     currentTourStop: stop,
-    tourCompleted: completed,
-    tourActive: !completed,
-    checklist: completed
-      ? current.checklist.map(item => item.id === 'tour' ? { ...item, completed: true } : item)
-      : current.checklist,
+    tourCompleted: false,
+    tourActive: true,
+    checklist: current.checklist,
   };
 }
 
