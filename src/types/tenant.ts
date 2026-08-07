@@ -1,10 +1,17 @@
 export interface WhiteLabelConfig {
   primaryColor: string;
   secondaryColor: string;
+  accentColor?: string;
+  backgroundColor?: string;
+  sidebarColor?: string;
+  headerColor?: string;
+  foregroundColor?: string;
   logoUrl?: string;
+  compactLogoUrl?: string;
   logoText: string;
   favicon?: string;
   loginBg?: string;
+  themeMode?: 'light' | 'dark' | 'system';
   supportEmail?: string;
   platformName: string;
 }

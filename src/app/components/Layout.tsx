@@ -168,8 +168,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
-  const primary = tenant.whiteLabel.primaryColor;
-  const secondary = tenant.whiteLabel.secondaryColor;
+  const primary = 'var(--primary)';
+  const secondary = 'var(--secondary)';
   const brandTitle = useMemo(
     () => tenant.whiteLabel.platformName && tenant.whiteLabel.platformName !== 'Orchestra'
       ? tenant.whiteLabel.platformName
@@ -182,7 +182,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   }, [modules]);
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: '#F8FAFC', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--background)', color: 'var(--text)', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
       {mobileOpen && (
         <div className="fixed inset-0 z-40 lg:hidden" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setMobileOpen(false)} />
       )}
@@ -190,7 +190,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Sidebar */}
       <aside
         className={`fixed lg:relative z-50 flex flex-col h-full transition-all duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} ${collapsed ? 'w-[68px]' : 'w-[240px]'}`}
-        style={{ background: '#0F172A', borderRight: '1px solid rgba(255,255,255,0.06)' }}
+        style={{ background: 'var(--sidebar)', color: 'var(--sidebar-foreground)', borderRight: '1px solid rgba(255,255,255,0.06)' }}
       >
         {/* Brand */}
         <div className="flex items-center gap-3 px-4 py-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
@@ -204,7 +204,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
           {!collapsed && (
             <div className="min-w-0">
-              <div style={{ color: '#F1F5F9', fontWeight: 600, fontSize: '13px', lineHeight: 1.2 }} className="truncate">{brandTitle}</div>
+              <div style={{ color: 'var(--sidebar-foreground)', fontWeight: 600, fontSize: '13px', lineHeight: 1.2 }} className="truncate">{brandTitle}</div>
               <div style={{ color: '#64748B', fontSize: '11px' }} className="truncate">{brandSubtitle}</div>
             </div>
           )}
@@ -247,7 +247,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="flex items-center gap-4 px-6 py-3.5 bg-white flex-shrink-0" style={{ borderBottom: '1px solid rgba(0,0,0,0.06)', minHeight: '56px' }}>
+        <header className="flex items-center gap-4 px-6 py-3.5 flex-shrink-0" style={{ background: 'var(--header)', color: 'var(--header-foreground)', borderBottom: '1px solid rgba(0,0,0,0.06)', minHeight: '56px' }}>
           <button onClick={() => setMobileOpen(true)} className="lg:hidden" style={{ color: '#64748B' }}><Menu size={20} /></button>
 
           <div className="flex-1 max-w-md">
@@ -285,7 +285,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto" style={{ background: '#F8FAFC' }}>
+        <main className="flex-1 overflow-y-auto" style={{ background: 'var(--background)' }}>
           {children}
         </main>
       </div>

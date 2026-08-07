@@ -14,6 +14,7 @@ import {
 import { getWhiteLabelBranding, getWhiteLabelLogoObjectUrl } from '../../services/whiteLabelService';
 import type { TenantConfig } from '../../types';
 import { useTenant } from './TenantContext';
+import { useTenantTheme } from './TenantThemeContext';
 
 interface AuthSessionContext {
   userId?: string | number;
@@ -173,6 +174,7 @@ function buildTenantPatch(company: AuthCompany, modules: AuthModule[]): Partial<
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { hydrateTenant } = useTenant();
+  const { refreshTheme } = useTenantTheme();
   const [token, setToken] = useState<string | null>(() => readStoredToken());
   const [user, setUser] = useState<AuthUser | null>(null);
   const [company, setCompany] = useState<AuthCompany | null>(null);
@@ -267,15 +269,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const tenantPatch = buildTenantPatch(nextCompany, nextModules);
 
         if (brandingPayload) {
-          const logoUrl = brandingPayload.logo_url ? await getWhiteLabelLogoObjectUrl() : null;
+          const logoUrl = brandingPayload.logo ?? brandingPayload.logo_url ?? (brandingPayload.logo_url ? await getWhiteLabelLogoObjectUrl() : null);
 
           tenantPatch.whiteLabel = {
             ...tenantPatch.whiteLabel,
             ...(logoUrl ? { logoUrl } : {}),
+            ...(brandingPayload.compact_logo ? { compactLogoUrl: brandingPayload.compact_logo } : {}),
+            ...(brandingPayload.favicon ? { favicon: brandingPayload.favicon } : {}),
+            ...(brandingPayload.authentication_background_image ? { loginBg: brandingPayload.authentication_background_image } : {}),
             ...(brandingPayload.primary_color ? { primaryColor: brandingPayload.primary_color } : {}),
             ...(brandingPayload.secondary_color ? { secondaryColor: brandingPayload.secondary_color } : {}),
-            platformName: nextCompany.name,
+            ...(brandingPayload.accent_color ? { accentColor: brandingPayload.accent_color } : {}),
+            ...(brandingPayload.background_color ? { backgroundColor: brandingPayload.background_color } : {}),
+            ...(brandingPayload.sidebar_color ? { sidebarColor: brandingPayload.sidebar_color } : {}),
+            ...(brandingPayload.header_color ? { headerColor: brandingPayload.header_color } : {}),
+            ...(brandingPayload.foreground_color ? { foregroundColor: brandingPayload.foreground_color } : {}),
+            ...(brandingPayload.theme_mode === 'dark' || brandingPayload.theme_mode === 'system' || brandingPayload.theme_mode === 'light' ? { themeMode: brandingPayload.theme_mode } : {}),
+            platformName: brandingPayload.display_name ?? nextCompany.name,
           };
+
+          await refreshTheme(brandingPayload);
         }
 
         hydrateTenant(tenantPatch);
@@ -296,7 +309,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [hydrateTenant]);
+  }, [hydrateTenant, refreshTheme]);
 
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
@@ -345,9 +358,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setRoles([]);
       setPermissions([]);
       setContext(null);
+      void refreshTheme();
       setIsLoading(false);
     }
-  }, []);
+  }, [refreshTheme]);
 
   useEffect(() => {
     void hydrateSession();

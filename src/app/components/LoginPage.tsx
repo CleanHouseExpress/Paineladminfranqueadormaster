@@ -3,27 +3,32 @@ import { Navigate, useLocation, useNavigate } from 'react-router';
 import { Layers, LogIn } from 'lucide-react';
 import { useAuth } from '../../shared/context/AuthContext';
 import { useTenant } from '../../shared/hooks/useTenant';
+import { useTenantTheme } from '../../shared/context/TenantThemeContext';
 
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, isAuthenticated, isLoading, error } = useAuth();
   const { tenant, isTenantLoading, tenantExists, tenantError } = useTenant();
+  const { branding, isThemeLoading, themeError } = useTenantTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
 
   const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? '/';
   const whiteLabel = tenant.whiteLabel;
-  const primaryColor = whiteLabel.primaryColor || '#6366F1';
-  const secondaryColor = whiteLabel.secondaryColor || '#8B5CF6';
+  const primaryColor = branding.primary_color || whiteLabel.primaryColor || '#6366F1';
+  const secondaryColor = branding.secondary_color || whiteLabel.secondaryColor || '#8B5CF6';
   const gradient = `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`;
+  const platformName = branding.login_title ?? branding.display_name ?? whiteLabel.platformName;
+  const logoUrl = branding.logo ?? whiteLabel.logoUrl;
+  const loginBg = branding.authentication_background_image ?? whiteLabel.loginBg;
 
   if (isAuthenticated) {
     return <Navigate to={from} replace />;
   }
 
-  if (isTenantLoading) {
+  if (isTenantLoading || isThemeLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#F8FAFC', fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
         <div className="bg-white rounded-2xl p-8 w-full max-w-sm text-center" style={{ border: '1px solid rgba(0,0,0,0.06)' }}>
@@ -64,25 +69,25 @@ export function LoginPage() {
     <div
       className="min-h-screen flex items-center justify-center p-6"
       style={{
-        background: whiteLabel.loginBg
-          ? `linear-gradient(rgba(248, 250, 252, 0.86), rgba(248, 250, 252, 0.86)), url(${whiteLabel.loginBg}) center/cover`
-          : '#F8FAFC',
+        background: loginBg
+          ? `linear-gradient(rgba(248, 250, 252, 0.86), rgba(248, 250, 252, 0.86)), url(${loginBg}) center/cover`
+          : 'var(--background)',
         fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
       }}
     >
       <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-8 w-full max-w-sm" style={{ border: '1px solid rgba(0,0,0,0.06)' }}>
         <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5 overflow-hidden" style={{ background: gradient }}>
-          {whiteLabel.logoUrl ? (
-            <img src={whiteLabel.logoUrl} alt={tenant.name} className="w-full h-full object-cover" />
+          {logoUrl ? (
+            <img src={logoUrl} alt={tenant.name} className="w-full h-full object-contain p-1" />
           ) : whiteLabel.logoText ? (
             <span style={{ color: 'white', fontSize: '14px', fontWeight: 700 }}>{whiteLabel.logoText}</span>
           ) : (
             <Layers size={20} color="white" />
           )}
         </div>
-        <h1 style={{ color: '#0F172A', marginBottom: '6px' }}>Entrar no {whiteLabel.platformName}</h1>
+        <h1 style={{ color: 'var(--text)', marginBottom: '6px' }}>Entrar no {platformName}</h1>
         <p style={{ fontSize: '13px', color: '#64748B', lineHeight: 1.5, marginBottom: '24px' }}>
-          Acesse sua conta para continuar no painel de {tenant.name}.
+          {branding.login_subtitle ?? `Acesse sua conta para continuar no painel de ${tenant.name}.`}
         </p>
 
         <div className="space-y-4">
@@ -112,9 +117,9 @@ export function LoginPage() {
           </div>
         </div>
 
-        {(localError || error || tenantError) && (
+        {(localError || error || tenantError || themeError) && (
           <div className="mt-4 p-3 rounded-xl" style={{ background: '#FEF2F2', color: '#EF4444', fontSize: '12px', lineHeight: 1.5 }}>
-            {localError ?? error ?? tenantError}
+            {localError ?? error ?? tenantError ?? themeError}
           </div>
         )}
 

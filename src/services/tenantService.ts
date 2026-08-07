@@ -4,6 +4,7 @@ import type { TenantConfig } from '../types';
 export type TenantCurrentResponse = Partial<TenantConfig> | {
   data?: Partial<TenantConfig>;
   tenant?: Partial<TenantConfig> & Record<string, unknown>;
+  branding?: Record<string, unknown>;
   white_label?: Partial<TenantConfig['whiteLabel']>;
   enabled_module_ids?: string[];
   pending_module_ids?: string[];

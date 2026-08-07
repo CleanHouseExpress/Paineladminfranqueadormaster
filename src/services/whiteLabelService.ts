@@ -1,10 +1,21 @@
 import { apiClient, apiClientConfig, AUTH_TOKEN_STORAGE_KEY } from "./apiClient";
 
 export interface WhiteLabelBranding {
+  display_name?: string | null;
+  logo?: string | null;
+  compact_logo?: string | null;
+  favicon?: string | null;
+  authentication_background_image?: string | null;
   logo_url?: string | null;
   logo_file_name?: string | null;
   primary_color?: string | null;
   secondary_color?: string | null;
+  accent_color?: string | null;
+  background_color?: string | null;
+  sidebar_color?: string | null;
+  header_color?: string | null;
+  foreground_color?: string | null;
+  theme_mode?: string | null;
   login_title?: string | null;
   login_subtitle?: string | null;
 }
