@@ -24,8 +24,8 @@ function MetricCard({ metric }: { metric: DashboardMetric }) {
   const Icon = metric.icon;
 
   return (
-    <div className="bg-white rounded-xl p-4" style={{ border: "1px solid rgba(0,0,0,0.06)" }}>
-      <div className="flex items-center justify-between mb-3">
+    <div className="bg-white rounded-xl p-4 min-w-0 overflow-hidden" style={{ border: "1px solid rgba(0,0,0,0.06)", minHeight: '138px' }}>
+      <div className="flex items-center justify-between mb-3 gap-3 min-w-0">
         <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: metric.bg }}>
           <Icon size={18} style={{ color: metric.color }} />
         </div>
@@ -143,7 +143,7 @@ export function Dashboard() {
 
       <OnboardingChecklist />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6" data-tour="dashboard-metrics">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6" data-tour="dashboard-metrics">
         {metrics.map(metric => <MetricCard key={metric.label} metric={metric} />)}
       </div>
 

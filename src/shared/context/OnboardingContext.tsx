@@ -15,6 +15,7 @@ type Action =
   | { type: 'COMPLETE_WIZARD' }
   | { type: 'START_TOUR' }
   | { type: 'SET_TOUR_STOP'; stop: number }
+  | { type: 'PREVIOUS_TOUR' }
   | { type: 'COMPLETE_TOUR' }
   | { type: 'COMPLETE_CHECKLIST_ITEM'; itemId: string };
 
@@ -45,6 +46,8 @@ function reducer(state: LocalState, action: Action): LocalState {
       return { ...state, tourActive: true, currentTourStop: 0 };
     case 'SET_TOUR_STOP':
       return { ...state, currentTourStop: action.stop };
+    case 'PREVIOUS_TOUR':
+      return { ...state, currentTourStop: Math.max(0, state.currentTourStop - 1) };
     case 'COMPLETE_TOUR':
       return { ...state, tourActive: false, tourCompleted: true };
     case 'COMPLETE_CHECKLIST_ITEM':
@@ -75,6 +78,7 @@ interface OnboardingContextValue {
   // Tour
   startTour: () => void;
   advanceTour: () => void;
+  previousTour: () => void;
   completeTour: () => void;
   // Checklist
   completeChecklistItem: (itemId: string) => Promise<void>;
@@ -147,6 +151,10 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     void svc.updateTourProgress(next, false).then(nextState => dispatch({ type: 'HYDRATE', state: nextState }));
   }, [state.currentTourStop]);
 
+  const previousTour = useCallback(() => {
+    dispatch({ type: 'PREVIOUS_TOUR' });
+  }, []);
+
   const completeTour = useCallback(() => {
     dispatch({ type: 'COMPLETE_TOUR' });
     void svc.updateTourProgress(state.currentTourStop, true).then(next => dispatch({ type: 'HYDRATE', state: next }));
@@ -177,6 +185,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       completeWizard,
       startTour,
       advanceTour,
+      previousTour,
       completeTour,
       completeChecklistItem: completeChecklistItemFn,
       resetOnboarding: resetOnboardingFn,
