@@ -78,6 +78,9 @@ const THEME_VARIABLES = [
   '--sidebar-ring',
 ];
 
+const TENANT_FAVICON_ID = 'tenant-branding-favicon';
+const DEFAULT_DOCUMENT_TITLE = 'Orchestra';
+
 function cleanString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
 }
@@ -224,6 +227,28 @@ export function applyThemeVariables(theme: TenantTheme, root: HTMLElement = docu
 export function resetThemeVariables(root: HTMLElement = document.documentElement) {
   THEME_VARIABLES.forEach(name => root.style.removeProperty(name));
   delete root.dataset.tenantTheme;
+}
+
+export function applyDocumentBranding(theme: TenantTheme, doc: Document = document) {
+  const existing = doc.getElementById(TENANT_FAVICON_ID);
+  if (existing) existing.remove();
+
+  if (theme.branding.favicon) {
+    const link = doc.createElement('link');
+    link.id = TENANT_FAVICON_ID;
+    link.rel = 'icon';
+    link.href = theme.branding.favicon;
+    doc.head.appendChild(link);
+  }
+
+  doc.title = theme.branding.display_name && theme.branding.display_name !== DEFAULT_DOCUMENT_TITLE
+    ? `${theme.branding.display_name} - Orchestra`
+    : DEFAULT_DOCUMENT_TITLE;
+}
+
+export function resetDocumentBranding(doc: Document = document) {
+  doc.getElementById(TENANT_FAVICON_ID)?.remove();
+  doc.title = DEFAULT_DOCUMENT_TITLE;
 }
 
 export async function loadTenantBranding(): Promise<TenantBrandingContract | null> {

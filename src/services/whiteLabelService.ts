@@ -1,23 +1,9 @@
 import { apiClient, apiClientConfig, AUTH_TOKEN_STORAGE_KEY } from "./apiClient";
+import type { TenantBrandingContract } from "./tenantTheme";
 
-export interface WhiteLabelBranding {
-  display_name?: string | null;
-  logo?: string | null;
-  compact_logo?: string | null;
-  favicon?: string | null;
-  authentication_background_image?: string | null;
+export interface WhiteLabelBranding extends TenantBrandingContract {
   logo_url?: string | null;
   logo_file_name?: string | null;
-  primary_color?: string | null;
-  secondary_color?: string | null;
-  accent_color?: string | null;
-  background_color?: string | null;
-  sidebar_color?: string | null;
-  header_color?: string | null;
-  foreground_color?: string | null;
-  theme_mode?: string | null;
-  login_title?: string | null;
-  login_subtitle?: string | null;
 }
 
 interface BrandingResponse {
@@ -64,6 +50,21 @@ export async function uploadWhiteLabelLogo(file: File) {
   formData.append("logo", file);
 
   return apiClient.post<BrandingResponse>("/api/me/onboarding/branding/logo", formData);
+}
+
+export type BrandingAsset = "logo" | "compact_logo" | "favicon" | "authentication_background_image";
+
+export async function uploadWhiteLabelAsset(asset: BrandingAsset, file: File) {
+  if (asset === "logo") return uploadWhiteLabelLogo(file);
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return apiClient.post<BrandingResponse>(`/api/me/onboarding/branding/assets/${asset}`, formData);
+}
+
+export async function restoreWhiteLabelBranding() {
+  return apiClient.post<BrandingResponse>("/api/me/onboarding/branding/restore-default");
 }
 
 export async function getWhiteLabelCompany() {

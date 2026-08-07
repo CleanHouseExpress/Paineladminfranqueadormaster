@@ -1,8 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
+  applyDocumentBranding,
   applyThemeVariables,
   buildTenantTheme,
   loadTenantBranding,
+  resetDocumentBranding,
   resetThemeVariables,
   type TenantBrandingContract,
   type TenantTheme,
@@ -25,6 +27,7 @@ export function TenantThemeProvider({ children }: { children: React.ReactNode })
 
   const apply = useCallback((next: TenantTheme) => {
     applyThemeVariables(next);
+    applyDocumentBranding(next);
     setTheme(next);
   }, []);
 
@@ -47,7 +50,10 @@ export function TenantThemeProvider({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     void refreshTheme();
-    return () => resetThemeVariables();
+    return () => {
+      resetThemeVariables();
+      resetDocumentBranding();
+    };
   }, [refreshTheme]);
 
   const value = useMemo(() => ({

@@ -62,9 +62,11 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
     const label = mod.id === 'pricing' ? (mod.nav!.label ?? mod.name) : configuredModuleLabels.get(moduleId) ?? configuredModuleLabels.get(mod.id) ?? mod.nav!.label ?? mod.name;
 
     const baseStyle: React.CSSProperties = {
-      color: active ? '#F1F5F9' : '#94A3B8',
-      background: active ? 'rgba(99,102,241,0.15)' : 'transparent',
+      color: active ? 'var(--sidebar-active-foreground)' : 'var(--sidebar-foreground)',
+      background: active ? 'var(--sidebar-active)' : 'transparent',
       opacity: enabled ? 1 : 0.55,
+      border: active ? '1px solid color-mix(in srgb, var(--sidebar-active-foreground) 22%, transparent)' : '1px solid transparent',
+      boxShadow: active ? 'inset 3px 0 0 var(--sidebar-active-foreground)' : 'none',
     };
 
     if (mod.nav!.children) {
@@ -75,7 +77,7 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
             onClick={() => toggleExpand(mod.id)}
             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg mb-0.5 transition-colors"
             style={baseStyle}
-            onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; }}
+            onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--sidebar-foreground) 10%, transparent)'; }}
             onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
           >
             <DynIcon name={mod.icon} size={16} style={{ flexShrink: 0 }} />
@@ -103,9 +105,10 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
                     className="flex items-center justify-between px-3 py-1.5 rounded-md mb-0.5 transition-colors"
                     style={{
                       color: childActive ? '#818CF8' : '#64748B',
-                      background: childActive ? 'rgba(99,102,241,0.1)' : 'transparent',
+                      background: childActive ? 'color-mix(in srgb, var(--sidebar-active) 18%, transparent)' : 'transparent',
                       fontSize: '12px',
                       fontWeight: childActive ? 500 : 400,
+                      borderLeft: childActive ? '2px solid var(--sidebar-active)' : '2px solid transparent',
                     }}
                     onMouseEnter={e => { if (!childActive) (e.currentTarget as HTMLElement).style.color = '#94A3B8'; }}
                     onMouseLeave={e => { if (!childActive) (e.currentTarget as HTMLElement).style.color = '#64748B'; }}
@@ -132,14 +135,14 @@ function SidebarNav({ collapsed }: { collapsed: boolean }) {
         to={primaryPath}
         className="flex items-center gap-2.5 px-3 py-2 rounded-lg mb-0.5 transition-colors"
         style={baseStyle}
-        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'; }}
+        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--sidebar-foreground) 10%, transparent)'; }}
         onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
       >
         <DynIcon name={mod.icon} size={16} style={{ flexShrink: 0 }} />
         {!collapsed && (
           <>
             <span style={{ fontSize: '13px', fontWeight: active ? 500 : 400 }}>{label}</span>
-            {active && <span className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: '#818CF8' }} />}
+            {active && <span className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: 'var(--sidebar-active-foreground)' }} />}
           </>
         )}
       </Link>
@@ -195,9 +198,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {/* Brand */}
         <div className="flex items-center gap-3 px-4 py-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden"
-            style={{ background: tenant.whiteLabel.logoUrl ? '#FFFFFF' : `linear-gradient(135deg, ${primary}, ${secondary})` }}>
-            {tenant.whiteLabel.logoUrl ? (
-              <img src={tenant.whiteLabel.logoUrl} alt={tenant.name} className="w-full h-full object-contain p-1" />
+            style={{ background: tenant.whiteLabel.logoUrl || tenant.whiteLabel.compactLogoUrl ? 'var(--surface)' : `linear-gradient(135deg, ${primary}, ${secondary})` }}>
+            {tenant.whiteLabel.logoUrl || tenant.whiteLabel.compactLogoUrl ? (
+              <img src={collapsed ? tenant.whiteLabel.compactLogoUrl ?? tenant.whiteLabel.logoUrl : tenant.whiteLabel.logoUrl ?? tenant.whiteLabel.compactLogoUrl} alt={tenant.name} className="w-full h-full object-contain p-1" />
             ) : (
               <Layers size={16} color="white" />
             )}
@@ -208,10 +211,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <div style={{ color: '#64748B', fontSize: '11px' }} className="truncate">{brandSubtitle}</div>
             </div>
           )}
-          <button onClick={() => setCollapsed(c => !c)} className="ml-auto hidden lg:flex items-center justify-center w-6 h-6 rounded" style={{ color: '#64748B' }}>
+          <button onClick={() => setCollapsed(c => !c)} className="ml-auto hidden lg:flex items-center justify-center w-6 h-6 rounded" style={{ color: 'var(--sidebar-foreground)' }}>
             {collapsed ? <ChevronRight size={14} /> : <Menu size={14} />}
           </button>
-          <button onClick={() => setMobileOpen(false)} className="ml-auto flex lg:hidden items-center justify-center w-6 h-6 rounded" style={{ color: '#64748B' }}>
+          <button onClick={() => setMobileOpen(false)} className="ml-auto flex lg:hidden items-center justify-center w-6 h-6 rounded" style={{ color: 'var(--sidebar-foreground)' }}>
             <X size={14} />
           </button>
         </div>
@@ -221,9 +224,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {/* Footer */}
         <div className="px-2 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           {!collapsed && (
-            <div className="px-3 py-2 mb-2 rounded-lg" style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)' }}>
-              <div style={{ color: '#818CF8', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Plano</div>
-              <div style={{ color: '#F1F5F9', fontSize: '12px', fontWeight: 600 }}>{tenant.plan.charAt(0).toUpperCase() + tenant.plan.slice(1)}</div>
+            <div className="px-3 py-2 mb-2 rounded-lg" style={{ background: 'color-mix(in srgb, var(--sidebar-active) 16%, transparent)', border: '1px solid color-mix(in srgb, var(--sidebar-active) 28%, transparent)' }}>
+              <div style={{ color: 'var(--sidebar-active-foreground)', fontSize: '10px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Plano</div>
+              <div style={{ color: 'var(--sidebar-foreground)', fontSize: '12px', fontWeight: 600 }}>{tenant.plan.charAt(0).toUpperCase() + tenant.plan.slice(1)}</div>
               <div style={{ color: '#64748B', fontSize: '11px' }}>{tenant.enabledModuleIds.length} módulos ativos</div>
             </div>
           )}
@@ -236,7 +239,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               await logout();
             }}
             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors"
-            style={{ color: '#64748B', opacity: loggingOut ? 0.6 : 1 }}
+            style={{ color: 'var(--sidebar-foreground)', opacity: loggingOut ? 0.6 : 1 }}
             onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = '#94A3B8'}
             onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = '#64748B'}>
             <LogOut size={15} style={{ flexShrink: 0 }} />
@@ -251,27 +254,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <button onClick={() => setMobileOpen(true)} className="lg:hidden" style={{ color: '#64748B' }}><Menu size={20} /></button>
 
           <div className="flex-1 max-w-md">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: '#F8FAFC', border: '1px solid rgba(0,0,0,0.08)' }}>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
               <Search size={14} style={{ color: '#94A3B8' }} />
-              <input placeholder={`Buscar unidades, ${customersLabel}, modulos...`} className="bg-transparent flex-1 outline-none" style={{ fontSize: '13px', color: '#64748B' }} />
+              <input placeholder={`Buscar unidades, ${customersLabel}, modulos...`} className="bg-transparent flex-1 outline-none focus:ring-2 focus:ring-[var(--focus-ring)]" style={{ fontSize: '13px', color: 'var(--text)' }} />
               <span className="hidden md:block px-1.5 py-0.5 rounded" style={{ background: '#EFF2F7', color: '#94A3B8', fontSize: '10px', fontFamily: 'monospace' }}>⌘K</span>
             </div>
           </div>
 
           <div className="flex items-center gap-2 ml-auto">
-            <button className="relative p-2 rounded-lg transition-colors" style={{ color: '#64748B' }}
-              onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#F1F5F9'}
+            <button className="relative p-2 rounded-lg transition-colors" style={{ color: 'var(--header-foreground)' }}
+              onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--accent)'}
               onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
               <Bell size={18} />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full" style={{ background: '#EF4444' }} />
             </button>
-            <button className="p-2 rounded-lg transition-colors" style={{ color: '#64748B' }}
-              onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#F1F5F9'}
+            <button className="p-2 rounded-lg transition-colors" style={{ color: 'var(--header-foreground)' }}
+              onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--accent)'}
               onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
               <HelpCircle size={18} />
             </button>
             <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors"
-              onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#F1F5F9'}
+              onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--accent)'}
               onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
               <div className="w-7 h-7 rounded-full flex items-center justify-center text-white"
                 style={{ background: `linear-gradient(135deg, ${primary}, ${secondary})`, fontSize: '11px', fontWeight: 700 }}>
