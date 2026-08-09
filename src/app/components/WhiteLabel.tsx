@@ -26,6 +26,7 @@ import {
   type WhiteLabelBranding,
 } from "../../services/whiteLabelService";
 import {
+  addCacheBuster,
   buildTenantTheme,
   normalizeHexColor,
   ORCHESTRA_BRANDING,
@@ -414,10 +415,10 @@ export function WhiteLabel() {
       sidebarColor: nextForm.sidebarColor,
       headerColor: nextForm.headerColor,
       foregroundColor: nextForm.foregroundColor,
-      logoUrl: nextForm.logo ?? "",
-      compactLogoUrl: nextForm.compactLogo ?? "",
-      favicon: nextForm.favicon ?? "",
-      loginBg: nextForm.authenticationBackgroundImage ?? "",
+      logoUrl: nextForm.logo ? addCacheBuster(nextForm.logo) : "",
+      compactLogoUrl: nextForm.compactLogo ? addCacheBuster(nextForm.compactLogo) : "",
+      favicon: nextForm.favicon ? addCacheBuster(nextForm.favicon) : "",
+      loginBg: nextForm.authenticationBackgroundImage ? addCacheBuster(nextForm.authenticationBackgroundImage) : "",
       themeMode: nextForm.themeMode,
     });
     await refreshTheme(branding);
