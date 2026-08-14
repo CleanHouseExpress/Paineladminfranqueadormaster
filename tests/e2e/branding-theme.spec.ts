@@ -27,6 +27,8 @@ const restoredBranding = {
   sidebar_color: '#0F172A',
 };
 
+const expectedApiOrigin = new URL(process.env.E2E_API_URL ?? 'http://orchestra-e2e.localhost:8000').origin;
+
 test('@branding configuracao aplica preview, salva e restaura tema', async ({ page }) => {
   let branding = { ...initialBranding };
   let saveCalls = 0;
@@ -105,7 +107,13 @@ test('@branding configuracao aplica preview, salva e restaura tema', async ({ pa
 
   await expect(page.getByRole('heading', { name: 'Personalizacao White Label' })).toBeVisible();
   await expect(page).toHaveTitle('Orchestra E2E - Orchestra');
-  await expect(page.locator('#tenant-branding-favicon')).toHaveAttribute('href', /\/api\/tenant\/branding\/assets\/favicon$/);
+  const faviconHref = await page.locator('#tenant-branding-favicon').getAttribute('href');
+  expect(faviconHref).not.toBeNull();
+  const faviconUrl = new URL(faviconHref!);
+  expect(faviconUrl.origin).toBe(expectedApiOrigin);
+  expect(faviconUrl.pathname).toBe('/api/tenant/branding/assets/favicon');
+  expect([...faviconUrl.searchParams.keys()]).toEqual(['v']);
+  expect(faviconUrl.searchParams.get('v')).toMatch(/^\d+$/);
   await page.locator('#branding-primaryColor').fill('#0EA5E9');
   await page.locator('#branding-sidebarColor').fill('#111827');
   await expect(page.getByTestId('branding-preview')).toContainText('Contraste calculado');

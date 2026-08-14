@@ -10,7 +10,10 @@ async function setupOnboardingPlatform(page: Page) {
       timezone: 'America/Sao_Paulo',
       language: 'pt-BR',
       currency: 'BRL',
-      dashboard_preferences: {},
+      dashboard_preferences: {
+        onboarding_financial: { royaltyRate: 7 },
+        onboarding_clients_imported: true,
+      },
     },
   };
 
@@ -19,8 +22,22 @@ async function setupOnboardingPlatform(page: Page) {
     window.sessionStorage.clear();
   });
 
+  await page.route('**/api/tenant/current', route => json(route, {
+    exists: true,
+    tenant: { name: 'Onboard Master', status: 'active', segment: 'Food', plan: 'Enterprise', subdomain: 'orchestra-e2e' },
+    branding: null,
+    white_label: null,
+  }));
   await page.route('**/api/me', route => json(route, { data: { id: 1, name: 'Admin Master', email: 'admin@orchestra.test' } }));
   await page.route('**/api/me/company', route => json(route, { data: { id: 1, name: 'Onboard Master', plan: 'enterprise', segment: 'Food' } }));
+  await page.route('**/api/me/modules', route => json(route, { data: [
+    { id: 'dashboard', slug: 'dashboard', name: 'Dashboard', status: 'active' },
+    { id: 'financial', slug: 'financial', name: 'Financeiro', status: 'active' },
+    { id: 'access', slug: 'access', name: 'Acessos', status: 'active' },
+    { id: 'settings', slug: 'settings', name: 'Configuracoes', status: 'active' },
+  ] }));
+  await page.route('**/api/me/roles', route => json(route, { data: [{ id: 1, name: 'Admin Master' }] }));
+  await page.route('**/api/me/permissions', route => json(route, { data: [] }));
   await page.route('**/api/me/onboarding', route => json(route, {
     required: false,
     status: 'in_progress',
@@ -52,7 +69,14 @@ async function setupOnboardingPlatform(page: Page) {
     }
 
     const payload = route.request().postDataJSON();
-    settingsState = { data: { ...settingsState.data, ...payload } };
+    settingsState.data = {
+      ...settingsState.data,
+      ...payload,
+      dashboard_preferences: {
+        ...settingsState.data.dashboard_preferences,
+        ...(payload.dashboard_preferences ?? {}),
+      },
+    };
     return json(route, settingsState);
   });
   await page.route('**/api/company/units?per_page=100', route => json(route, { data: [{ id: 101, name: 'HQ', address_city: 'Sao Paulo', address_state: 'SP', responsible_name: 'Admin' }], meta: { total: 1 } }));
@@ -78,7 +102,7 @@ test('Tour completion is persisted after reload', async ({ page }) => {
   await expect(page.getByText('Fazer tour pela plataforma')).toBeVisible();
 
   await page.getByRole('button', { name: /Iniciar/i }).click();
-  await expect(page.getByText('Painel Executivo')).toBeVisible();
+  await expect(page.getByTestId('dashboard-title')).toHaveText('Painel Executivo');
 
   let nextButtons = await page.getByRole('button', { name: /Próximo/i }).all();
   while (nextButtons.length > 0) {
