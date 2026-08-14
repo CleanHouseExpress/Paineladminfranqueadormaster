@@ -4,7 +4,8 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-async function setupOnboardingPlatform(page: Page) {
+async function setupOnboardingPlatform(page: Page, options: { persistSettingsOnPut?: boolean } = {}) {
+  const persistSettingsOnPut = options.persistSettingsOnPut ?? true;
   let settingsState = {
     data: {
       timezone: 'America/Sao_Paulo',
@@ -69,14 +70,16 @@ async function setupOnboardingPlatform(page: Page) {
     }
 
     const payload = route.request().postDataJSON();
-    settingsState.data = {
-      ...settingsState.data,
-      ...payload,
-      dashboard_preferences: {
-        ...settingsState.data.dashboard_preferences,
-        ...(payload.dashboard_preferences ?? {}),
-      },
-    };
+    if (persistSettingsOnPut) {
+      settingsState.data = {
+        ...settingsState.data,
+        ...payload,
+        dashboard_preferences: {
+          ...settingsState.data.dashboard_preferences,
+          ...(payload.dashboard_preferences ?? {}),
+        },
+      };
+    }
     return json(route, settingsState);
   });
   await page.route('**/api/company/units?per_page=100', route => json(route, { data: [{ id: 101, name: 'HQ', address_city: 'Sao Paulo', address_state: 'SP', responsible_name: 'Admin' }], meta: { total: 1 } }));
@@ -87,7 +90,7 @@ async function setupOnboardingPlatform(page: Page) {
     { module_id: 'dashboard', name: 'Dashboard', status: 'active' },
     { module_id: 'financial', name: 'Financeiro', status: 'active' },
     { module_id: 'access', name: 'Acessos', status: 'active' },
-    { module_id: 'settings', name: 'Configurações', status: 'active' },
+    { module_id: 'settings', name: 'Configuracoes', status: 'active' },
   ] }));
   await page.route('**/api/company/units?per_page=5', route => json(route, { data: [{ id: 101, name: 'HQ', address_city: 'Sao Paulo', address_state: 'SP', status: 'active' }], meta: { total: 1 } }));
 
@@ -109,11 +112,31 @@ async function expectTourCardInsideViewport(page: Page) {
   expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height);
 }
 
+async function finishTour(page: Page, options: { checkViewport?: boolean } = {}) {
+  for (let step = 0; step < 10; step += 1) {
+    const finish = page.getByRole('button', { name: /Concluir/i });
+    if (await finish.count() > 0) {
+      await finish.click();
+      return;
+    }
+
+    const next = page.locator('button').filter({ hasText: /ximo/i }).first();
+    await expect(next).toBeVisible();
+    await next.click();
+
+    if (options.checkViewport) {
+      await expectTourCardInsideViewport(page);
+    }
+  }
+
+  throw new Error('Tour did not reach the completion step');
+}
+
 test('Tour completion is persisted after reload', async ({ page }) => {
   const settingsState = await setupOnboardingPlatform(page);
 
   await page.goto('/');
-  await expect(page.getByText('Checklist de implantação')).toBeVisible();
+  await expect(page.getByText(/Checklist de implanta/i)).toBeVisible();
   await expect(page.getByText('Fazer tour pela plataforma')).toBeVisible();
 
   await page.getByRole('button', { name: /Iniciar/i }).click();
@@ -122,16 +145,23 @@ test('Tour completion is persisted after reload', async ({ page }) => {
   await expect(page.locator('body > svg.fixed')).toHaveCount(0);
   await expectTourCardInsideViewport(page);
 
-  let nextButtons = await page.getByRole('button', { name: /Próximo/i }).all();
-  while (nextButtons.length > 0) {
-    await nextButtons[0].click();
-    await expectTourCardInsideViewport(page);
-    nextButtons = await page.getByRole('button', { name: /Próximo/i }).all();
-  }
-
-  await page.getByRole('button', { name: /Concluir/i }).click();
+  await finishTour(page, { checkViewport: true });
   await expect(page.getByText('Fazer tour pela plataforma')).toBeHidden();
   expect(settingsState.data.dashboard_preferences).toEqual(expect.objectContaining({ onboarding_tour_completed: true }));
+
+  await page.reload();
+  await expect(page.getByText('Fazer tour pela plataforma')).toBeHidden();
+});
+
+test('Tour completion remains done when settings read is stale after save', async ({ page }) => {
+  await setupOnboardingPlatform(page, { persistSettingsOnPut: false });
+
+  await page.goto('/');
+  await expect(page.getByText('Fazer tour pela plataforma')).toBeVisible();
+
+  await page.getByRole('button', { name: /Iniciar/i }).click();
+  await finishTour(page);
+  await expect(page.getByText('Fazer tour pela plataforma')).toBeHidden();
 
   await page.reload();
   await expect(page.getByText('Fazer tour pela plataforma')).toBeHidden();
@@ -145,10 +175,5 @@ test('Tour cards stay inside the mobile viewport', async ({ page }) => {
   await page.getByRole('button', { name: /Iniciar/i }).click();
   await expectTourCardInsideViewport(page);
 
-  let nextButtons = await page.getByRole('button', { name: /Próximo/i }).all();
-  while (nextButtons.length > 0) {
-    await nextButtons[0].click();
-    await expectTourCardInsideViewport(page);
-    nextButtons = await page.getByRole('button', { name: /Próximo/i }).all();
-  }
+  await finishTour(page, { checkViewport: true });
 });

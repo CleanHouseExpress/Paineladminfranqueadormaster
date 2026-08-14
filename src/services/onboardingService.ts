@@ -52,6 +52,7 @@ type TenantSettings = {
   network_type?: string | null;
   unit_management_mode?: string | null;
   dashboard_preferences?: Record<string, unknown> | null;
+  dashboardPreferences?: Record<string, unknown> | null;
 };
 
 type DataResponse<T> = { data: T };
@@ -80,12 +81,42 @@ const STEP_TO_WIZARD_INDEX: Record<string, number> = {
   completed: WIZARD_STEPS.length - 1,
 };
 
+const TOUR_COMPLETED_STORAGE_KEY = 'orchestra_onboarding_tour_completed';
+
 function hasToken() {
   try {
     return Boolean(localStorage.getItem(AUTH_TOKEN_STORAGE_KEY));
   } catch {
     return false;
   }
+}
+
+function readLocalTourCompleted(): boolean {
+  try {
+    return localStorage.getItem(TOUR_COMPLETED_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function writeLocalTourCompleted(completed: boolean): void {
+  try {
+    if (completed) {
+      localStorage.setItem(TOUR_COMPLETED_STORAGE_KEY, 'true');
+    } else {
+      localStorage.removeItem(TOUR_COMPLETED_STORAGE_KEY);
+    }
+  } catch {
+    // Ignore storage errors; backend settings remain the source of truth.
+  }
+}
+
+function dashboardPreferences(settings: TenantSettings | null): Record<string, unknown> {
+  return settings?.dashboard_preferences ?? settings?.dashboardPreferences ?? {};
+}
+
+function tourCompletedFromSettings(settings: TenantSettings | null): boolean {
+  return dashboardPreferences(settings).onboarding_tour_completed === true || readLocalTourCompleted();
 }
 
 async function optional<T>(request: Promise<T>): Promise<T | null> {
@@ -164,7 +195,7 @@ function inventoryModuleAvailable(modules: SidebarModuleResponse | null): boolea
 }
 
 function toFinancial(settings: TenantSettings | null): WizardStepData['financial'] {
-  const preferences = settings?.dashboard_preferences ?? {};
+  const preferences = dashboardPreferences(settings);
   const financial = typeof preferences.onboarding_financial === 'object' && preferences.onboarding_financial !== null
     ? preferences.onboarding_financial as WizardStepData['financial']
     : {};
@@ -176,8 +207,9 @@ function toFinancial(settings: TenantSettings | null): WizardStepData['financial
 }
 
 function customersConfigured(settings: TenantSettings | null): boolean {
-  return settings?.dashboard_preferences?.onboarding_customers_configured === true
-    || settings?.dashboard_preferences?.onboarding_clients_imported === true;
+  const preferences = dashboardPreferences(settings);
+  return preferences.onboarding_customers_configured === true
+    || preferences.onboarding_clients_imported === true;
 }
 
 function hasItems(response: RoyaltySetupResponse | null): boolean {
@@ -205,7 +237,8 @@ function checklistFromBackend(params: {
     && inventoryOnboarding.steps.length > 0,
   );
 
-  const tourCompleted = params.settings?.dashboard_preferences?.onboarding_tour_completed === true;
+  const preferences = dashboardPreferences(params.settings);
+  const tourCompleted = tourCompletedFromSettings(params.settings);
 
   const completed: Record<string, boolean> = {
     network: backendStepCompleted(params.onboarding, 'company_profile'),
@@ -214,7 +247,7 @@ function checklistFromBackend(params: {
     user: params.usersTotal > 1,
     modules: settingsCompleted || modulesAvailable,
     inventory: inventoryOnboarding?.completed === true,
-    royalties: royaltiesConfigured || Boolean(params.settings?.dashboard_preferences?.onboarding_financial),
+    royalties: royaltiesConfigured || Boolean(preferences.onboarding_financial),
     clients: customersConfigured(params.settings),
     tour: tourCompleted,
   };
@@ -285,7 +318,7 @@ export async function getOnboardingStatus(): Promise<OnboardingState> {
     ? await optional(apiClient.get<DataResponse<InventoryOnboardingSummary>>('/api/company/inventory/onboarding?context=network', { expireSessionOnUnauthorized: false }))
     : null;
   const completed = isWizardCompleted(onboarding);
-  const tourCompleted = settings?.dashboard_preferences?.onboarding_tour_completed === true;
+  const tourCompleted = tourCompletedFromSettings(settings);
 
   return {
     ...INITIAL_ONBOARDING_STATE,
@@ -325,7 +358,7 @@ export function notifyOnboardingRealityChanged(): void {
 export async function markCustomerManagementConfigured(): Promise<void> {
   const current = dataOf(await optional(apiClient.get<DataResponse<TenantSettings>>('/api/me/settings', { expireSessionOnUnauthorized: false })));
   const preferences: Record<string, unknown> = {
-    ...(current?.dashboard_preferences ?? {}),
+    ...dashboardPreferences(current),
     onboarding_customers_configured: true,
   };
 
@@ -380,7 +413,7 @@ async function saveBranding(whitelabel: Partial<WizardStepData['whitelabel']>) {
 
 async function saveSettings(data: Partial<WizardStepData>) {
   const current = dataOf(await optional(apiClient.get<DataResponse<TenantSettings>>('/api/me/settings')));
-  const preferences: Record<string, unknown> = { ...(current?.dashboard_preferences ?? {}) };
+  const preferences: Record<string, unknown> = { ...dashboardPreferences(current) };
   if (data.modules) preferences.onboarding_modules = data.modules;
   if (data.financial) preferences.onboarding_financial = data.financial;
   if (data.clientsImported !== undefined) preferences.onboarding_clients_imported = data.clientsImported;
@@ -401,8 +434,10 @@ async function saveSettings(data: Partial<WizardStepData>) {
 }
 
 async function saveTourCompletion(completed: boolean): Promise<void> {
+  writeLocalTourCompleted(completed);
+
   const current = dataOf(await optional(apiClient.get<DataResponse<TenantSettings>>('/api/me/settings')));
-  const preferences: Record<string, unknown> = { ...(current?.dashboard_preferences ?? {}) };
+  const preferences: Record<string, unknown> = { ...dashboardPreferences(current) };
   if (completed) {
     preferences.onboarding_tour_completed = true;
   } else {
