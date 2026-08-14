@@ -94,6 +94,21 @@ async function setupOnboardingPlatform(page: Page) {
   return settingsState;
 }
 
+async function expectTourCardInsideViewport(page: Page) {
+  const card = page.getByTestId('product-tour-card');
+  await expect(card).toBeVisible();
+
+  const box = await card.boundingBox();
+  const viewport = page.viewportSize();
+
+  expect(box).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.y).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(viewport!.width);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height);
+}
+
 test('Tour completion is persisted after reload', async ({ page }) => {
   const settingsState = await setupOnboardingPlatform(page);
 
@@ -103,10 +118,14 @@ test('Tour completion is persisted after reload', async ({ page }) => {
 
   await page.getByRole('button', { name: /Iniciar/i }).click();
   await expect(page.getByTestId('dashboard-title')).toHaveText('Painel Executivo');
+  await expect(page.locator('body > [data-tour-portal-root="true"]')).toHaveCount(1);
+  await expect(page.locator('body > svg.fixed')).toHaveCount(0);
+  await expectTourCardInsideViewport(page);
 
   let nextButtons = await page.getByRole('button', { name: /Próximo/i }).all();
   while (nextButtons.length > 0) {
     await nextButtons[0].click();
+    await expectTourCardInsideViewport(page);
     nextButtons = await page.getByRole('button', { name: /Próximo/i }).all();
   }
 
@@ -116,4 +135,20 @@ test('Tour completion is persisted after reload', async ({ page }) => {
 
   await page.reload();
   await expect(page.getByText('Fazer tour pela plataforma')).toBeHidden();
+});
+
+test('Tour cards stay inside the mobile viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await setupOnboardingPlatform(page);
+
+  await page.goto('/');
+  await page.getByRole('button', { name: /Iniciar/i }).click();
+  await expectTourCardInsideViewport(page);
+
+  let nextButtons = await page.getByRole('button', { name: /Próximo/i }).all();
+  while (nextButtons.length > 0) {
+    await nextButtons[0].click();
+    await expectTourCardInsideViewport(page);
+    nextButtons = await page.getByRole('button', { name: /Próximo/i }).all();
+  }
 });

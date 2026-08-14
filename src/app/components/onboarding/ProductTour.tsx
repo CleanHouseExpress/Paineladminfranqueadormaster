@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ChevronRight, ChevronLeft, Map } from 'lucide-react';
 import { useOnboarding } from '../../../shared/hooks/useOnboarding';
@@ -7,8 +7,16 @@ import { TOUR_STOPS } from '../../../types/onboarding';
 interface Rect { top: number; left: number; width: number; height: number }
 
 const PADDING = 12;
-const MIN_TOOLTIP_WIDTH = 280;
+const VIEWPORT_MARGIN = 12;
+const MIN_TOOLTIP_WIDTH = 220;
 const MAX_TOOLTIP_WIDTH = 360;
+const ESTIMATED_TOOLTIP_HEIGHT = 340;
+const TOOLTIP_GAP = 16;
+
+function clamp(value: number, min: number, max: number) {
+  if (max < min) return min;
+  return Math.max(min, Math.min(value, max));
+}
 
 function getTargetRect(target: string): Rect | null {
   const el = document.querySelector(`[data-tour="${target}"]`);
@@ -27,9 +35,8 @@ function getTargetRect(target: string): Rect | null {
 function chooseTooltipPosition(rect: Rect, preferred: 'top' | 'right' | 'bottom' | 'left') {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const TW = Math.min(MAX_TOOLTIP_WIDTH, Math.max(MIN_TOOLTIP_WIDTH, vw - 40));
-  const TH = 190;
-  const GAP = 20;
+  const width = Math.min(MAX_TOOLTIP_WIDTH, Math.max(MIN_TOOLTIP_WIDTH, vw - VIEWPORT_MARGIN * 2));
+  const height = Math.min(ESTIMATED_TOOLTIP_HEIGHT, Math.max(180, vh - VIEWPORT_MARGIN * 2));
 
   const attempts: Array<'top' | 'right' | 'bottom' | 'left'> =
     preferred === 'top' ? ['top', 'right', 'bottom', 'left'] :
@@ -43,39 +50,47 @@ function chooseTooltipPosition(rect: Rect, preferred: 'top' | 'right' | 'bottom'
 
     switch (position) {
       case 'right':
-        top = rect.top + rect.height / 2 - TH / 2;
-        left = rect.left + rect.width + GAP;
+        top = rect.top + rect.height / 2 - height / 2;
+        left = rect.left + rect.width + TOOLTIP_GAP;
         break;
       case 'left':
-        top = rect.top + rect.height / 2 - TH / 2;
-        left = rect.left - TW - GAP;
+        top = rect.top + rect.height / 2 - height / 2;
+        left = rect.left - width - TOOLTIP_GAP;
         break;
       case 'bottom':
-        top = rect.top + rect.height + GAP;
-        left = rect.left + rect.width / 2 - TW / 2;
+        top = rect.top + rect.height + TOOLTIP_GAP;
+        left = rect.left + rect.width / 2 - width / 2;
         break;
       case 'top':
       default:
-        top = rect.top - TH - GAP;
-        left = rect.left + rect.width / 2 - TW / 2;
+        top = rect.top - height - TOOLTIP_GAP;
+        left = rect.left + rect.width / 2 - width / 2;
     }
 
-    const fitsVertically = top >= 8 && top + TH + 8 <= vh;
-    const fitsHorizontally = left >= 8 && left + TW + 8 <= vw;
+    const fitsVertically = top >= VIEWPORT_MARGIN && top + height + VIEWPORT_MARGIN <= vh;
+    const fitsHorizontally = left >= VIEWPORT_MARGIN && left + width + VIEWPORT_MARGIN <= vw;
     if (fitsVertically && fitsHorizontally) {
-      return { top, left, width: TW };
+      return { top, left, width };
     }
   }
 
-  const top = Math.max(8, Math.min(rect.top + rect.height + GAP, vh - TH - 8));
-  const left = Math.max(8, Math.min(rect.left + rect.width / 2 - TW / 2, vw - TW - 8));
-  return { top, left, width: TW };
+  return {
+    top: clamp(rect.top + rect.height + TOOLTIP_GAP, VIEWPORT_MARGIN, vh - height - VIEWPORT_MARGIN),
+    left: clamp(rect.left + rect.width / 2 - width / 2, VIEWPORT_MARGIN, vw - width - VIEWPORT_MARGIN),
+    width,
+  };
 }
 
 export function ProductTour() {
   const { state, advanceTour, previousTour, completeTour } = useOnboarding();
   const { tourActive, currentTourStop } = state;
   const [rect, setRect] = useState<Rect | null>(null);
+  const portalRoot = useMemo(() => {
+    if (typeof document === 'undefined') return null;
+    const root = document.createElement('div');
+    root.dataset.tourPortalRoot = 'true';
+    return root;
+  }, []);
 
   const stop = TOUR_STOPS[currentTourStop];
   const isLast = currentTourStop === TOUR_STOPS.length - 1;
@@ -96,7 +111,17 @@ export function ProductTour() {
     };
   }, [tourActive, refresh]);
 
-  if (!tourActive || !stop) return null;
+  useEffect(() => {
+    if (!tourActive || !portalRoot) return;
+
+    document.body.appendChild(portalRoot);
+
+    return () => {
+      portalRoot.parentNode?.removeChild(portalRoot);
+    };
+  }, [portalRoot, tourActive]);
+
+  if (!tourActive || !stop || !portalRoot) return null;
 
   const tp = rect ? chooseTooltipPosition(rect, stop.position) : null;
 
@@ -135,13 +160,16 @@ export function ProductTour() {
       {/* Tooltip card */}
       {tp && (
         <div
+          data-testid="product-tour-card"
           className="fixed rounded-[28px] shadow-[0_16px_48px_rgba(15,23,42,0.18)]"
           style={{
             zIndex: 9991,
             top: tp.top,
             left: tp.left,
             width: tp.width,
-            maxWidth: MAX_TOOLTIP_WIDTH,
+            maxWidth: `calc(100vw - ${VIEWPORT_MARGIN * 2}px)`,
+            maxHeight: `calc(100vh - ${VIEWPORT_MARGIN * 2}px)`,
+            overflowY: 'auto',
             background: 'rgba(255,255,255,0.98)',
             border: '1px solid rgba(148,163,184,0.18)',
             backdropFilter: 'blur(12px)',
@@ -217,8 +245,8 @@ export function ProductTour() {
 
       {/* No target found fallback — centered card */}
       {!rect && (
-        <div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9991 }}>
-          <div className="rounded-2xl shadow-2xl p-6 max-w-sm w-full" style={{ background: 'white' }}>
+        <div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 9991, padding: VIEWPORT_MARGIN }}>
+          <div data-testid="product-tour-card" className="rounded-2xl shadow-2xl p-6 max-w-sm w-full" style={{ background: 'white', maxHeight: `calc(100vh - ${VIEWPORT_MARGIN * 2}px)`, overflowY: 'auto' }}>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: '#EEF2FF' }}>
                 <Map size={18} style={{ color: '#6366F1' }} />
@@ -241,7 +269,7 @@ export function ProductTour() {
         </div>
       )}
     </>,
-    document.body
+    portalRoot
   );
 }
 
