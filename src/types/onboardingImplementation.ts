@@ -34,6 +34,26 @@ export interface OnboardingImplementationPhase {
   checklistTemplateId: number | null;
   status: string;
   dueDate: string | null;
+  tasks: OnboardingImplementationTask[];
+}
+
+export interface OnboardingImplementationTask {
+  id: string;
+  name: string;
+  description: string;
+  position: number;
+  status: string;
+  priority: string;
+  responsibleUserId: number | null;
+  startDate: string | null;
+  dueDate: string | null;
+  completedAt: string | null;
+  checklistItems: Array<{
+    id: string;
+    label: string;
+    isCompleted: boolean;
+    position: number;
+  }>;
 }
 
 export interface OnboardingGuidedSetupStep {
@@ -130,6 +150,11 @@ export interface OnboardingImplementationCreatePayload {
 
 export interface OnboardingUnitOption {
   value: string;
+  label: string;
+}
+
+export interface OnboardingUserOption {
+  value: number;
   label: string;
 }
 

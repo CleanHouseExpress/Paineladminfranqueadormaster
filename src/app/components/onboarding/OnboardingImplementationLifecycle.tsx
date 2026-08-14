@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, CalendarDays, CheckCircle2, ExternalLink, Lightbulb, ListChecks, Plus, RefreshCw, Rocket, Search, XCircle } from 'lucide-react';
+import { ArrowRight, CalendarDays, CheckCircle2, ExternalLink, Lightbulb, ListChecks, Plus, RefreshCw, Rocket, Search, UserRound, XCircle } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -7,7 +7,7 @@ import { Skeleton } from '../ui/skeleton';
 import { onboardingImplementationService } from '../../../services/onboardingImplementationService';
 import { onboardingProgramService } from '../../../services/onboardingProgramService';
 import { useOnboardingImplementations } from '../../../shared/hooks/useOnboardingImplementations';
-import type { OnboardingImplementation, OnboardingUnitOption } from '../../../types/onboardingImplementation';
+import type { OnboardingImplementation, OnboardingUnitOption, OnboardingUserOption } from '../../../types/onboardingImplementation';
 import { ONBOARDING_IMPLEMENTATION_STATUS_LABELS } from '../../../types/onboardingImplementation';
 import type { OnboardingProgram, OnboardingProgramVersion } from '../../../types/onboardingProgram';
 
@@ -46,6 +46,7 @@ export function OnboardingImplementationLifecycle() {
   const [programs, setPrograms] = useState<OnboardingProgram[]>([]);
   const [programsLoading, setProgramsLoading] = useState(true);
   const [units, setUnits] = useState<OnboardingUnitOption[]>([]);
+  const [users, setUsers] = useState<OnboardingUserOption[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedProgramId, setSelectedProgramId] = useState('');
   const [selectedVersionId, setSelectedVersionId] = useState('');
@@ -77,13 +78,15 @@ export function OnboardingImplementationLifecycle() {
       setProgramsLoading(true);
       setActionError(null);
       try {
-        const [programResult, unitOptions] = await Promise.all([
+        const [programResult, unitOptions, userOptions] = await Promise.all([
           onboardingProgramService.list({ status: 'active' }),
           onboardingImplementationService.unitOptions(),
+          onboardingImplementationService.userOptions(),
         ]);
         if (cancelled) return;
         setPrograms(programResult.data);
         setUnits(unitOptions);
+        setUsers(userOptions);
         const defaultProgram = programResult.data.find(program => program.publishedVersionsCount > 0) ?? programResult.data[0] ?? null;
         if (defaultProgram) {
           setSelectedProgramId(defaultProgram.id);
@@ -203,6 +206,20 @@ export function OnboardingImplementationLifecycle() {
       setNotice('Passo pulado.');
     } catch (skipError) {
       setActionError(onboardingImplementationService.getErrorMessage(skipError, 'Nao foi possivel pular o passo.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updatePhaseResponsible = async (phaseId: string, responsibleUserId: number | null) => {
+    if (!selectedImplementation) return;
+    setSaving(true);
+    setActionError(null);
+    try {
+      replaceImplementation(await onboardingImplementationService.updatePhaseResponsible(selectedImplementation.id, phaseId, responsibleUserId));
+      setNotice('Responsavel da fase atualizado.');
+    } catch (responsibleError) {
+      setActionError(onboardingImplementationService.getErrorMessage(responsibleError, 'Nao foi possivel alterar o responsavel da fase.'));
     } finally {
       setSaving(false);
     }
@@ -455,35 +472,75 @@ export function OnboardingImplementationLifecycle() {
               <section className="rounded-md border p-4">
                 <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
                   <CheckCircle2 className="size-4" />
-                  Passos guiados
+                  Fases e atividades
                 </div>
                 <div className="space-y-2" data-testid="implementation-phases">
-                  {(selectedImplementation.guidedSetup?.steps ?? []).map(step => (
-                    <div key={step.id} className="grid gap-3 rounded-md border p-3 md:grid-cols-[60px_1fr_150px_220px] md:items-center">
-                      <div className="text-sm font-semibold">#{step.position}</div>
-                      <div>
-                        <div className="font-medium">{step.title}</div>
-                        <div className="text-sm text-muted-foreground">{step.description || step.helpText}</div>
+                  {selectedImplementation.phases.map(phase => {
+                    const guidedStep = selectedImplementation.guidedSetup?.steps.find(step => step.id === phase.id);
+                    const completedTasks = phase.tasks.filter(task => task.status === 'completed').length;
+
+                    return (
+                    <div key={phase.id} className="grid gap-3 rounded-md border p-3">
+                      <div className="grid gap-3 md:grid-cols-[60px_1fr_180px_260px] md:items-start">
+                        <div className="text-sm font-semibold">#{phase.position}</div>
+                        <div>
+                          <div className="font-medium">{phase.name}</div>
+                          <div className="text-sm text-muted-foreground">{phase.description || guidedStep?.helpText || 'Sem descricao'}</div>
+                          <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                            <span>{phase.tasks.length} atividade(s)</span>
+                            <span>{completedTasks}/{phase.tasks.length} concluidas</span>
+                            <span>{phase.responsibleRole || 'sem responsabilidade padrao'}</span>
+                          </div>
+                        </div>
+                        <span className={`w-fit rounded-full border px-2 py-0.5 text-xs ${stepStatusClass(phase.status)}`}>{stepStatusLabel(phase.status)}</span>
+                        <div className="grid gap-2">
+                          <Label htmlFor={`phase-responsible-${phase.id}`} className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <UserRound className="size-3.5" />
+                            Responsavel
+                          </Label>
+                          <select id={`phase-responsible-${phase.id}`} data-testid={`phase-responsible-${phase.id}`} className="h-9 rounded-md border bg-background px-3 text-sm" value={phase.responsibleUserId ?? ''} disabled={saving} onChange={event => void updatePhaseResponsible(phase.id, event.target.value ? Number(event.target.value) : null)}>
+                            <option value="">Sem responsavel</option>
+                            {users.map(user => <option key={user.value} value={user.value}>{user.label}</option>)}
+                          </select>
+                        </div>
                       </div>
-                      <span className={`w-fit rounded-full border px-2 py-0.5 text-xs ${stepStatusClass(step.status)}`}>{stepStatusLabel(step.status)}</span>
+                      {phase.tasks.length === 0 ? (
+                        <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">Nenhuma atividade materializada nesta fase.</div>
+                      ) : (
+                        <div className="grid gap-2">
+                          {phase.tasks.map(task => (
+                            <div key={task.id} className="grid gap-2 rounded-md border p-3 md:grid-cols-[1fr_110px_130px] md:items-center">
+                              <div>
+                                <div className="text-sm font-medium">{task.position}. {task.name}</div>
+                                <div className="text-xs text-muted-foreground">{task.description || task.checklistItems.map(item => item.label).join(', ') || 'Sem checklist'}</div>
+                              </div>
+                              <span className={`w-fit rounded-full border px-2 py-0.5 text-xs ${stepStatusClass(task.status)}`}>{stepStatusLabel(task.status)}</span>
+                              <div className="text-xs text-muted-foreground md:text-right">{task.dueDate ?? 'Sem prazo'}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       <div className="flex flex-wrap gap-2 md:justify-end">
-                        <Button type="button" size="sm" variant="outline" asChild>
-                          <a href={step.moduleRoute}>
-                            <ArrowRight className="size-4" />
-                            Abrir
-                          </a>
-                        </Button>
-                        <Button type="button" size="sm" onClick={() => void completeStep(step.id)} disabled={saving || !step.canComplete}>
+                        {guidedStep ? (
+                          <Button type="button" size="sm" variant="outline" asChild>
+                            <a href={guidedStep.moduleRoute}>
+                              <ArrowRight className="size-4" />
+                              Abrir
+                            </a>
+                          </Button>
+                        ) : null}
+                        <Button type="button" size="sm" onClick={() => void completeStep(phase.id)} disabled={saving || !(guidedStep?.canComplete ?? true)}>
                           Pronto
                         </Button>
-                        {!step.isRequired ? (
-                          <Button type="button" size="sm" variant="outline" onClick={() => void skipStep(step.id)} disabled={saving || !step.canSkip}>
+                        {!phase.isRequired ? (
+                          <Button type="button" size="sm" variant="outline" onClick={() => void skipStep(phase.id)} disabled={saving || !(guidedStep?.canSkip ?? true)}>
                             Pular
                           </Button>
                         ) : null}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
             </>

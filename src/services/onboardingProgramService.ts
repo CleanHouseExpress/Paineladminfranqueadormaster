@@ -3,6 +3,7 @@ import type {
   OnboardingProgram,
   OnboardingProgramsResult,
   OnboardingProgramStatus,
+  OnboardingProgramStepActivity,
   OnboardingProgramStep,
   OnboardingProgramVersion,
   OnboardingProgramVersionStatus,
@@ -50,6 +51,34 @@ function mapVersionStatus(value: unknown): OnboardingProgramVersionStatus {
   return 'draft';
 }
 
+function mapPriority(value: unknown): OnboardingProgramStepActivity['priority'] {
+  if (value === 'low' || value === 'high' || value === 'critical') return value;
+  return 'medium';
+}
+
+function mapActivity(value: unknown, index = 0): OnboardingProgramStepActivity {
+  const record = recordValue(value);
+  const id = idValue(record.id, `activity-${index + 1}`);
+
+  return {
+    id,
+    clientId: id,
+    stepId: idValue(record.step_id ?? record.stepId),
+    name: stringValue(record.name, `Atividade ${index + 1}`),
+    description: stringValue(record.description),
+    position: numberValue(record.position, index + 1),
+    priority: mapPriority(record.priority),
+    defaultResponsibleRole: stringValue(record.default_responsible_role ?? record.defaultResponsibleRole),
+    defaultDurationDays: numberValue(record.default_duration_days ?? record.defaultDurationDays),
+    relativeStartDays: numberValue(record.relative_start_days ?? record.relativeStartDays),
+    requiresDocument: boolValue(record.requires_document ?? record.requiresDocument),
+    requiresTraining: boolValue(record.requires_training ?? record.requiresTraining),
+    checklistItems: arrayValue<unknown>(record.checklist_items ?? record.checklistItems)
+      .map(item => typeof item === 'string' ? item : stringValue(recordValue(item).label ?? recordValue(item).name))
+      .filter(Boolean),
+  };
+}
+
 function mapStep(value: unknown, index = 0): OnboardingProgramStep {
   const record = recordValue(value);
   const id = idValue(record.id, `step-${index + 1}`);
@@ -74,6 +103,7 @@ function mapStep(value: unknown, index = 0): OnboardingProgramStep {
       startsFrom: stringValue(sla.starts_from ?? sla.startsFrom, 'program_start'),
       escalationPolicy: recordValue(sla.escalation_policy ?? sla.escalationPolicy),
     },
+    activities: arrayValue(record.activities).map(mapActivity),
   };
 }
 
@@ -140,6 +170,19 @@ function stepToPayload(step: OnboardingProgramStep, index: number) {
       starts_from: step.sla.startsFrom,
       escalation_policy: step.sla.escalationPolicy,
     },
+    activities: step.activities.map((activity, activityIndex) => ({
+      client_id: activity.clientId || activity.id || `activity-${activityIndex + 1}`,
+      name: activity.name,
+      description: activity.description,
+      position: activity.position || activityIndex + 1,
+      priority: activity.priority,
+      default_responsible_role: activity.defaultResponsibleRole,
+      default_duration_days: activity.defaultDurationDays,
+      relative_start_days: activity.relativeStartDays,
+      requires_document: activity.requiresDocument,
+      requires_training: activity.requiresTraining,
+      checklist_items: activity.checklistItems,
+    })),
   };
 }
 
@@ -246,6 +289,25 @@ export const onboardingProgramService = {
       checklistTemplateId: null,
       dependencies: [],
       sla: { days: 0, startsFrom: 'program_start', escalationPolicy: {} },
+      activities: [],
+    };
+  },
+
+  emptyActivity(index: number): OnboardingProgramStepActivity {
+    return {
+      id: `new-activity-${Date.now()}-${index}`,
+      clientId: `activity-${Date.now()}-${index}`,
+      stepId: '',
+      name: `Nova atividade ${index + 1}`,
+      description: '',
+      position: index + 1,
+      priority: 'medium',
+      defaultResponsibleRole: '',
+      defaultDurationDays: 0,
+      relativeStartDays: 0,
+      requiresDocument: false,
+      requiresTraining: false,
+      checklistItems: [],
     };
   },
 

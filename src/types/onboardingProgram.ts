@@ -7,6 +7,22 @@ export interface OnboardingProgramStepSla {
   escalationPolicy: Record<string, unknown>;
 }
 
+export interface OnboardingProgramStepActivity {
+  id: string;
+  clientId: string;
+  stepId: string;
+  name: string;
+  description: string;
+  position: number;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  defaultResponsibleRole: string;
+  defaultDurationDays: number;
+  relativeStartDays: number;
+  requiresDocument: boolean;
+  requiresTraining: boolean;
+  checklistItems: string[];
+}
+
 export interface OnboardingProgramStep {
   id: string;
   clientId: string;
@@ -22,6 +38,7 @@ export interface OnboardingProgramStep {
   checklistTemplateId: number | null;
   dependencies: string[];
   sla: OnboardingProgramStepSla;
+  activities: OnboardingProgramStepActivity[];
 }
 
 export interface OnboardingProgramVersion {

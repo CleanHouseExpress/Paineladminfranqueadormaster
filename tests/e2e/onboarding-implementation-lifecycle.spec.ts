@@ -18,7 +18,10 @@ const publishedProgram = {
       change_notes: 'Primeira versao publicada',
       published_at: '2026-07-08T12:00:00Z',
       steps: [
-        { id: 101, name: 'Contrato', position: 1, responsible_role: 'consultor', dependencies: [], sla: { days: 3 } },
+        { id: 101, name: 'Contrato', position: 1, responsible_role: 'consultor', dependencies: [], sla: { days: 3 }, activities: [
+          { id: 7001, name: 'Assinar contrato', position: 1, priority: 'high', checklist_items: ['Contrato revisado'] },
+          { id: 7002, name: 'Enviar documentos', position: 2, priority: 'medium', requires_document: true },
+        ] },
         { id: 102, name: 'Catalogo inicial', position: 2, responsible_role: 'implantador', dependencies: [101], sla: { days: 7 } },
         { id: 103, name: 'Primeira venda', position: 3, responsible_role: 'operacoes', dependencies: [102], sla: { days: 2 } },
       ],
@@ -99,9 +102,12 @@ function createdImplementation(firstStepCompleted = false) {
     steps_count: 3,
     guided_setup: guidedSetup(firstStepCompleted),
     phases: [
-      { id: 9001, program_step_id: 101, name: 'Contrato', description: '', position: 1, responsible_role: 'consultor', responsible_user_id: null, is_required: true, sla_days: 3, depends_on_phase_ids: [], condition: {}, completion_criteria: {}, document_requirements: [], checklist_template_id: null, status: firstStepCompleted ? 'completed' : 'pending', due_date: '2026-08-04' },
-      { id: 9002, program_step_id: 102, name: 'Catalogo inicial', description: '', position: 2, responsible_role: 'implantador', responsible_user_id: null, is_required: true, sla_days: 7, depends_on_phase_ids: [9001], condition: {}, completion_criteria: {}, document_requirements: [], checklist_template_id: null, status: 'pending', due_date: '2026-08-08' },
-      { id: 9003, program_step_id: 103, name: 'Primeira venda', description: '', position: 3, responsible_role: 'operacoes', responsible_user_id: null, is_required: true, sla_days: 2, depends_on_phase_ids: [9002], condition: {}, completion_criteria: {}, document_requirements: [], checklist_template_id: null, status: 'pending', due_date: '2026-08-03' },
+      { id: 9001, program_step_id: 101, name: 'Contrato', description: '', position: 1, responsible_role: 'consultor', responsible_user_id: firstStepCompleted ? 2 : null, is_required: true, sla_days: 3, depends_on_phase_ids: [], condition: {}, completion_criteria: {}, document_requirements: [], checklist_template_id: null, status: firstStepCompleted ? 'completed' : 'pending', due_date: '2026-08-04', tasks: [
+        { id: 8001, name: 'Assinar contrato', description: '', position: 1, status: firstStepCompleted ? 'completed' : 'pending', priority: 'high', responsible_user_id: null, due_date: '2026-08-03', checklist_items: [{ id: 1, label: 'Contrato revisado', is_completed: firstStepCompleted, position: 1 }] },
+        { id: 8002, name: 'Enviar documentos', description: '', position: 2, status: 'pending', priority: 'medium', responsible_user_id: null, due_date: '2026-08-04', checklist_items: [{ id: 2, label: 'Enviar documento obrigatorio', is_completed: false, position: 1 }] },
+      ] },
+      { id: 9002, program_step_id: 102, name: 'Catalogo inicial', description: '', position: 2, responsible_role: 'implantador', responsible_user_id: null, is_required: true, sla_days: 7, depends_on_phase_ids: [9001], condition: {}, completion_criteria: {}, document_requirements: [], checklist_template_id: null, status: 'pending', due_date: '2026-08-08', tasks: [] },
+      { id: 9003, program_step_id: 103, name: 'Primeira venda', description: '', position: 3, responsible_role: 'operacoes', responsible_user_id: null, is_required: true, sla_days: 2, depends_on_phase_ids: [9002], condition: {}, completion_criteria: {}, document_requirements: [], checklist_template_id: null, status: 'pending', due_date: '2026-08-03', tasks: [] },
     ],
     archived_at: null,
     created_at: '2026-07-08T13:00:00Z',
@@ -169,6 +175,11 @@ async function mockLifecycleApi(page: Page) {
     contentType: 'application/json',
     body: JSON.stringify([{ value: 101, label: 'Unidade Centro' }]),
   }));
+  await page.route('**/api/company/users?per_page=100', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ data: [{ id: 2, name: 'Joao Silva', email: 'joao@orchestra.test' }] }),
+  }));
   await page.route('**/api/tenant/onboarding/implementations?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -189,6 +200,12 @@ async function mockLifecycleApi(page: Page) {
   });
   await page.route('**/api/tenant/onboarding/implementations/501/steps/9001/complete', async route => {
     implementations = [createdImplementation(true)];
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: implementations[0] }) });
+  });
+  await page.route('**/api/tenant/onboarding/implementations/501/phases/9001/responsible', async route => {
+    const updated = createdImplementation();
+    (updated.phases[0] as Record<string, unknown>).responsible_user_id = 2;
+    implementations = [updated];
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: implementations[0] }) });
   });
 }
@@ -216,7 +233,12 @@ test('Guided Setup materializa jornada e mostra proximo passo @smoke', async ({ 
   await expect(page.getByTestId('guided-setup-panel')).toContainText('Setup guiado');
   await expect(page.getByTestId('next-action-card')).toContainText('Contrato');
   await expect(page.getByTestId('implementation-phases')).toContainText('Contrato');
+  await expect(page.getByTestId('implementation-phases')).toContainText('Assinar contrato');
+  await expect(page.getByTestId('implementation-phases')).toContainText('Enviar documentos');
   await expect(page.getByTestId('implementation-phases')).toContainText('Catalogo inicial');
+
+  await page.getByLabel('Responsavel').first().selectOption('2');
+  await expect(page.getByText('Responsavel da fase atualizado.')).toBeVisible();
 
   await page.getByRole('button', { name: /Marcar pronto/ }).click();
   await expect(page.getByText('Passo concluido.')).toBeVisible();

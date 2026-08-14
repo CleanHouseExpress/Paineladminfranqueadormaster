@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Archive, CheckCircle2, Copy, FileText, GitBranch, Plus, RefreshCw, Rocket, Save, Search, Settings2, Trash2 } from 'lucide-react';
+import { Archive, ArrowDown, ArrowUp, CheckCircle2, Copy, FileText, GitBranch, GripVertical, Plus, RefreshCw, Rocket, Save, Search, Settings2, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -7,7 +7,7 @@ import { Skeleton } from '../ui/skeleton';
 import { Textarea } from '../ui/textarea';
 import { onboardingProgramService } from '../../../services/onboardingProgramService';
 import { useOnboardingPrograms } from '../../../shared/hooks/useOnboardingPrograms';
-import type { OnboardingProgram, OnboardingProgramStep, OnboardingProgramVersion } from '../../../types/onboardingProgram';
+import type { OnboardingProgram, OnboardingProgramStep, OnboardingProgramStepActivity, OnboardingProgramVersion } from '../../../types/onboardingProgram';
 import { ONBOARDING_PROGRAM_STATUS_LABELS, ONBOARDING_PROGRAM_VERSION_STATUS_LABELS } from '../../../types/onboardingProgram';
 
 function clone<T>(value: T): T {
@@ -181,6 +181,16 @@ export function OnboardingProgramBuilder() {
     setActiveStepId(step.id);
   };
 
+  const moveStep = (stepId: string, direction: -1 | 1) => {
+    if (!effectiveVersion || !canEditVersion) return;
+    const currentIndex = effectiveVersion.steps.findIndex(step => step.id === stepId || step.clientId === stepId);
+    const nextIndex = currentIndex + direction;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= effectiveVersion.steps.length) return;
+    const steps = [...effectiveVersion.steps];
+    [steps[currentIndex], steps[nextIndex]] = [steps[nextIndex], steps[currentIndex]];
+    setDraftVersion({ ...effectiveVersion, steps: steps.map((step, index) => ({ ...step, position: index + 1 })) });
+  };
+
   const updateStep = (stepId: string, patch: Partial<OnboardingProgramStep>) => {
     if (!effectiveVersion || !canEditVersion) return;
     setDraftVersion({
@@ -202,6 +212,42 @@ export function OnboardingProgramBuilder() {
     setActiveStepId(nextSteps[0]?.id ?? '');
   };
 
+  const addActivity = (stepId: string) => {
+    if (!effectiveVersion || !canEditVersion) return;
+    const step = effectiveVersion.steps.find(item => item.id === stepId || item.clientId === stepId);
+    if (!step) return;
+    updateStep(stepId, { activities: [...step.activities, onboardingProgramService.emptyActivity(step.activities.length)] });
+  };
+
+  const updateActivity = (stepId: string, activityId: string, patch: Partial<OnboardingProgramStepActivity>) => {
+    const step = effectiveVersion?.steps.find(item => item.id === stepId || item.clientId === stepId);
+    if (!step || !canEditVersion) return;
+    updateStep(stepId, {
+      activities: step.activities.map(activity => (activity.id === activityId || activity.clientId === activityId ? { ...activity, ...patch } : activity)),
+    });
+  };
+
+  const removeActivity = (stepId: string, activityId: string) => {
+    const step = effectiveVersion?.steps.find(item => item.id === stepId || item.clientId === stepId);
+    if (!step || !canEditVersion) return;
+    updateStep(stepId, {
+      activities: step.activities
+        .filter(activity => activity.id !== activityId && activity.clientId !== activityId)
+        .map((activity, index) => ({ ...activity, position: index + 1 })),
+    });
+  };
+
+  const moveActivity = (stepId: string, activityId: string, direction: -1 | 1) => {
+    const step = effectiveVersion?.steps.find(item => item.id === stepId || item.clientId === stepId);
+    if (!step || !canEditVersion) return;
+    const currentIndex = step.activities.findIndex(activity => activity.id === activityId || activity.clientId === activityId);
+    const nextIndex = currentIndex + direction;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= step.activities.length) return;
+    const activities = [...step.activities];
+    [activities[currentIndex], activities[nextIndex]] = [activities[nextIndex], activities[currentIndex]];
+    updateStep(stepId, { activities: activities.map((activity, index) => ({ ...activity, position: index + 1 })) });
+  };
+
   const toggleDependency = (step: OnboardingProgramStep, dependencyId: string) => {
     const next = step.dependencies.includes(dependencyId)
       ? step.dependencies.filter(item => item !== dependencyId)
@@ -213,8 +259,8 @@ export function OnboardingProgramBuilder() {
     <div className="space-y-6" data-testid="onboarding-program-builder">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-normal">Programas de onboarding</h1>
-          <p className="text-sm text-muted-foreground">Configure programas versionados que futuramente originam implementations.</p>
+          <h1 className="text-2xl font-semibold tracking-normal">Templates de implantacao</h1>
+          <p className="text-sm text-muted-foreground">Configure fases e atividades versionadas para novas implantacoes da rede.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" onClick={() => void reload()}>
@@ -287,7 +333,7 @@ export function OnboardingProgramBuilder() {
                   <span className="font-medium">{program.name}</span>
                   <span className={`rounded-full border px-2 py-0.5 text-xs ${statusClass(program.status)}`}>{ONBOARDING_PROGRAM_STATUS_LABELS[program.status]}</span>
                 </div>
-                <div className="mt-1 text-xs text-muted-foreground">{program.versionsCount} versao(oes) · {program.category || 'sem categoria'}</div>
+                <div className="mt-1 text-xs text-muted-foreground">{program.versionsCount} versao(oes) Â· {program.category || 'sem categoria'}</div>
               </button>
             ))}
           </div>
@@ -352,14 +398,14 @@ export function OnboardingProgramBuilder() {
               <section className="grid gap-4 xl:grid-cols-[300px_1fr]">
                 <div className="rounded-md border p-3">
                   <div className="mb-3 flex items-center justify-between">
-                    <span className="text-sm font-semibold">Etapas</span>
+                    <span className="text-sm font-semibold">Fases</span>
                     <Button type="button" size="sm" variant="outline" onClick={addStep} disabled={!canEditVersion}>
                       <Plus className="size-4" />
-                      Etapa
+                      Fase
                     </Button>
                   </div>
                   <div className="space-y-2" data-testid="program-step-list">
-                    {effectiveVersion.steps.map(step => (
+                    {effectiveVersion.steps.map((step, index) => (
                       <button
                         key={step.id}
                         type="button"
@@ -367,7 +413,16 @@ export function OnboardingProgramBuilder() {
                         onClick={() => setActiveStepId(step.id)}
                       >
                         <div className="font-medium">{step.position}. {step.name}</div>
-                        <div className="mt-1 text-xs text-muted-foreground">{step.responsibleRole || 'sem responsavel'} · {step.sla.days} dia(s)</div>
+                        <div className="mt-1 text-xs text-muted-foreground">{step.responsibleRole || 'sem responsavel'} - {step.activities.length} atividade(s) - {step.sla.days} dia(s)</div>
+                        <div className="mt-2 flex gap-1">
+                          <span role="button" tabIndex={0} aria-label="Mover fase para cima" className="rounded-md border px-2 py-1 text-xs" onClick={event => { event.stopPropagation(); moveStep(step.id, -1); }} onKeyDown={event => { if (event.key === 'Enter') moveStep(step.id, -1); }}>
+                            <ArrowUp className="size-3" />
+                          </span>
+                          <span role="button" tabIndex={0} aria-label="Mover fase para baixo" className="rounded-md border px-2 py-1 text-xs" onClick={event => { event.stopPropagation(); moveStep(step.id, 1); }} onKeyDown={event => { if (event.key === 'Enter') moveStep(step.id, 1); }}>
+                            <ArrowDown className="size-3" />
+                          </span>
+                          <span className="self-center text-xs text-muted-foreground">{index + 1}/{effectiveVersion.steps.length}</span>
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -379,7 +434,7 @@ export function OnboardingProgramBuilder() {
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 text-sm font-semibold">
                           <Settings2 className="size-4" />
-                          Configuracao da etapa
+                          Configuracao da fase
                         </div>
                         <Button type="button" size="sm" variant="outline" onClick={() => removeStep(activeStep.id)} disabled={!canEditVersion || effectiveVersion.steps.length <= 1}>
                           <Trash2 className="size-4" />
@@ -450,9 +505,75 @@ export function OnboardingProgramBuilder() {
                           placeholder="Um documento por linha"
                         />
                       </div>
+                      <div className="rounded-md border p-3">
+                        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <div className="text-sm font-semibold">Atividades da fase</div>
+                            <div className="text-xs text-muted-foreground">{activeStep.activities.length || 'Nenhuma'} atividade(s)</div>
+                          </div>
+                          <Button type="button" size="sm" variant="outline" onClick={() => addActivity(activeStep.id)} disabled={!canEditVersion}>
+                            <Plus className="size-4" />
+                            Adicionar atividade
+                          </Button>
+                        </div>
+                        {activeStep.activities.length === 0 ? (
+                          <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">Nenhuma atividade nesta fase.</div>
+                        ) : (
+                          <div className="space-y-3" data-testid="program-activity-list">
+                            {activeStep.activities.map((activity, index) => (
+                              <div key={activity.id} className="grid gap-3 rounded-md border p-3">
+                                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                                  <div className="flex items-center gap-2 text-sm font-medium">
+                                    <GripVertical className="size-4 text-muted-foreground" />
+                                    {index + 1}. {activity.name}
+                                  </div>
+                                  <div className="flex flex-wrap gap-1">
+                                    <Button type="button" size="icon" variant="outline" aria-label="Mover atividade para cima" onClick={() => moveActivity(activeStep.id, activity.id, -1)} disabled={!canEditVersion || index === 0}>
+                                      <ArrowUp className="size-4" />
+                                    </Button>
+                                    <Button type="button" size="icon" variant="outline" aria-label="Mover atividade para baixo" onClick={() => moveActivity(activeStep.id, activity.id, 1)} disabled={!canEditVersion || index === activeStep.activities.length - 1}>
+                                      <ArrowDown className="size-4" />
+                                    </Button>
+                                    <Button type="button" size="icon" variant="outline" aria-label="Excluir atividade" onClick={() => removeActivity(activeStep.id, activity.id)} disabled={!canEditVersion}>
+                                      <Trash2 className="size-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                                <div className="grid gap-3 md:grid-cols-[1fr_140px_130px]">
+                                  <div className="grid gap-2">
+                                    <Label>Nome</Label>
+                                    <Input value={activity.name} disabled={!canEditVersion} onChange={event => updateActivity(activeStep.id, activity.id, { name: event.target.value })} />
+                                  </div>
+                                  <div className="grid gap-2">
+                                    <Label>Prioridade</Label>
+                                    <select className="h-9 rounded-md border bg-background px-3 text-sm" value={activity.priority} disabled={!canEditVersion} onChange={event => updateActivity(activeStep.id, activity.id, { priority: event.target.value as OnboardingProgramStepActivity['priority'] })}>
+                                      <option value="low">Baixa</option>
+                                      <option value="medium">Media</option>
+                                      <option value="high">Alta</option>
+                                      <option value="critical">Critica</option>
+                                    </select>
+                                  </div>
+                                  <div className="grid gap-2">
+                                    <Label>Prazo</Label>
+                                    <Input type="number" value={activity.defaultDurationDays} disabled={!canEditVersion} onChange={event => updateActivity(activeStep.id, activity.id, { defaultDurationDays: Number(event.target.value) })} />
+                                  </div>
+                                  <div className="grid gap-2 md:col-span-3">
+                                    <Label>Descricao</Label>
+                                    <Textarea value={activity.description} disabled={!canEditVersion} onChange={event => updateActivity(activeStep.id, activity.id, { description: event.target.value })} />
+                                  </div>
+                                  <div className="grid gap-2 md:col-span-3">
+                                    <Label>Checklist</Label>
+                                    <Textarea value={activity.checklistItems.join('\n')} disabled={!canEditVersion} placeholder="Um item por linha" onChange={event => updateActivity(activeStep.id, activity.id, { checklistItems: event.target.value.split('\n').map(line => line.trim()).filter(Boolean) })} />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ) : (
-                    <div className="rounded-md border p-6 text-sm text-muted-foreground">Selecione uma etapa.</div>
+                    <div className="rounded-md border p-6 text-sm text-muted-foreground">Selecione uma fase.</div>
                   )}
                 </div>
               </section>

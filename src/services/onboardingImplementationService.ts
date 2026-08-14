@@ -8,6 +8,7 @@ import type {
   OnboardingImplementationStatus,
   OnboardingImplementationsResult,
   OnboardingUnitOption,
+  OnboardingUserOption,
 } from '../types/onboardingImplementation';
 
 type ApiRecord = Record<string, unknown>;
@@ -77,6 +78,30 @@ function mapPhase(value: unknown): OnboardingImplementationPhase {
     checklistTemplateId: typeof record.checklist_template_id === 'number' ? record.checklist_template_id : null,
     status: stringValue(record.status, 'pending'),
     dueDate: stringValue(record.due_date ?? record.dueDate) || null,
+    tasks: arrayValue(record.tasks).map(taskValue => {
+      const task = recordValue(taskValue);
+      return {
+        id: idValue(task.id),
+        name: stringValue(task.name, 'Atividade'),
+        description: stringValue(task.description),
+        position: numberValue(task.position),
+        status: stringValue(task.status, 'pending'),
+        priority: stringValue(task.priority, 'medium'),
+        responsibleUserId: typeof task.responsible_user_id === 'number' ? task.responsible_user_id : null,
+        startDate: stringValue(task.start_date ?? task.startDate) || null,
+        dueDate: stringValue(task.due_date ?? task.dueDate) || null,
+        completedAt: stringValue(task.completed_at ?? task.completedAt) || null,
+        checklistItems: arrayValue(task.checklist_items ?? task.checklistItems).map(itemValue => {
+          const item = recordValue(itemValue);
+          return {
+            id: idValue(item.id),
+            label: stringValue(item.label),
+            isCompleted: boolValue(item.is_completed ?? item.isCompleted),
+            position: numberValue(item.position),
+          };
+        }),
+      };
+    }),
   };
 }
 
@@ -197,6 +222,14 @@ function optionFromRecord(value: unknown): OnboardingUnitOption {
   };
 }
 
+function userOptionFromRecord(value: unknown): OnboardingUserOption {
+  const record = recordValue(value);
+  return {
+    value: numberValue(record.value ?? record.id),
+    label: stringValue(record.label ?? record.name ?? record.email, 'Usuario'),
+  };
+}
+
 export const onboardingImplementationService = {
   async list(filters: { search?: string; status?: string; program_id?: string; unit_id?: string } = {}): Promise<OnboardingImplementationsResult> {
     const response = recordValue(await apiClient.get<unknown>(`/api/tenant/onboarding/implementations${queryString(filters)}`, { expireSessionOnUnauthorized: false }));
@@ -246,6 +279,12 @@ export const onboardingImplementationService = {
     return mapImplementation(await apiClient.post(`/api/tenant/onboarding/implementations/${id}/steps/${phaseId}/skip`, {}, { expireSessionOnUnauthorized: false }));
   },
 
+  async updatePhaseResponsible(id: string, phaseId: string, responsibleUserId: number | null): Promise<OnboardingImplementation> {
+    return mapImplementation(await apiClient.put(`/api/tenant/onboarding/implementations/${id}/phases/${phaseId}/responsible`, {
+      responsible_user_id: responsibleUserId,
+    }, { expireSessionOnUnauthorized: false }));
+  },
+
   async cancel(id: string): Promise<OnboardingImplementation> {
     return mapImplementation(await apiClient.post(`/api/tenant/onboarding/implementations/${id}/cancel`, {}, { expireSessionOnUnauthorized: false }));
   },
@@ -257,6 +296,11 @@ export const onboardingImplementationService = {
   async unitOptions(): Promise<OnboardingUnitOption[]> {
     const response = await apiClient.get<unknown>('/api/company/units/options', { expireSessionOnUnauthorized: false });
     return arrayValue(unwrapData(response)).map(optionFromRecord);
+  },
+
+  async userOptions(): Promise<OnboardingUserOption[]> {
+    const response = recordValue(await apiClient.get<unknown>('/api/company/users?per_page=100', { expireSessionOnUnauthorized: false }));
+    return arrayValue(response.data ?? unwrapData(response)).map(userOptionFromRecord);
   },
 
   getErrorMessage(error: unknown, fallback: string): string {

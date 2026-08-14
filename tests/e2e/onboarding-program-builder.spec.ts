@@ -30,6 +30,10 @@ function programPayload(overrides: Record<string, unknown> = {}) {
             document_requirements: [{ name: 'Contrato assinado', required: true }],
             dependencies: [],
             sla: { days: 3, starts_from: 'program_start', escalation_policy: {} },
+            activities: [
+              { id: 1001, name: 'Assinar contrato', description: 'Formalizar contrato', position: 1, priority: 'high', default_duration_days: 2, checklist_items: ['Contrato revisado'] },
+              { id: 1002, name: 'Enviar documentos', description: 'Enviar documentos societarios', position: 2, priority: 'medium', default_duration_days: 1, checklist_items: ['Documentos anexados'] },
+            ],
           },
           {
             id: 102,
@@ -41,6 +45,9 @@ function programPayload(overrides: Record<string, unknown> = {}) {
             is_required: true,
             dependencies: [101],
             sla: { days: 7, starts_from: 'program_start', escalation_policy: {} },
+            activities: [
+              { id: 1003, name: 'Configurar ambiente', position: 1, priority: 'medium', default_duration_days: 3, checklist_items: ['Ambiente criado'] },
+            ],
           },
         ],
       },
@@ -96,6 +103,7 @@ async function mockSession(page: Page) {
 
 async function mockProgramApi(page: Page) {
   let program = programPayload();
+  let lastVersionPayload: Record<string, any> | null = null;
 
   await page.route('**/api/tenant/onboarding/programs?*', route => route.fulfill({
     status: 200,
@@ -121,6 +129,27 @@ async function mockProgramApi(page: Page) {
     body: JSON.stringify({ data: program }),
   }));
   await page.route('**/api/tenant/onboarding/programs/10/versions/21', async route => {
+    if (route.request().method() === 'PUT') {
+      lastVersionPayload = await route.request().postDataJSON();
+      const version = {
+        ...(program.versions as Array<Record<string, unknown>>)[0],
+        change_notes: lastVersionPayload?.change_notes,
+        steps: (lastVersionPayload?.steps ?? []).map((step: Record<string, unknown>, index: number) => ({
+          ...step,
+          id: index === 0 ? 102 : 101,
+          position: index + 1,
+          activities: ((step.activities as Array<Record<string, unknown>> | undefined) ?? []).map((activity, activityIndex) => ({
+            ...activity,
+            id: activityIndex + 2001,
+            position: activityIndex + 1,
+          })),
+        })),
+      };
+      program = programPayload({ versions: [version] });
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: version }) });
+      return;
+    }
+
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: program.versions[0] }) });
   });
   await page.route('**/api/tenant/onboarding/programs/10/versions/21/publish', async route => {
@@ -138,11 +167,15 @@ async function mockProgramApi(page: Page) {
     program = programPayload({ status: 'archived' });
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: program }) });
   });
+
+  return {
+    getLastVersionPayload: () => lastVersionPayload,
+  };
 }
 
 test('Program Builder cria, edita, publica, duplica e arquiva @smoke', async ({ page }) => {
   await mockSession(page);
-  await mockProgramApi(page);
+  const api = await mockProgramApi(page);
 
   page.on('dialog', dialog => dialog.accept());
   await page.goto('/onboarding/programs');
@@ -152,9 +185,22 @@ test('Program Builder cria, edita, publica, duplica e arquiva @smoke', async ({ 
   await page.getByText('Programa Clinicas Premium').click();
 
   await expect(page.getByTestId('program-step-list')).toContainText('Contrato');
+  await expect(page.getByTestId('program-activity-list')).toContainText('Assinar contrato');
+  await page.getByLabel('Mover atividade para baixo').first().click();
+  await page.getByLabel('Mover fase para baixo').first().click();
   await page.getByTestId('program-step-name-input').fill('Contrato e documentos');
   await page.getByRole('button', { name: /Salvar/ }).click();
   await expect(page.getByText('Programa salvo.')).toBeVisible();
+
+  const savedPayload = api.getLastVersionPayload();
+  expect(savedPayload?.steps?.[0]?.client_id).toBe('102');
+  expect(savedPayload?.steps?.[0]?.position).toBe(1);
+  expect(savedPayload?.steps?.[1]?.client_id).toBe('101');
+  expect(savedPayload?.steps?.[1]?.position).toBe(2);
+  expect(savedPayload?.steps?.[1]?.activities?.[0]?.client_id).toBe('1002');
+  expect(savedPayload?.steps?.[1]?.activities?.[0]?.position).toBe(1);
+  expect(savedPayload?.steps?.[1]?.activities?.[1]?.client_id).toBe('1001');
+  expect(savedPayload?.steps?.[1]?.activities?.[1]?.position).toBe(2);
 
   await page.getByRole('button', { name: /Publicar/ }).click();
   await expect(page.getByText('Versao publicada.')).toBeVisible();
