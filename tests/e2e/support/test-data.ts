@@ -13,5 +13,5 @@ export const users = {
   },
 } as const;
 
-export const apiUrl = process.env.E2E_API_URL ?? 'http://orchestra-e2e.localhost:8000';
+export const apiUrl = process.env.E2E_API_URL ?? `http://orchestra-e2e.localhost:${process.env.E2E_API_PORT ?? '8000'}`;
 export const unique = (prefix: string) => `${prefix} ${Date.now()}-${Math.random().toString(16).slice(2, 7)}`;

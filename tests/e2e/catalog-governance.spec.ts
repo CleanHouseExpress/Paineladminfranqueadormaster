@@ -2,8 +2,13 @@ import { expect, request, test } from '@playwright/test';
 import { apiUrl, unique, users } from './support/test-data';
 
 type ApiContext = Awaited<ReturnType<typeof request.newContext>>;
-const tenantHost = new URL(apiUrl).host;
-const nodeApiUrl = apiUrl.replace(/^http:\/\/orchestra-e2e\.localhost(?::\d+)?/, 'http://127.0.0.1:8000');
+const api = new URL(apiUrl);
+const tenantHost = api.host;
+const directApi = new URL(apiUrl);
+if (directApi.hostname === 'orchestra-e2e.localhost') {
+  directApi.hostname = '127.0.0.1';
+}
+const nodeApiUrl = directApi.origin;
 
 async function login(email: string, password: string) {
   const context = await request.newContext({
