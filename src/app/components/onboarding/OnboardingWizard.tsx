@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useOnboarding } from '../../../shared/hooks/useOnboarding';
 import { useTenant } from '../../../shared/context/TenantContext';
+import { getApiErrorMessage } from '../../../services/apiClient';
 import { WIZARD_STEPS, type WizardStepData, type WizardStepId } from '../../../types/onboarding';
 import { MODULE_REGISTRY } from '../../../services/moduleRegistry';
 import { unitManagementService } from '../../../services/unitManagementService';
@@ -550,6 +551,8 @@ function stepPayload(stepId: WizardStepId, data: WizardStepData): Partial<Wizard
 export function OnboardingWizard() {
   const { state, closeWizard, goToStep, saveStepData, completeWizard } = useOnboarding();
   const { wizardOpen, currentWizardStep } = state;
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!wizardOpen) return null;
 
@@ -560,20 +563,40 @@ export function OnboardingWizard() {
   const isFirst = currentWizardStep === 0;
 
   const next = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    setError(null);
+
     const stepId = stepDef.id as WizardStepId;
-    await saveStepData(stepId, stepPayload(stepId, state.stepData));
-    if (isLast) {
-      await completeWizard();
-    } else {
-      goToStep(currentWizardStep + 1);
+    try {
+      await saveStepData(stepId, stepPayload(stepId, state.stepData));
+      if (isLast) {
+        await completeWizard();
+      } else {
+        goToStep(currentWizardStep + 1);
+      }
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Nao foi possivel salvar esta etapa. Tente novamente.'));
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const back = () => goToStep(currentWizardStep - 1);
   const skip = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    setError(null);
+
     const stepId = stepDef.id as WizardStepId;
-    await saveStepData(stepId, stepPayload(stepId, state.stepData));
-    goToStep(currentWizardStep + 1);
+    try {
+      await saveStepData(stepId, stepPayload(stepId, state.stepData));
+      goToStep(currentWizardStep + 1);
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Nao foi possivel salvar esta etapa. Tente novamente.'));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -621,13 +644,18 @@ export function OnboardingWizard() {
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
           <StepContent />
+          {error && (
+            <div className="mt-4 rounded-xl px-4 py-3" style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', fontSize: '13px', lineHeight: 1.5 }}>
+              {error}
+            </div>
+          )}
         </div>
 
         {/* Footer */}
         <div className="px-6 py-4 flex items-center justify-between" style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
           <div>
             {!isFirst && (
-              <button onClick={back} className="flex items-center gap-1.5 px-4 py-2 rounded-xl transition-colors"
+              <button onClick={back} disabled={isSaving} className="flex items-center gap-1.5 px-4 py-2 rounded-xl transition-colors disabled:opacity-50"
                 style={{ color: '#64748B', fontSize: '13px', fontWeight: 500 }}
                 onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#F1F5F9'}
                 onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
@@ -637,10 +665,10 @@ export function OnboardingWizard() {
           </div>
           <div className="flex items-center gap-2">
             {stepDef.skippable && !isLast && (
-              <button onClick={skip} style={{ fontSize: '13px', color: '#94A3B8', padding: '8px 12px' }}>Pular</button>
+              <button onClick={skip} disabled={isSaving} style={{ fontSize: '13px', color: '#94A3B8', padding: '8px 12px', opacity: isSaving ? 0.5 : 1 }}>Pular</button>
             )}
-            <button onClick={next}
-              className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-white transition-opacity hover:opacity-90"
+            <button onClick={next} disabled={isSaving}
+              className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-white transition-opacity hover:opacity-90 disabled:opacity-60"
               style={{ background: isLast ? 'linear-gradient(135deg, #10B981, #059669)' : 'linear-gradient(135deg, #6366F1, #8B5CF6)', fontSize: '13px', fontWeight: 600 }}>
               {isLast ? (
                 <><Sparkles size={14} /> Lançar plataforma!</>

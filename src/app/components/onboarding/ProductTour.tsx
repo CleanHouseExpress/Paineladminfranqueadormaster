@@ -112,14 +112,18 @@ export function ProductTour() {
   }, [tourActive, refresh]);
 
   useEffect(() => {
-    if (!tourActive || !portalRoot) return;
+    if (!portalRoot) return;
 
-    document.body.appendChild(portalRoot);
+    if (!document.body.contains(portalRoot)) {
+      document.body.appendChild(portalRoot);
+    }
 
     return () => {
-      portalRoot.parentNode?.removeChild(portalRoot);
+      if (portalRoot.parentNode) {
+        portalRoot.parentNode.removeChild(portalRoot);
+      }
     };
-  }, [portalRoot, tourActive]);
+  }, [portalRoot]);
 
   if (!tourActive || !stop || !portalRoot) return null;
 
