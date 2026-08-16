@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
-  CheckCircle, Circle, MoreHorizontal, ChevronUp, ChevronDown, Search,
+  AlertCircle, CheckCircle, Circle, MoreHorizontal, ChevronUp, ChevronDown, Search,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -24,6 +24,7 @@ export interface DynamicTableRendererProps {
   loading?: boolean;
   emptyMessage?: string;
   emptyLabel?: string;
+  emptyDescription?: string;
   emptyIcon?: React.ReactNode;
   onRowClick?: (row: Record<string, unknown>) => void;
   selectable?: boolean;
@@ -109,7 +110,7 @@ function CellContent({ col, value, row }: { col: ColumnDef; value: unknown; row:
 
   switch (col.type) {
     case 'badge': {
-      if (!value) return <span style={{ color: '#94A3B8' }}>—</span>;
+      if (!value) return <span style={{ color: 'var(--muted-foreground)' }}>-</span>;
       const cfg = col.badgeConfig?.[String(value)];
       if (cfg) {
         return (
@@ -137,8 +138,8 @@ function CellContent({ col, value, row }: { col: ColumnDef; value: unknown; row:
             borderRadius: '999px',
             fontSize: '11px',
             fontWeight: 600,
-            background: '#F1F5F9',
-            color: '#64748B',
+            background: 'var(--muted)',
+            color: 'var(--muted-foreground)',
           }}
         >
           {String(value)}
@@ -149,8 +150,8 @@ function CellContent({ col, value, row }: { col: ColumnDef; value: unknown; row:
     case 'boolean': {
       const yes = value === true || value === 'true' || value === 1;
       return yes
-        ? <CheckCircle size={16} style={{ color: '#16A34A' }} />
-        : <Circle size={16} style={{ color: '#CBD5E1' }} />;
+        ? <CheckCircle size={16} style={{ color: 'var(--primary)' }} />
+        : <Circle size={16} style={{ color: 'var(--muted-foreground)' }} />;
     }
 
     case 'date': {
@@ -161,7 +162,7 @@ function CellContent({ col, value, row }: { col: ColumnDef; value: unknown; row:
           title={relative}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
-          style={{ fontSize: '13px', color: '#374151', cursor: relative ? 'help' : 'default' }}
+          style={{ fontSize: '13px', color: 'var(--foreground)', cursor: relative ? 'help' : 'default' }}
         >
           {hovered && relative ? relative : formatDate(value)}
         </span>
@@ -170,14 +171,14 @@ function CellContent({ col, value, row }: { col: ColumnDef; value: unknown; row:
 
     case 'number':
       return (
-        <span style={{ fontSize: '13px', color: '#0F172A', textAlign: 'right', display: 'block' }}>
+        <span style={{ fontSize: '13px', color: 'var(--foreground)', textAlign: 'right', display: 'block' }}>
           {formatNumber(value)}
         </span>
       );
 
     case 'currency':
       return (
-        <span style={{ fontSize: '13px', color: '#0F172A', textAlign: 'right', display: 'block', fontVariantNumeric: 'tabular-nums' }}>
+        <span style={{ fontSize: '13px', color: 'var(--foreground)', textAlign: 'right', display: 'block', fontVariantNumeric: 'tabular-nums' }}>
           {formatCurrency(value)}
         </span>
       );
@@ -194,7 +195,7 @@ function CellContent({ col, value, row }: { col: ColumnDef; value: unknown; row:
               height: '28px',
               borderRadius: '50%',
               background: bg,
-              color: '#fff',
+              color: 'white',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -205,7 +206,7 @@ function CellContent({ col, value, row }: { col: ColumnDef; value: unknown; row:
           >
             {initials}
           </div>
-          <span style={{ fontSize: '13px', color: '#0F172A' }}>{str}</span>
+          <span style={{ fontSize: '13px', color: 'var(--foreground)' }}>{str}</span>
         </div>
       );
     }
@@ -216,7 +217,7 @@ function CellContent({ col, value, row }: { col: ColumnDef; value: unknown; row:
         <span
           style={{
             fontSize: '13px',
-            color: value !== null && value !== undefined && value !== '' ? '#0F172A' : '#94A3B8',
+            color: value !== null && value !== undefined && value !== '' ? 'var(--foreground)' : 'var(--muted-foreground)',
             display: 'block',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -224,7 +225,7 @@ function CellContent({ col, value, row }: { col: ColumnDef; value: unknown; row:
             maxWidth: col.width ?? '200px',
           }}
         >
-          {value !== null && value !== undefined && value !== '' ? String(value) : '—'}
+          {value !== null && value !== undefined && value !== '' ? String(value) : '-'}
         </span>
       );
   }
@@ -268,8 +269,8 @@ function ActionsDropdown({ row, actions }: ActionsDropdownProps) {
           height: '28px',
           borderRadius: '6px',
           border: 'none',
-          background: open ? '#EEF2FF' : 'transparent',
-          color: open ? '#6366F1' : '#94A3B8',
+          background: open ? 'var(--accent)' : 'transparent',
+          color: open ? 'var(--accent-foreground)' : 'var(--muted-foreground)',
           cursor: 'pointer',
           transition: 'all 0.15s',
         }}
@@ -283,10 +284,11 @@ function ActionsDropdown({ row, actions }: ActionsDropdownProps) {
             position: 'absolute',
             right: 0,
             top: '34px',
-            background: '#fff',
-            border: '1px solid rgba(0,0,0,0.1)',
-            borderRadius: '10px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+            background: 'var(--popover)',
+            color: 'var(--popover-foreground)',
+            border: '1px solid var(--border)',
+            borderRadius: '8px',
+            boxShadow: '0 12px 28px color-mix(in srgb, var(--foreground) 12%, transparent)',
             minWidth: '160px',
             zIndex: 100,
             overflow: 'hidden',
@@ -311,13 +313,15 @@ function ActionsDropdown({ row, actions }: ActionsDropdownProps) {
                 background: 'transparent',
                 cursor: 'pointer',
                 fontSize: '13px',
-                color: action.variant === 'danger' ? '#EF4444' : '#0F172A',
+                color: action.variant === 'danger' ? 'var(--destructive)' : 'var(--popover-foreground)',
                 textAlign: 'left',
                 transition: 'background 0.1s',
               }}
               onMouseEnter={e => {
                 (e.currentTarget as HTMLButtonElement).style.background =
-                  action.variant === 'danger' ? '#FEF2F2' : '#F8FAFC';
+                  action.variant === 'danger'
+                    ? 'color-mix(in srgb, var(--destructive) 12%, transparent)'
+                    : 'var(--accent)';
               }}
               onMouseLeave={e => {
                 (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
@@ -344,7 +348,7 @@ function SkeletonRows({ cols, selectable }: { cols: number; selectable?: boolean
         <tr key={r}>
           {selectable && (
             <td style={{ padding: '10px 12px', width: '36px' }}>
-              <div style={{ width: '15px', height: '15px', borderRadius: '4px', background: '#E2E8F0', animation: 'pulse 1.5s infinite' }} />
+              <div style={{ width: '15px', height: '15px', borderRadius: '4px', background: 'var(--muted)', animation: 'dfr-pulse 1.5s infinite' }} />
             </td>
           )}
           {Array.from({ length: cols }).map((_, c) => (
@@ -353,8 +357,8 @@ function SkeletonRows({ cols, selectable }: { cols: number; selectable?: boolean
                 style={{
                   height: '13px',
                   borderRadius: '6px',
-                  background: '#E2E8F0',
-                  width: c === 0 ? '60%' : `${40 + Math.random() * 40}%`,
+                  background: 'var(--muted)',
+                  width: c === 0 ? '62%' : `${44 + ((r + c) % 3) * 12}%`,
                   animation: 'dfr-pulse 1.5s ease-in-out infinite',
                 }}
               />
@@ -377,6 +381,7 @@ export function DynamicTableRenderer({
   loading,
   emptyMessage,
   emptyLabel,
+  emptyDescription,
   emptyIcon,
   onRowClick,
   selectable,
@@ -394,6 +399,9 @@ export function DynamicTableRenderer({
   const resolvedColumns = columns ?? schema ?? [];
   const resolvedData = data ?? rows ?? [];
   const resolvedEmptyMessage = emptyMessage ?? emptyLabel ?? 'Nenhum registro encontrado.';
+  const resolvedEmptyDescription = emptyDescription ?? (searchable || search.trim()
+    ? 'Ajuste a busca ou limpe os filtros para ver mais resultados.'
+    : 'Ajuste a busca ou os filtros para ampliar os resultados exibidos.');
 
   // Build display columns (inject actions column at end if needed)
   const displayColumns: ColumnDef[] = useMemo(() => {
@@ -465,13 +473,16 @@ export function DynamicTableRenderer({
 
   return (
     <div
+      data-testid="dynamic-table"
       style={{
-        background: '#fff',
-        borderRadius: '12px',
-        border: '1px solid rgba(0,0,0,0.07)',
+        background: 'var(--card)',
+        color: 'var(--card-foreground)',
+        borderRadius: '8px',
+        border: '1px solid var(--border)',
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
+        boxShadow: '0 1px 2px color-mix(in srgb, var(--foreground) 8%, transparent)',
       }}
     >
       {/* Pulse keyframe injected once */}
@@ -490,12 +501,13 @@ export function DynamicTableRenderer({
             alignItems: 'center',
             gap: '10px',
             padding: '12px 16px',
-            borderBottom: '1px solid rgba(0,0,0,0.06)',
-            background: '#F8FAFC',
+            borderBottom: '1px solid var(--border)',
+            background: 'color-mix(in srgb, var(--muted) 42%, var(--card))',
+            flexWrap: 'wrap',
           }}
         >
           {searchable && (
-            <div style={{ position: 'relative', flex: '1', maxWidth: '320px' }}>
+            <div style={{ position: 'relative', flex: '1 1 240px', maxWidth: '360px' }}>
               <Search
                 size={14}
                 style={{
@@ -503,7 +515,7 @@ export function DynamicTableRenderer({
                   left: '10px',
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  color: '#94A3B8',
+                  color: 'var(--muted-foreground)',
                 }}
               />
               <input
@@ -514,18 +526,18 @@ export function DynamicTableRenderer({
                 style={{
                   width: '100%',
                   padding: '7px 10px 7px 30px',
-                  border: '1px solid rgba(0,0,0,0.1)',
+                  border: '1px solid var(--border)',
                   borderRadius: '8px',
                   fontSize: '13px',
-                  color: '#0F172A',
-                  background: '#fff',
+                  color: 'var(--foreground)',
+                  background: 'var(--background)',
                   outline: 'none',
                   boxSizing: 'border-box',
                 }}
               />
             </div>
           )}
-          {toolbar && <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center' }}>{toolbar}</div>}
+          {toolbar && <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>{toolbar}</div>}
         </div>
       )}
 
@@ -534,18 +546,19 @@ export function DynamicTableRenderer({
         <table
           style={{
             width: '100%',
-            borderCollapse: 'collapse',
+            borderCollapse: 'separate',
+            borderSpacing: 0,
             tableLayout: 'fixed',
           }}
         >
           <thead>
-            <tr style={{ background: '#F8FAFC' }}>
+            <tr style={{ background: 'color-mix(in srgb, var(--muted) 42%, var(--card))' }}>
               {selectable && (
                 <th
                   style={{
                     width: '36px',
                     padding: '10px 12px',
-                    borderBottom: '1px solid rgba(0,0,0,0.06)',
+                    borderBottom: '1px solid var(--border)',
                     textAlign: 'center',
                   }}
                 >
@@ -554,7 +567,7 @@ export function DynamicTableRenderer({
                     checked={allSelected}
                     ref={el => { if (el) el.indeterminate = someSelected; }}
                     onChange={toggleAll}
-                    style={{ width: '15px', height: '15px', accentColor: '#6366F1', cursor: 'pointer' }}
+                    style={{ width: '15px', height: '15px', accentColor: 'var(--primary)', cursor: 'pointer' }}
                   />
                 </th>
               )}
@@ -563,7 +576,7 @@ export function DynamicTableRenderer({
                   key={col.key}
                   style={{
                     padding: '10px 16px',
-                    borderBottom: '1px solid rgba(0,0,0,0.06)',
+                    borderBottom: '1px solid var(--border)',
                     textAlign: col.type === 'number' || col.type === 'currency' ? 'right' : 'left',
                     width: col.width,
                     whiteSpace: 'nowrap',
@@ -580,7 +593,7 @@ export function DynamicTableRenderer({
                         gap: '4px',
                         fontSize: '11px',
                         fontWeight: 700,
-                        color: sortKey === col.key ? '#6366F1' : '#64748B',
+                        color: sortKey === col.key ? 'var(--primary)' : 'var(--muted-foreground)',
                         textTransform: 'uppercase',
                         letterSpacing: '0.05em',
                       }}
@@ -607,14 +620,28 @@ export function DynamicTableRenderer({
               <tr>
                 <td
                   colSpan={displayColumns.length + (selectable ? 1 : 0)}
-                  style={{ padding: '48px 16px', textAlign: 'center' }}
+                  style={{ padding: '54px 18px', textAlign: 'center' }}
                 >
-                  {emptyIcon && (
-                    <div style={{ marginBottom: '12px', color: '#CBD5E1', display: 'flex', justifyContent: 'center' }}>
-                      {emptyIcon}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '999px',
+                        background: 'var(--muted)',
+                        color: 'var(--muted-foreground)',
+                      }}
+                    >
+                      {emptyIcon ?? <AlertCircle size={18} />}
                     </div>
-                  )}
-                  <p style={{ fontSize: '14px', color: '#94A3B8', margin: 0 }}>{resolvedEmptyMessage}</p>
+                    <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)', margin: 0 }}>{resolvedEmptyMessage}</p>
+                    <p style={{ maxWidth: '360px', fontSize: '13px', lineHeight: 1.55, color: 'var(--muted-foreground)', margin: 0 }}>
+                      {resolvedEmptyDescription}
+                    </p>
+                  </div>
                 </td>
               </tr>
             ) : (
@@ -629,17 +656,17 @@ export function DynamicTableRenderer({
                     onClick={() => onRowClick?.(row)}
                     style={{
                       borderBottom: rowIdx < sorted.length - 1
-                        ? '1px solid rgba(0,0,0,0.05)'
+                        ? '1px solid var(--border)'
                         : undefined,
-                      background: isSelected ? '#F5F3FF' : undefined,
+                      background: isSelected ? 'color-mix(in srgb, var(--primary) 10%, var(--card))' : undefined,
                       cursor: onRowClick ? 'pointer' : 'default',
                       transition: 'background 0.1s',
                     }}
                     onMouseEnter={e => {
-                      if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = '#F8FAFC';
+                      if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = 'color-mix(in srgb, var(--muted) 36%, var(--card))';
                     }}
                     onMouseLeave={e => {
-                      (e.currentTarget as HTMLTableRowElement).style.background = isSelected ? '#F5F3FF' : '';
+                      (e.currentTarget as HTMLTableRowElement).style.background = isSelected ? 'color-mix(in srgb, var(--primary) 10%, var(--card))' : '';
                     }}
                   >
                     {selectable && (
@@ -651,7 +678,7 @@ export function DynamicTableRenderer({
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => toggleRow(id)}
-                          style={{ width: '15px', height: '15px', accentColor: '#6366F1', cursor: 'pointer' }}
+                          style={{ width: '15px', height: '15px', accentColor: 'var(--primary)', cursor: 'pointer' }}
                         />
                       </td>
                     )}

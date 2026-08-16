@@ -288,7 +288,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto" style={{ background: 'var(--background)' }}>
+        <main
+          data-testid="admin-main"
+          className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8"
+          style={{ background: 'var(--background)' }}
+        >
           {children}
         </main>
       </div>

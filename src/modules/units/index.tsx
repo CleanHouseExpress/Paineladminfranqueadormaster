@@ -5,6 +5,7 @@ import { ArrowLeft, ClipboardCheck, Edit, Plus, RefreshCw, Save, Search, Setting
 import { DynamicFormRenderer } from '../../shared/components/DynamicFormRenderer';
 import { DynamicTableRenderer } from '../../shared/components/DynamicTableRenderer';
 import { NotificationDialog } from '../../shared/components/NotificationDialog';
+import { FormActions, ListToolbar, PageContainer, PageHeader, PageSection } from '../../shared/components/PageLayout';
 import { unitManagementService } from '../../services/unitManagementService';
 import { getApiErrorMessage } from '../../services/apiClient';
 import type { Unit, UnitMetadata, UnitsMeta } from '../../types/unitManagement';
@@ -219,34 +220,34 @@ export function UnitsListPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-normal">{metadata.plural_label}</h1>
-          <p className="text-sm text-muted-foreground">Gestao operacional de {metadata.plural_label.toLowerCase()}.</p>
-        </div>
-        <div className="flex gap-2">
+    <PageContainer>
+      <PageHeader
+        title={metadata.plural_label}
+        description={`Gestao operacional de ${metadata.plural_label.toLowerCase()}.`}
+        secondaryActions={(
           <Button asChild variant="outline">
             <Link to="/units/settings">
               <Settings className="size-4" />
               Configurar
             </Link>
           </Button>
+        )}
+        actions={(
           <Button asChild>
             <Link to="/units/new">
               <Plus className="size-4" />
               Nova {metadata.singular_label}
             </Link>
           </Button>
-        </div>
-      </div>
+        )}
+      />
 
-      <div className="grid gap-3 rounded-md border p-3 md:grid-cols-[1fr_180px_auto]">
+      <ListToolbar className="md:grid-cols-[minmax(260px,1fr)_180px_auto]">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="pl-9"
-            placeholder={`Buscar ${metadata.singular_label.toLowerCase()} por nome, codigo ou documento`}
+            placeholder={`Buscar ${metadata.singular_label.toLowerCase()}`}
             value={search}
             onChange={event => setSearch(event.target.value)}
             onKeyDown={event => {
@@ -269,7 +270,7 @@ export function UnitsListPage() {
           <RefreshCw className="size-4" />
           Filtrar
         </Button>
-      </div>
+      </ListToolbar>
 
       <NotificationDialog open={Boolean(error)} message={error} onOpenChange={open => !open && setError(null)} />
 
@@ -278,6 +279,7 @@ export function UnitsListPage() {
         rows={units as unknown as Record<string, unknown>[]}
         loading={loading}
         emptyLabel={`Nenhuma ${metadata.singular_label.toLowerCase()} encontrada`}
+        emptyDescription={`Ajuste a busca ou os filtros para localizar ${metadata.plural_label.toLowerCase()} cadastradas.`}
         actions={row => {
           const unit = row as unknown as Unit;
 
@@ -302,7 +304,7 @@ export function UnitsListPage() {
         }}
       />
 
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
+      <div className="flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
         <span>{meta.total} registro(s)</span>
         <div className="flex items-center gap-2">
           <Button type="button" variant="outline" size="sm" disabled={meta.current_page <= 1} onClick={() => setPage(item => Math.max(1, item - 1))}>Anterior</Button>
@@ -310,7 +312,7 @@ export function UnitsListPage() {
           <Button type="button" variant="outline" size="sm" disabled={meta.current_page >= meta.last_page} onClick={() => setPage(item => item + 1)}>Proxima</Button>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }
 
@@ -598,30 +600,28 @@ export function UnitFormPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-normal">{editing ? `Editar ${metadata.singular_label}` : `Nova ${metadata.singular_label}`}</h1>
-          <p className="text-sm text-muted-foreground">
-            {editing
-              ? 'Atualize os dados cadastrais e operacionais da unidade.'
-              : 'Cadastre os dados de identificacao, endereco e responsaveis pela unidade.'}
-          </p>
-        </div>
-        <Button asChild variant="outline">
-          <Link to="/units">
-            <ArrowLeft className="size-4" />
-            Voltar
-          </Link>
-        </Button>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title={editing ? `Editar ${metadata.singular_label}` : `Nova ${metadata.singular_label}`}
+        description={editing
+          ? 'Atualize os dados cadastrais e operacionais da unidade.'
+          : 'Cadastre os dados de identificacao, endereco e responsaveis pela unidade.'}
+        secondaryActions={(
+          <Button asChild variant="outline">
+            <Link to="/units">
+              <ArrowLeft className="size-4" />
+              Voltar
+            </Link>
+          </Button>
+        )}
+      />
 
       <NotificationDialog open={Boolean(error)} message={error} onOpenChange={open => !open && setError(null)} />
       <NotificationDialog open={Boolean(implementationError)} message={implementationError} variant="warning" onOpenChange={open => !open && setImplementationError(null)} />
       <NotificationDialog open={Boolean(userError)} message={userError} onOpenChange={open => !open && setUserError(null)} />
 
       {editing ? (
-        <div className="flex gap-2 rounded-md border p-1">
+        <div className="flex gap-2 rounded-lg border bg-card p-1 shadow-sm shadow-foreground/5">
           <Button
             type="button"
             variant={activeTab === 'dados' ? 'default' : 'ghost'}
@@ -892,7 +892,7 @@ export function UnitFormPage() {
             </>
           )}
 
-          <div className="flex flex-col-reverse gap-2 rounded-lg border bg-background p-3 sm:flex-row sm:justify-end">
+          <FormActions>
             <Button asChild type="button" variant="outline" className="w-full sm:w-auto">
               <Link to="/units">Cancelar</Link>
             </Button>
@@ -900,7 +900,7 @@ export function UnitFormPage() {
               {saving ? <RefreshCw className="size-4 animate-spin" /> : <Save className="size-4" />}
               {saving ? 'Salvando...' : 'Salvar'}
             </Button>
-          </div>
+          </FormActions>
         </form>
       )}
 
@@ -950,7 +950,7 @@ export function UnitFormPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }
 
@@ -1012,24 +1012,24 @@ export function UnitSettingsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-normal">Configuracao de {metadata.plural_label}</h1>
-          <p className="text-sm text-muted-foreground">Schema usado por toda a rede.</p>
-        </div>
-        <Button asChild variant="outline">
-          <Link to="/units">
-            <ArrowLeft className="size-4" />
-            Voltar
-          </Link>
-        </Button>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title={`Configuracao de ${metadata.plural_label}`}
+        description="Schema usado por toda a rede."
+        secondaryActions={(
+          <Button asChild variant="outline">
+            <Link to="/units">
+              <ArrowLeft className="size-4" />
+              Voltar
+            </Link>
+          </Button>
+        )}
+      />
 
       <NotificationDialog open={Boolean(error)} message={error} onOpenChange={open => !open && setError(null)} />
       {saved ? <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm">Configuracao salva.</div> : null}
 
-      <div className="grid gap-4 rounded-md border p-4 md:grid-cols-2">
+      <PageSection className="grid gap-4 p-4 md:grid-cols-2">
         <div className="grid gap-2">
           <Label htmlFor="singular_label">Nome singular</Label>
           <Input id="singular_label" value={metadata.singular_label} disabled={loading || saving} onChange={event => setMetadata(current => ({ ...current, singular_label: event.target.value }))} />
@@ -1038,9 +1038,9 @@ export function UnitSettingsPage() {
           <Label htmlFor="plural_label">Nome plural</Label>
           <Input id="plural_label" value={metadata.plural_label} disabled={loading || saving} onChange={event => setMetadata(current => ({ ...current, plural_label: event.target.value }))} />
         </div>
-      </div>
+      </PageSection>
 
-      <div className="rounded-md border">
+      <PageSection className="overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
@@ -1063,14 +1063,14 @@ export function UnitSettingsPage() {
             ))}
           </TableBody>
         </Table>
-      </div>
+      </PageSection>
 
-      <div className="flex justify-end">
+      <FormActions>
         <Button type="button" disabled={saving || loading} onClick={() => void save()}>
           {saving ? <RefreshCw className="size-4 animate-spin" /> : <Save className="size-4" />}
           Salvar configuracao
         </Button>
-      </div>
-    </div>
+      </FormActions>
+    </PageContainer>
   );
 }
