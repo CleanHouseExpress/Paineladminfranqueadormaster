@@ -338,25 +338,31 @@ function ProtectedFranchiseRoutes() {
   );
 }
 
+function AppProviders({ children }: { children: React.ReactNode }) {
+  return <AppProvider>{children}</AppProvider>;
+}
+
 function PublicOrProtectedRoot() {
   if (shouldRenderPublicWebsite()) {
     return <WebsiteHomePage />;
   }
 
-  return <ProtectedAppRoutes />;
+  return (
+    <AppProviders>
+      <ProtectedAppRoutes />
+    </AppProviders>
+  );
 }
 
 export default function App() {
   return (
-    <AppProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/franchise/*" element={<ProtectedFranchiseRoutes />} />
-          <Route path="/" element={<PublicOrProtectedRoot />} />
-          <Route path="/*" element={<ProtectedAppRoutes />} />
-        </Routes>
-      </BrowserRouter>
-    </AppProvider>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<AppProviders><LoginPage /></AppProviders>} />
+        <Route path="/franchise/*" element={<AppProviders><ProtectedFranchiseRoutes /></AppProviders>} />
+        <Route path="/" element={<PublicOrProtectedRoot />} />
+        <Route path="/*" element={<AppProviders><ProtectedAppRoutes /></AppProviders>} />
+      </Routes>
+    </BrowserRouter>
   );
 }

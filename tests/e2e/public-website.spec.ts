@@ -6,6 +6,10 @@ test('homepage institucional em / abre sem autenticacao', async ({ page }) => {
   page.on('console', message => {
     if (message.type() === 'error') errors.push(message.text());
   });
+  const apiRequests: string[] = [];
+  page.on('request', request => {
+    if (request.url().includes('/api/')) apiRequests.push(request.url());
+  });
 
   await page.goto('/');
 
@@ -21,6 +25,7 @@ test('homepage institucional em / abre sem autenticacao', async ({ page }) => {
 
   const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
   expect(hasHorizontalOverflow).toBe(false);
+  expect(apiRequests).toEqual([]);
   expect(errors).toEqual([]);
 });
 
