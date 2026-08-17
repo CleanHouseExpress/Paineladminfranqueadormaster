@@ -9,11 +9,11 @@ import type { ModuleUIState } from '../../types';
  *  2. Registry status (development, review, available)
  *  3. Imperative state set via setModuleState()
  *
- * Priority: imperative override > tenant blocked > registry status > tenant enabled
+ * Priority: imperative override > tenant blocked > registry hard block > active by default
  */
 export function useModule(moduleId: string) {
   const { getModuleState, setModuleState, resetModuleState } = useModuleContext();
-  const { isModuleEnabled, isModuleBlocked } = useTenant();
+  const { isModuleBlocked } = useTenant();
 
   const definition = getModule(moduleId);
   const imperativeState = getModuleState(moduleId);
@@ -27,14 +27,8 @@ export function useModule(moduleId: string) {
     effectiveState = 'error';
   } else if (isModuleBlocked(moduleId)) {
     effectiveState = 'blocked';
-  } else if (!isModuleEnabled(moduleId)) {
-    switch (definition.status) {
-      case 'available':    effectiveState = 'available';    break;
-      case 'review':       effectiveState = 'review';       break;
-      case 'development':  effectiveState = 'available';    break;
-      case 'blocked':      effectiveState = 'blocked';      break;
-      default:             effectiveState = 'available';
-    }
+  } else if (definition.status === 'blocked') {
+    effectiveState = 'blocked';
   }
 
   return {

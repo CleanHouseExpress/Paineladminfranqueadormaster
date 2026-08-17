@@ -61,8 +61,8 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   const [tenant, setTenant] = useState<TenantConfig>(DEFAULT_TENANT);
 
   const isModuleEnabled = useCallback(
-    (moduleId: string) => moduleIdCandidates(moduleId).some(id => tenant.enabledModuleIds.includes(id)),
-    [tenant.enabledModuleIds],
+    (moduleId: string) => !moduleIdCandidates(moduleId).some(id => tenant.blockedModuleIds.includes(id)),
+    [tenant.blockedModuleIds],
   );
 
   const isModuleBlocked = useCallback(
