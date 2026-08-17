@@ -20,6 +20,8 @@ import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
 import { ProductTour } from './components/onboarding/ProductTour';
 import { FranchisePortalProvider } from '../shared/context/FranchisePortalContext';
 import { useAuth } from '../shared/context/AuthContext';
+import WebsiteHomePage from '../website/WebsiteHomePage';
+import { shouldRenderPublicWebsite } from '../website/publicWebsiteRouting';
 
 function lazyPage<T extends Record<string, ComponentType>>(
   loader: () => Promise<T>,
@@ -336,6 +338,14 @@ function ProtectedFranchiseRoutes() {
   );
 }
 
+function PublicOrProtectedRoot() {
+  if (shouldRenderPublicWebsite()) {
+    return <WebsiteHomePage />;
+  }
+
+  return <ProtectedAppRoutes />;
+}
+
 export default function App() {
   return (
     <AppProvider>
@@ -343,6 +353,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/franchise/*" element={<ProtectedFranchiseRoutes />} />
+          <Route path="/" element={<PublicOrProtectedRoot />} />
           <Route path="/*" element={<ProtectedAppRoutes />} />
         </Routes>
       </BrowserRouter>

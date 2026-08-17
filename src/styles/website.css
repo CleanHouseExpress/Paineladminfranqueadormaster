@@ -1,0 +1,150 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(28px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-5px) rotate(1deg); }
+}
+
+@keyframes pulseRing {
+  0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.3); }
+  70% { box-shadow: 0 0 0 12px rgba(79, 70, 229, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
+}
+
+@keyframes barIn {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+@keyframes dashFlow {
+  from { stroke-dashoffset: 200; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.orchestra-website {
+  color: #09090b;
+  background-color: #fafafa;
+  font-family: 'Inter', sans-serif;
+  overflow-x: hidden;
+  width: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
+.orchestra-website .animate-fade-up { animation: fadeUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards; opacity: 0; }
+.orchestra-website .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; opacity: 0; }
+.orchestra-website .animate-float { animation: float 5s ease-in-out infinite; }
+.orchestra-website .animate-float-slow { animation: floatSlow 7s ease-in-out infinite; }
+.orchestra-website .animate-pulse-ring { animation: pulseRing 2.5s ease-out infinite; }
+
+.orchestra-website .delay-0 { animation-delay: 0ms; }
+.orchestra-website .delay-100 { animation-delay: 100ms; }
+.orchestra-website .delay-150 { animation-delay: 150ms; }
+.orchestra-website .delay-200 { animation-delay: 200ms; }
+.orchestra-website .delay-300 { animation-delay: 300ms; }
+.orchestra-website .delay-400 { animation-delay: 400ms; }
+.orchestra-website .delay-500 { animation-delay: 500ms; }
+.orchestra-website .delay-600 { animation-delay: 600ms; }
+.orchestra-website .delay-700 { animation-delay: 700ms; }
+.orchestra-website .delay-800 { animation-delay: 800ms; }
+
+.orchestra-website .subtle-grid {
+  background-image:
+    linear-gradient(to right, rgba(0, 0, 0, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.035) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+
+.orchestra-website .dark-grid {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+
+.orchestra-website .card-hover {
+  transition: transform 0.2s ease, box-shadow 0.25s ease, border-color 0.2s ease;
+}
+
+.orchestra-website .card-hover:hover {
+  border-color: rgba(79, 70, 229, 0.25) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.09);
+  transform: translateY(-3px);
+}
+
+.orchestra-website .module-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.orchestra-website .module-card:hover {
+  border-color: rgba(79, 70, 229, 0.3) !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.1);
+  transform: translateY(-4px);
+}
+
+.orchestra-website .module-card:hover .module-icon {
+  color: #4f46e5;
+  background-color: rgba(79, 70, 229, 0.12);
+}
+
+.orchestra-website .gradient-text {
+  background: linear-gradient(135deg, #4f46e5 0%, #818cf8 60%, #a5b4fc 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.orchestra-website .bar-animate {
+  animation: barIn 0.6s ease-out forwards;
+  transform: scaleY(0);
+  transform-origin: bottom;
+}
+
+.orchestra-website .flow-dash {
+  animation: dashFlow 2s linear infinite;
+  stroke-dasharray: 6 4;
+}
+
+.orchestra-website .cursor-blink::after {
+  animation: blink 1s step-end infinite;
+  content: '|';
+}
+
+.orchestra-website .glow-brand {
+  box-shadow: 0 0 60px rgba(79, 70, 229, 0.15), 0 0 120px rgba(79, 70, 229, 0.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orchestra-website,
+  .orchestra-website *,
+  .orchestra-website *::before,
+  .orchestra-website *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

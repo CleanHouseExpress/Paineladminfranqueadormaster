@@ -17,7 +17,8 @@ Banco de dados, cache, filas e storage persistente nao existem neste frontend. O
 ## Componentes principais
 
 - `src/main.tsx`: monta o React no elemento `#root`.
-- `src/app/App.tsx`: compoe providers, browser router, rotas protegidas, portal franqueado e lazy loading de paginas.
+- `src/app/App.tsx`: compoe providers, browser router, homepage institucional publica, rotas protegidas, portal franqueado e lazy loading de paginas.
+- `src/website`: homepage institucional publica servida em `/` apenas para hosts publicos/institucionais.
 - `src/services/moduleRegistry.ts`: fonte central de modulos, navegacao, marketplace, rotas e permissoes declaradas.
 - `src/services/apiClient.ts`: cliente HTTP compartilhado, base URL por `VITE_API_BASE_URL` ou host local, token bearer, tratamento de 401/419 e erros de API.
 - `src/shared/context/AuthContext.tsx`: login, logout, hidratacao da sessao, empresa, modulos, roles, permissoes e tema.
@@ -34,10 +35,17 @@ src/
   services/            clients, adapters e services de API
   shared/              contexts, hooks e componentes compartilhados
   styles/              estilos globais e Tailwind/theme
+  website/             homepage institucional publica e roteamento por host
   types/               tipos TypeScript por dominio
 tests/e2e/             suites Playwright e fixtures
 docs/                  documentacao tecnica e historica
 ```
+
+## Homepage institucional publica
+
+A SPA tambem serve a homepage institucional em `/` quando o hostname e publico. Hosts locais (`localhost`, `127.0.0.1`, `::1` e `orchestra-e2e.localhost`) sao tratados como publicos para desenvolvimento e E2E. Em producao, os hosts publicos podem ser declarados por `VITE_PUBLIC_WEBSITE_HOSTS` ou por dominios-base em `VITE_PUBLIC_WEBSITE_BASE_DOMAINS`.
+
+Subdominios de tenant, como `melten.<dominio-base>`, nao sao tratados como homepage publica e continuam entrando no fluxo administrativo protegido. Rotas como `/dashboard`, `/financial` e `/franchise/*` permanecem autenticadas.
 
 ## Dominios/superficies identificados
 
