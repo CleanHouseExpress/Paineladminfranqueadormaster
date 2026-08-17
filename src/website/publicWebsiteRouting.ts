@@ -5,6 +5,8 @@ const LOCAL_PUBLIC_HOSTS = new Set([
   'orchestra-e2e.localhost',
 ]);
 
+const DEFAULT_PUBLIC_BASE_DOMAINS = ['orchestra.elonex.com.br'];
+
 function normalizeHost(hostname: string) {
   return hostname.trim().toLowerCase().replace(/^\[|\]$/g, '');
 }
@@ -23,7 +25,10 @@ export function isPublicWebsiteHost(hostname = window.location.hostname) {
   const explicitHosts = readEnvList('VITE_PUBLIC_WEBSITE_HOSTS');
   if (explicitHosts.includes(normalized)) return true;
 
-  const baseDomains = readEnvList('VITE_PUBLIC_WEBSITE_BASE_DOMAINS');
+  const baseDomains = [
+    ...DEFAULT_PUBLIC_BASE_DOMAINS,
+    ...readEnvList('VITE_PUBLIC_WEBSITE_BASE_DOMAINS'),
+  ];
   return baseDomains.some(baseDomain => normalized === baseDomain || normalized === `www.${baseDomain}`);
 }
 
