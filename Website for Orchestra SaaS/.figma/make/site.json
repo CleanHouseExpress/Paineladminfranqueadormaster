@@ -1,0 +1,10 @@
+{
+  "description": "Manage multiunit franchise operations efficiently with a modern SaaS platform designed to streamline processes and enhance network control.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
