@@ -24,7 +24,7 @@ npm ci
 `.env.example` lista:
 
 ```env
-VITE_API_BASE_URL=https://acme.orchestra.elonex.com.br/api
+VITE_API_BASE_URL=https://acme.orchestratecnologia.com.br/api
 VITE_REALTIME_ENABLED=false
 VITE_REVERB_APP_KEY=
 VITE_REVERB_HOST=

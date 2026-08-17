@@ -5,7 +5,7 @@ const LOCAL_PUBLIC_HOSTS = new Set([
   'orchestra-e2e.localhost',
 ]);
 
-const DEFAULT_PUBLIC_BASE_DOMAINS = ['orchestra.elonex.com.br'];
+const DEFAULT_PUBLIC_BASE_DOMAINS = ['orchestra.elonex.com.br', 'orchestratecnologia.com.br'];
 
 function normalizeHost(hostname: string) {
   return hostname.trim().toLowerCase().replace(/^\[|\]$/g, '');
