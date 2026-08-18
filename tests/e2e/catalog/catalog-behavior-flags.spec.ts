@@ -176,6 +176,26 @@ async function fillNameAndSave(page: Page, name: string) {
   await expect(page).toHaveURL(/\/catalog\/\d+$/);
 }
 
+test('catalog envia preco padrao e flags independentes na mesma submissao do produto', async ({ page }) => {
+  await mockAuth(page, ['tenant.catalog.view', 'tenant.catalog.create']);
+  const api = await mockCatalogApi(page);
+
+  await page.goto('/catalog/new');
+  await page.getByPlaceholder(/Nome do item/i).fill('Servico com preco proprio');
+  await page.getByPlaceholder('0,00').fill('37.50');
+  await page.getByTestId('catalog-visible-switch').click();
+  await page.getByRole('button', { name: /Salvar Item/i }).click();
+  await expect(page).toHaveURL(/\/catalog\/\d+$/);
+
+  expect(api.mutations).toHaveLength(1);
+  expect(api.mutations[0]).toMatchObject({
+    standard_price: 37.5,
+    tracks_inventory: false,
+    catalog_visible: false,
+  });
+  expect(api.mutations[0]).not.toHaveProperty('base_price');
+});
+
 test('@smoke catalog separa controle de estoque e visibilidade comercial', async ({ page }) => {
   await mockAuth(page, ['tenant.catalog.view', 'tenant.catalog.create', 'tenant.catalog.update']);
   const api = await mockCatalogApi(page);

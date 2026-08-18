@@ -292,7 +292,8 @@ export function CatalogForm() {
       setFormError('Informe o nome do item.');
       return;
     }
-    if (isEdit && existingItem?.tracksInventory && !tracksInventory) {
+    const isDisablingInventory = Boolean(isEdit && existingItem?.tracksInventory && !tracksInventory);
+    if (isDisablingInventory) {
       const confirmed = window.confirm('Ao desativar o controle de estoque, o historico existente sera preservado, mas novas movimentacoes ficarao bloqueadas.');
       if (!confirmed) {
         setTracksInventory(existingItem.tracksInventory);
@@ -301,7 +302,7 @@ export function CatalogForm() {
     }
     setSaving(true);
     setFormError('');
-    const payload: Partial<CatalogItem> = {
+    const payload: Partial<CatalogItem> & { confirmInventoryDisable?: boolean } = {
       name: name.trim(),
       description,
       sku,
@@ -310,7 +311,8 @@ export function CatalogForm() {
       status: nextStatus,
       tracksInventory,
       catalogVisible,
-      price: Number(price || 0),
+      price: price.trim() === '' ? undefined : Number(price),
+      confirmInventoryDisable: isDisablingInventory,
       typeFields,
       metadata: customSchema.map(field => ({
         key: field.key,
