@@ -12,6 +12,7 @@ import {
   archiveItem, deleteItem, getItem, getLabels, reactivateItem,
 } from '../../../services/catalogService';
 import { usePermission } from '../../../shared/hooks/usePermission';
+import { CommercialAvailabilityManager } from './CommercialAvailabilityManager';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -355,6 +356,8 @@ export function CatalogDetail() {
   const navigate = useNavigate();
   const { hasPermission } = usePermission();
   const canUpdate = hasPermission('tenant.catalog.update');
+  const canViewAvailability = hasPermission('tenant.catalog.availability.view');
+  const canUpdateAvailability = hasPermission('tenant.catalog.availability.update');
 
   const [item, setItem] = useState<CatalogItem | null>(null);
   const [labels, setLabels] = useState(DEFAULT_CATALOG_LABELS);
@@ -681,6 +684,9 @@ export function CatalogDetail() {
               {behaviorDescription(item)}
             </p>
           </div>
+          {canViewAvailability && (
+            <CommercialAvailabilityManager itemId={item.id} canUpdate={canUpdateAvailability} />
+          )}
           <div style={card}>
             <TypeDetails item={item} />
           </div>
