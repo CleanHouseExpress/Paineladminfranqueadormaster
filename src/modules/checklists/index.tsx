@@ -10,6 +10,7 @@ import { Label } from '../../app/components/ui/label';
 import { Switch } from '../../app/components/ui/switch';
 import { Textarea } from '../../app/components/ui/textarea';
 import { ChecklistInventoryConfig } from '../../app/components/checklists/ChecklistInventoryConfig';
+import { ChecklistApplicationPolicyConfig } from '../../app/components/checklists/ChecklistApplicationPolicyConfig';
 import { DynamicFormRenderer } from '../../shared/components/DynamicFormRenderer';
 import { usePermission } from '../../shared/hooks/usePermission';
 import { ApiError } from '../../services/apiClient';
@@ -291,6 +292,8 @@ export function ChecklistTemplateFormPage() {
   const routeBase = params.entityId !== undefined ? '/settings/form-builder' : '/checklists/templates';
   const navigate = useNavigate();
   const isNew = !id || id === 'new';
+  const { hasPermission } = usePermission();
+  const canConfigureApplicationPolicy = hasPermission('tenant.checklists.configure');
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
@@ -300,7 +303,7 @@ export function ChecklistTemplateFormPage() {
   const [status, setStatus] = useState('draft');
   const [fields, setFields] = useState<DynamicFieldSchema[]>([defaultField(10)]);
   const [automations, setAutomations] = useState<TemplateAutomation[]>([]);
-  const [activeTab, setActiveTab] = useState<'configuration' | 'inventory' | 'automations' | 'preview' | 'publication'>('configuration');
+  const [activeTab, setActiveTab] = useState<'configuration' | 'inventory' | 'automations' | 'application' | 'preview' | 'publication'>('configuration');
   const [previewValues, setPreviewValues] = useState<Record<string, unknown>>({});
   const [recipeOptions, setRecipeOptions] = useState<Recipe[]>([]);
   const [uomOptions, setUomOptions] = useState<RecipeUom[]>(RECIPE_UOMS);
@@ -521,6 +524,15 @@ export function ChecklistTemplateFormPage() {
             <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">{automations.length}</span>
           )}
         </button>
+        {!isNew && canConfigureApplicationPolicy ? (
+          <button
+            type="button"
+            className={`shrink-0 border-b-2 px-4 py-3 text-sm font-medium ${activeTab === 'application' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-muted-foreground'}`}
+            onClick={() => setActiveTab('application')}
+          >
+            Aplicação na rede
+          </button>
+        ) : null}
         <button
           type="button"
           className={`shrink-0 border-b-2 px-4 py-3 text-sm font-medium ${activeTab === 'preview' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-muted-foreground'}`}
@@ -792,6 +804,8 @@ export function ChecklistTemplateFormPage() {
             </Button>
           </div>
         </div>
+      ) : activeTab === 'application' && !isNew && canConfigureApplicationPolicy ? (
+        <ChecklistApplicationPolicyConfig templateId={id as string} />
       ) : activeTab === 'preview' ? (
         <div className="rounded-md border bg-card p-4">
           <div className="mb-4">

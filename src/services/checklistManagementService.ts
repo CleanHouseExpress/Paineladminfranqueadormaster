@@ -8,6 +8,11 @@ import type {
   ChecklistTemplate,
   ChecklistTemplateLibraryItem,
   ChecklistTemplatePayload,
+  ChecklistApplicationPolicies,
+  ChecklistApplicationPolicyFilters,
+  ChecklistPolicyActivation,
+  ChecklistPolicyRequirement,
+  ChecklistPolicyOverride,
 } from '../types/checklistManagement';
 
 interface ListResponse<T> {
@@ -65,6 +70,23 @@ export const checklistManagementService = {
 
   updateTemplateAutomations: async (id: string | number, automations: Record<string, unknown>[]) =>
     (await apiClient.put<{ data: Record<string, unknown>[] }>(`/api/company/checklists/templates/${id}/automations`, { automations })).data,
+
+  getApplicationPolicies: async (id: string | number, filters: ChecklistApplicationPolicyFilters = {}) =>
+    (await apiClient.get<DataResponse<ChecklistApplicationPolicies>>(`/api/company/checklists/templates/${id}/application-policies${queryString({ ...filters })}`)).data,
+
+  updateNetworkApplicationPolicy: async (id: string | number, payload: { activation: ChecklistPolicyActivation; requirement: ChecklistPolicyRequirement }) =>
+    (await apiClient.put<DataResponse<ChecklistApplicationPolicies>>(`/api/company/checklists/templates/${id}/application-policies`, payload)).data,
+
+  updateUnitApplicationPolicy: async (id: string | number, unitId: string | number, payload: {
+    activation: ChecklistPolicyOverride<ChecklistPolicyActivation>;
+    requirement: ChecklistPolicyOverride<ChecklistPolicyRequirement>;
+  }) => (await apiClient.put<DataResponse<ChecklistApplicationPolicies>>(
+    `/api/company/checklists/templates/${id}/application-policies/units/${unitId}`,
+    payload,
+  )).data,
+
+  restoreUnitApplicationPolicy: (id: string | number, unitId: string | number, property: 'activation' | 'requirement') =>
+    apiClient.delete<DataResponse<ChecklistApplicationPolicies>>(`/api/company/checklists/templates/${id}/application-policies/units/${unitId}/${property}`),
 
   listExecutions: (params: Record<string, unknown> = {}) =>
     apiClient.get<ListResponse<ChecklistExecution>>(`/api/company/checklists/executions${queryString(params)}`),
