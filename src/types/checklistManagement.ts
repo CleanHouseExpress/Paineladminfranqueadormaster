@@ -87,6 +87,50 @@ export interface ChecklistMeta {
   total: number;
 }
 
+export type ChecklistPolicyActivation = 'enabled' | 'disabled';
+export type ChecklistPolicyRequirement = 'required' | 'optional';
+export type ChecklistPolicyOverride<T extends string> = T | 'inherit';
+export type ChecklistPolicySource = 'unit' | 'network' | 'form_default' | string;
+
+export interface ChecklistNetworkApplicationPolicy {
+  activation: ChecklistPolicyActivation;
+  requirement: ChecklistPolicyRequirement;
+  effective_enabled: boolean;
+  effective_required: boolean;
+  activation_source: ChecklistPolicySource;
+  requirement_source: ChecklistPolicySource;
+}
+
+export interface ChecklistUnitApplicationPolicy {
+  id: number;
+  code?: string | null;
+  name: string;
+  status?: string | null;
+  activation: ChecklistPolicyOverride<ChecklistPolicyActivation>;
+  requirement: ChecklistPolicyOverride<ChecklistPolicyRequirement>;
+  effective_enabled: boolean;
+  effective_required: boolean;
+  activation_source: ChecklistPolicySource;
+  requirement_source: ChecklistPolicySource;
+  has_exception: boolean;
+}
+
+export interface ChecklistApplicationPolicies {
+  template_id: number;
+  network: ChecklistNetworkApplicationPolicy;
+  units: ChecklistUnitApplicationPolicy[];
+  meta: ChecklistMeta;
+}
+
+export interface ChecklistApplicationPolicyFilters {
+  search?: string;
+  status?: string;
+  effective_activation?: ChecklistPolicyActivation | '';
+  effective_requirement?: ChecklistPolicyRequirement | '';
+  has_exception?: boolean;
+  page?: number;
+}
+
 export interface ChecklistMetrics {
   executed_today: number;
   pending: number;
