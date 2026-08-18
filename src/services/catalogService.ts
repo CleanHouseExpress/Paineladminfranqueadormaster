@@ -34,7 +34,10 @@ interface ApiCatalogItem {
   promoted_from_item_id?: number | string | null;
   tracks_inventory?: boolean | number | null;
   catalog_visible?: boolean | number | null;
-  base_price?: number | null;
+  standard_price?: number | null;
+  effective_price?: number | null;
+  price_source?: 'unit' | 'network' | 'none' | null;
+  has_override?: boolean | null;
   sku?: string | null;
   unit_of_measure?: string | null;
   metadata?: Record<string, unknown> | CatalogMetadataField[] | null;
@@ -103,7 +106,7 @@ export interface CatalogFilters {
 }
 
 const BASIC_FIELDS = new Set([
-  'name', 'description', 'item_type', 'status', 'base_price',
+  'name', 'description', 'item_type', 'status', 'standard_price',
   'sku', 'unit_of_measure', 'metadata', 'created_at',
 ]);
 
@@ -194,7 +197,7 @@ function toItem(api: ApiCatalogItem): CatalogItem {
     promotedFromItemId: api.promoted_from_item_id ?? null,
     tracksInventory: apiBoolean(api.tracks_inventory, apiBoolean(api.product_detail?.track_stock, false)),
     catalogVisible: apiBoolean(api.catalog_visible, true),
-    price: Number(api.base_price ?? 0),
+    price: Number(api.standard_price ?? api.effective_price ?? 0),
     sku: api.sku ?? undefined,
     unit: api.unit_of_measure ?? undefined,
     typeFields: typeFields(api),
@@ -214,7 +217,11 @@ function billingCycle(value: unknown) {
   return cycles[String(value)] ?? value;
 }
 
-function toPayload(data: Partial<CatalogItem>) {
+type CatalogMutation = Partial<CatalogItem> & {
+  confirmInventoryDisable?: boolean;
+};
+
+function toPayload(data: CatalogMutation) {
   const fields = data.typeFields ?? {};
   const payload: Record<string, unknown> = {
     name: data.name,
@@ -223,7 +230,8 @@ function toPayload(data: Partial<CatalogItem>) {
     status: data.status,
     ...(data.tracksInventory !== undefined ? { tracks_inventory: Boolean(data.tracksInventory) } : {}),
     ...(data.catalogVisible !== undefined ? { catalog_visible: Boolean(data.catalogVisible) } : {}),
-    base_price: Number(data.price ?? 0),
+    standard_price: data.price ?? null,
+    ...(data.confirmInventoryDisable ? { confirm_inventory_disable: true } : {}),
     sku: data.sku || null,
     unit_of_measure: data.unit || null,
     metadata: Object.fromEntries((data.metadata ?? []).map(field => [field.key, field.value])),
@@ -285,12 +293,12 @@ export async function getItem(id: string) {
   }
 }
 
-export async function createItem(data: Partial<CatalogItem>) {
+export async function createItem(data: CatalogMutation) {
   const response = await apiClient.post<ApiItem<ApiCatalogItem>>('/api/company/catalog/items', toPayload(data));
   return toItem(response.data);
 }
 
-export async function updateItem(id: string, data: Partial<CatalogItem>) {
+export async function updateItem(id: string, data: CatalogMutation) {
   const response = await apiClient.put<ApiItem<ApiCatalogItem>>(`/api/company/catalog/items/${id}`, toPayload(data));
   return toItem(response.data);
 }
