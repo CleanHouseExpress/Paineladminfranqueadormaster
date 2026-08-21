@@ -174,6 +174,26 @@ test('pricing edita preco padrao e mantem heranca resolvida pelo backend', async
   await expect(page.getByTestId('pricing-details-panel')).toContainText('R$ 21,00');
 });
 
+test('pricing representa price_source none como ausencia de preco', async ({ page }) => {
+  await mockAuth(page, ['tenant.pricing.view']);
+  await mockPricingApi(page);
+  await page.route('**/api/company/pricing/products/*/effective**', route => json(route, {
+    data: {
+      effective_price: null,
+      price_source: 'none',
+      currency: 'BRL',
+    },
+  }));
+
+  await page.goto('/pricing/products');
+  await page.getByRole('row', { name: /Cafe Gelado/i }).getByRole('button', { name: /Detalhes/i }).click();
+
+  const centro = page.getByRole('row', { name: /Centro/i });
+  await expect(centro).toContainText('Sem preco');
+  await expect(centro).not.toContainText('R$ 0,00');
+  await expect(centro.getByRole('cell').nth(4)).toHaveText('Sem preco');
+});
+
 test('pricing bloqueia preco invalido antes de salvar', async ({ page }) => {
   await mockAuth(page, ['tenant.pricing.view', 'tenant.pricing.create']);
   await mockPricingApi(page);
