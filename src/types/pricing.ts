@@ -37,9 +37,11 @@ export interface ProductUnitPrice {
 }
 
 export type PriceOrigin = 'network' | 'unit' | null;
+export type PriceSource = 'network' | 'unit' | 'none';
 
 export interface EffectivePrice {
   effectivePrice: number | null;
+  priceSource: PriceSource;
   priceOrigin: PriceOrigin;
   networkPrice: number | null;
   unitPrice: number | null;

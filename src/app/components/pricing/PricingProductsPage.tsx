@@ -290,7 +290,7 @@ function ProductDetails({ row, onClose, canUpdateUnit }: { row: PriceRow; onClos
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 16 }}>
             <div style={{ ...cardStyle, padding: 14 }}><div style={smallMuted}>Preco padrao da rede</div><strong style={{ fontSize: 18 }}>{money(networkEffective?.networkPrice ?? null, networkEffective?.currency)}</strong></div>
             <div style={{ ...cardStyle, padding: 14 }}><div style={smallMuted}>Preco efetivo consultado</div><strong style={{ fontSize: 18 }}>{money(networkEffective?.effectivePrice ?? null, networkEffective?.currency)}</strong></div>
-            <div style={{ ...cardStyle, padding: 14 }}><div style={smallMuted}>Unidades personalizadas</div><strong style={{ fontSize: 18 }}>{unitRows.filter(unit => unit.effective?.priceOrigin === 'unit').length}</strong></div>
+            <div style={{ ...cardStyle, padding: 14 }}><div style={smallMuted}>Unidades personalizadas</div><strong style={{ fontSize: 18 }}>{unitRows.filter(unit => unit.effective?.priceSource === 'unit').length}</strong></div>
           </div>
 
           <div style={{ overflowX: 'auto' }}>
@@ -298,14 +298,16 @@ function ProductDetails({ row, onClose, canUpdateUnit }: { row: PriceRow; onClos
               <thead><tr style={{ textAlign: 'left', color: '#64748B', fontSize: 12 }}><th style={{ padding: 10 }}>Unidade</th><th style={{ padding: 10 }}>Preco padrao</th><th style={{ padding: 10 }}>Personalizado</th><th style={{ padding: 10 }}>Efetivo</th><th style={{ padding: 10 }}>Origem</th><th style={{ padding: 10 }}>Acao</th></tr></thead>
               <tbody>
                 {unitRows.map(unitRow => {
-                  const customized = unitRow.effective?.priceOrigin === 'unit';
+                  const priceSource = unitRow.effective?.priceSource ?? 'none';
+                  const customized = priceSource === 'unit';
+                  const sourceLabel = priceSource === 'unit' ? 'Personalizado' : priceSource === 'network' ? 'Herdado' : 'Sem preco';
                   return (
                     <tr key={unitRow.unit.id} style={{ borderTop: '1px solid rgba(15,23,42,.08)' }}>
                       <td style={{ padding: 10 }}><strong style={{ color: '#0F172A', fontSize: 13 }}>{unitRow.unit.name}</strong><div style={smallMuted}>{unitRow.unit.code ?? 'Sem codigo'}</div></td>
                       <td style={{ padding: 10 }}>{money(unitRow.effective?.networkPrice ?? null, unitRow.effective?.currency)}</td>
-                      <td style={{ padding: 10 }}>{customized ? money(unitRow.effective?.unitPrice ?? null, unitRow.effective?.currency) : '-'}</td>
-                      <td style={{ padding: 10, fontWeight: 800 }}>{money(unitRow.effective?.effectivePrice ?? null, unitRow.effective?.currency)}</td>
-                      <td style={{ padding: 10 }}><Badge tone={customized ? 'info' : 'muted'}>{customized ? 'Personalizado' : 'Herdado'}</Badge></td>
+                      <td data-testid="pricing-unit-custom-price" style={{ padding: 10 }}>{customized ? money(unitRow.effective?.unitPrice ?? null, unitRow.effective?.currency) : '-'}</td>
+                      <td data-testid="pricing-unit-effective-price" style={{ padding: 10, fontWeight: 800 }}>{money(unitRow.effective?.effectivePrice ?? null, unitRow.effective?.currency)}</td>
+                      <td data-testid="pricing-unit-price-source" style={{ padding: 10 }}><Badge tone={customized ? 'info' : 'muted'}>{sourceLabel}</Badge></td>
                       <td style={{ padding: 10 }}>
                         {canUpdateUnit ? (
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>

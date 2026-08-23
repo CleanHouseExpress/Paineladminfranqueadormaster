@@ -67,8 +67,12 @@ function toProductUnitPrice(api: ApiProductUnitPrice): ProductUnitPrice {
 
 function toEffectivePrice(api: ApiEffectivePrice): EffectivePrice {
   const origin = api.price_origin === 'unit' || api.price_origin === 'network' ? api.price_origin : null;
+  const source = api.price_source === 'unit' || api.price_source === 'network' || api.price_source === 'none'
+    ? api.price_source
+    : origin ?? 'none';
   return {
     effectivePrice: numberOrNull(api.effective_price),
+    priceSource: source,
     priceOrigin: origin,
     networkPrice: numberOrNull(api.network_price),
     unitPrice: numberOrNull(api.unit_price),
