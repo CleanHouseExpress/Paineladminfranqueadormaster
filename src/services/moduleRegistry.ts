@@ -296,7 +296,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
     status: 'active',
     nav: { show: true, order: 5, group: 'main', children: [
       { label: 'Visão Geral', path: '/inventory' }, { label: 'Itens controlados', path: '/inventory/items' },
-      { label: 'Itens por Unidade', path: '/inventory/unit-items' },
+      { label: 'Itens por Unidade', path: '/inventory/unit-items' }, { label: 'Fornecedores', path: '/inventory/suppliers' },
       { label: 'Saldos', path: '/inventory/balances' }, { label: 'Locais', path: '/inventory/locations' },
       { label: 'Movimentações', path: '/inventory/movements' }, { label: 'Inventário Físico', path: '/inventory/counts' },
       { label: 'Configurações', path: '/inventory/settings' },

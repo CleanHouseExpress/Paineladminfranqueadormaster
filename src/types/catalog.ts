@@ -102,6 +102,12 @@ export interface CatalogMetadataField {
   options?: Array<{ label: string; value: string }>;
 }
 
+export interface CatalogSupplierSummary {
+  id: string;
+  name: string;
+  offerId?: string;
+}
+
 export interface CatalogItem {
   id: string;
   name: string;
@@ -120,6 +126,8 @@ export interface CatalogItem {
   price: number;               // base price in BRL
   sku?: string;                // SKU or internal code
   unit?: string;               // "un", "h", "mês", "sessão", etc.
+  supplierId?: string | null;
+  suppliers?: CatalogSupplierSummary[];
   typeFields: Record<string, unknown>; // type-specific extra fields
   metadata: CatalogMetadataField[];    // tenant custom fields
   imageUrl?: string;
