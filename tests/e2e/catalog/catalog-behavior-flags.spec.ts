@@ -108,6 +108,13 @@ async function mockCatalogApi(page: Page, initialItems = [
 
   await mockCatalogConfig(page);
   await page.route('**/api/company/catalog/settings', route => json(route, { data: {} }));
+  await page.route('**/api/company/inventory/suppliers**', route => json(route, {
+    data: [
+      { id: 10, name: 'Fornecedor Norte', document: '12.345.678/0001-90', active: true },
+      { id: 11, name: 'Fornecedor Sul', document: null, active: true },
+    ],
+    meta: { total: 2 },
+  }));
   await page.route('**/api/company/catalog/items**', route => {
     const request = route.request();
     const url = new URL(request.url());
@@ -194,6 +201,31 @@ test('catalog envia preco padrao e flags independentes na mesma submissao do pro
     catalog_visible: false,
   });
   expect(api.mutations[0]).not.toHaveProperty('base_price');
+});
+
+test('catalog permite fornecedor opcional apenas para itens fisicos sem depender do controle de estoque', async ({ page }) => {
+  await mockAuth(page, ['tenant.catalog.view', 'tenant.catalog.create', 'tenant.inventory.view']);
+  const api = await mockCatalogApi(page);
+
+  await page.goto('/catalog/new');
+  await expect(page.getByTestId('catalog-supplier-select')).toHaveCount(0);
+
+  await page.getByText('Produto', { exact: true }).click();
+  await expect(page.getByTestId('catalog-supplier-select')).toBeVisible();
+  await page.getByTestId('catalog-supplier-select').selectOption('10');
+  await fillNameAndSave(page, 'Produto com fornecedor');
+
+  expect(api.mutations.at(-1)).toMatchObject({
+    item_type: 'product',
+    tracks_inventory: false,
+    supplier_id: '10',
+  });
+
+  await page.goto('/catalog/new');
+  await expect(page.getByTestId('catalog-supplier-select')).toHaveCount(0);
+  await fillNameAndSave(page, 'Servico sem fornecedor');
+  expect(api.mutations.at(-1)).toMatchObject({ item_type: 'service' });
+  expect(api.mutations.at(-1)).not.toHaveProperty('supplier_id');
 });
 
 test('@smoke catalog separa controle de estoque e visibilidade comercial', async ({ page }) => {

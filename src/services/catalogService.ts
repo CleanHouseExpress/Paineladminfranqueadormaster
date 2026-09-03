@@ -34,6 +34,8 @@ interface ApiCatalogItem {
   promoted_from_item_id?: number | string | null;
   tracks_inventory?: boolean | number | null;
   catalog_visible?: boolean | number | null;
+  supplier_id?: number | string | null;
+  suppliers?: Array<{ id: number | string; name: string; offer_id?: number | string | null }>;
   standard_price?: number | null;
   effective_price?: number | null;
   price_source?: 'unit' | 'network' | 'none' | null;
@@ -200,6 +202,12 @@ function toItem(api: ApiCatalogItem): CatalogItem {
     price: Number(api.standard_price ?? api.effective_price ?? 0),
     sku: api.sku ?? undefined,
     unit: api.unit_of_measure ?? undefined,
+    supplierId: api.supplier_id != null ? String(api.supplier_id) : null,
+    suppliers: (api.suppliers ?? []).map(supplier => ({
+      id: String(supplier.id),
+      name: supplier.name,
+      offerId: supplier.offer_id != null ? String(supplier.offer_id) : undefined,
+    })),
     typeFields: typeFields(api),
     metadata: metadataFields(api.metadata),
     createdBy: api.created_by ? `Usuario ${api.created_by}` : 'Sistema',
@@ -234,6 +242,7 @@ function toPayload(data: CatalogMutation) {
     ...(data.confirmInventoryDisable ? { confirm_inventory_disable: true } : {}),
     sku: data.sku || null,
     unit_of_measure: data.unit || null,
+    ...(data.supplierId !== undefined ? { supplier_id: data.supplierId || null } : {}),
     metadata: Object.fromEntries((data.metadata ?? []).map(field => [field.key, field.value])),
   };
 
