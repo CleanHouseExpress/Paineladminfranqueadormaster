@@ -30,7 +30,7 @@ async function mockAuth(page: Page, permissions: string[]) {
   await page.route('**/api/me/units', route => json(route, []));
 }
 
-async function mockPricingApi(page: Page, options: { restoreError?: boolean } = {}) {
+async function mockPricingApi(page: Page, options: { restoreError?: boolean; noEffectivePrice?: boolean } = {}) {
   let prices = [
     { id: 1, tenant_id: 1, catalog_item_id: 11, catalog_item: { id: 11, name: 'Acai Bowl', sku: 'ACA-002', item_type: 'product', unit_of_measure: 'un' }, sale_price: 19.9, cost_price: 8, currency: 'BRL', active: true, created_at: '2026-08-02T10:00:00.000Z', updated_at: '2026-08-02T10:00:00.000Z' },
   ];
@@ -62,6 +62,10 @@ async function mockPricingApi(page: Page, options: { restoreError?: boolean } = 
     }
 
     if (url.pathname.endsWith('/effective')) {
+      if (options.noEffectivePrice) {
+        return json(route, { data: { effective_price: null, price_source: 'none', price_origin: null, network_price: null, unit_price: null, currency: 'BRL' } });
+      }
+
       const catalogItemId = Number(productId);
       const unitId = url.searchParams.get('unit_id');
       const network = prices.find(price => Number(price.catalog_item_id) === catalogItemId && price.active);
@@ -174,6 +178,26 @@ test('pricing edita preco padrao e mantem heranca resolvida pelo backend', async
   await expect(page.getByTestId('pricing-details-panel')).toContainText('R$ 21,00');
 });
 
+test('pricing representa price_source none como ausencia de preco', async ({ page }) => {
+  await mockAuth(page, ['tenant.pricing.view']);
+  await mockPricingApi(page);
+  await page.route('**/api/company/pricing/products/*/effective**', route => json(route, {
+    data: {
+      effective_price: null,
+      price_source: 'none',
+      currency: 'BRL',
+    },
+  }));
+
+  await page.goto('/pricing/products');
+  await page.getByRole('row', { name: /Cafe Gelado/i }).getByRole('button', { name: /Detalhes/i }).click();
+
+  const centro = page.getByRole('row', { name: /Centro/i });
+  await expect(centro).toContainText('Sem preco');
+  await expect(centro).not.toContainText('R$ 0,00');
+  await expect(centro.getByRole('cell').nth(4)).toHaveText('Sem preco');
+});
+
 test('pricing bloqueia preco invalido antes de salvar', async ({ page }) => {
   await mockAuth(page, ['tenant.pricing.view', 'tenant.pricing.create']);
   await mockPricingApi(page);
@@ -216,4 +240,19 @@ test('pricing mantem personalizacao quando restauracao falha', async ({ page }) 
   await page.getByRole('button', { name: /Cancelar/i }).click();
   await expect(page.getByRole('row', { name: /Centro/i })).toContainText('Personalizado');
   await expect(page.getByRole('row', { name: /Centro/i })).toContainText('R$ 22,00');
+});
+
+test('pricing mostra ausencia de preco usando price_source fornecido pelo backend', async ({ page }) => {
+  await mockAuth(page, ['tenant.pricing.view']);
+  await mockPricingApi(page, { noEffectivePrice: true });
+
+  await page.goto('/pricing/products');
+  await page.getByRole('row', { name: /Acai Bowl/i }).getByRole('button', { name: /Detalhes/i }).click();
+
+  const centroRow = page.getByRole('row', { name: /Centro/i });
+  await expect(centroRow.getByTestId('pricing-unit-custom-price')).toHaveText('-');
+  await expect(centroRow.getByTestId('pricing-unit-effective-price')).toHaveText('Sem preco');
+  await expect(centroRow.getByTestId('pricing-unit-price-source')).toHaveText('Sem preco');
+  await expect(centroRow).not.toContainText('R$ 0,00');
+  await expect(centroRow).not.toContainText('Herdado');
 });

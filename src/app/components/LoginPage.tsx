@@ -15,7 +15,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
 
-  const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? '/';
+  const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? '/dashboard';
   const whiteLabel = tenant.whiteLabel;
   const primaryColor = branding.primary_color || whiteLabel.primaryColor || '#6366F1';
   const secondaryColor = branding.secondary_color || whiteLabel.secondaryColor || '#8B5CF6';
