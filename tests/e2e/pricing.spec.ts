@@ -256,3 +256,42 @@ test('pricing mostra ausencia de preco usando price_source fornecido pelo backen
   await expect(centroRow).not.toContainText('R$ 0,00');
   await expect(centroRow).not.toContainText('Herdado');
 });
+
+test('pricing apresenta valor com moeda ausente sem inferir BRL', async ({ page }) => {
+  await mockAuth(page, ['tenant.pricing.view']);
+  await mockPricingApi(page);
+  await page.route('**/api/company/pricing/products/*/effective**', route => {
+    const unitId = new URL(route.request().url()).searchParams.get('unit_id');
+
+    return json(route, {
+      data: unitId
+        ? {
+            effective_price: 14.99,
+            price_source: 'unit',
+            price_origin: 'unit',
+            network_price: null,
+            unit_price: 14.99,
+            currency: null,
+          }
+        : {
+            effective_price: null,
+            price_source: 'none',
+            price_origin: null,
+            network_price: null,
+            unit_price: null,
+            currency: null,
+          },
+    });
+  });
+
+  await page.goto('/pricing/products');
+  await page.getByRole('row', { name: /Cafe Gelado/i }).getByRole('button', { name: /Detalhes/i }).click();
+
+  const effectivePrice = page
+    .getByRole('row', { name: /Centro/i })
+    .getByTestId('pricing-unit-effective-price');
+
+  await expect(effectivePrice).toHaveText('14,99');
+  await expect(effectivePrice).not.toContainText('R$');
+  await expect(effectivePrice).not.toContainText('BRL');
+});
