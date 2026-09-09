@@ -45,7 +45,7 @@ export interface EffectivePrice {
   priceOrigin: PriceOrigin;
   networkPrice: number | null;
   unitPrice: number | null;
-  currency: string;
+  currency: string | null;
 }
 
 export interface UnitDefaultPriceRestore {
@@ -64,7 +64,7 @@ export interface UnitDefaultPriceRestore {
   hasOverride: boolean;
   networkPrice: number | null;
   unitPrice: number | null;
-  currency: string;
+  currency: string | null;
 }
 
 export interface PricingListMeta {
