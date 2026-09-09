@@ -76,7 +76,7 @@ function toEffectivePrice(api: ApiEffectivePrice): EffectivePrice {
     priceOrigin: origin,
     networkPrice: numberOrNull(api.network_price),
     unitPrice: numberOrNull(api.unit_price),
-    currency: String(api.currency ?? 'BRL'),
+    currency: api.currency === null || api.currency === undefined ? null : String(api.currency),
   };
 }
 
@@ -94,7 +94,7 @@ function toUnitDefaultPriceRestore(api: ApiUnitDefaultPriceRestore): UnitDefault
     hasOverride: Boolean(api.has_override),
     networkPrice: numberOrNull(api.network_price),
     unitPrice: numberOrNull(api.unit_price),
-    currency: String(api.currency ?? 'BRL'),
+    currency: api.currency === null || api.currency === undefined ? null : String(api.currency),
   };
 }
 
