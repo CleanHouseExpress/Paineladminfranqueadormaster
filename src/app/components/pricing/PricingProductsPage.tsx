@@ -28,8 +28,11 @@ type UnitPriceRow = {
   effective: EffectivePrice | null;
 };
 
-function money(value: number | null | undefined, currency = 'BRL') {
+function money(value: number | null | undefined, currency: string | null = 'BRL') {
   if (value === null || value === undefined) return 'Sem preco';
+  if (!currency) {
+    return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+  }
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency }).format(value);
 }
 
@@ -202,8 +205,8 @@ function UnitPriceForm({ item, row, onClose, onSaved }: {
         <div style={smallMuted}>{row.unit.name}{row.unit.code ? ` - ${row.unit.code}` : ''}</div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
-        <div style={{ ...cardStyle, padding: 12 }}><div style={smallMuted}>Preco padrao</div><strong>{money(row.effective?.networkPrice ?? null)}</strong></div>
-        <div style={{ ...cardStyle, padding: 12 }}><div style={smallMuted}>Preco efetivo atual</div><strong>{money(row.effective?.effectivePrice ?? null)}</strong></div>
+        <div style={{ ...cardStyle, padding: 12 }}><div style={smallMuted}>Preco padrao</div><strong>{money(row.effective?.networkPrice ?? null, row.effective?.currency)}</strong></div>
+        <div style={{ ...cardStyle, padding: 12 }}><div style={smallMuted}>Preco efetivo atual</div><strong>{money(row.effective?.effectivePrice ?? null, row.effective?.currency)}</strong></div>
       </div>
       <p style={{ ...smallMuted, margin: 0 }}>Enquanto existir uma sobrescrita, esta unidade deixa de herdar alteracoes futuras do preco padrao da rede.</p>
       <label style={{ display: 'grid', gap: 6, fontSize: 12, fontWeight: 700, color: '#334155' }}>
