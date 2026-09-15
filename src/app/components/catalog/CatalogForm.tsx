@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
 import {
   Package, Briefcase, RefreshCw, GraduationCap, Stethoscope, Star, Boxes,
-  Check, Sparkles, Lock, Search,
+  Check, Sparkles, Lock, Search, Truck,
 } from 'lucide-react';
 import {
   CATALOG_TYPE_CONFIG, CATALOG_STATUS_CONFIG, DEFAULT_CATALOG_LABELS, DEFAULT_CATALOG_METADATA_SCHEMA,
@@ -11,7 +11,9 @@ import type { CatalogItemType, CatalogItemStatus, CatalogItem } from '../../../t
 import { DynamicFormRenderer } from '../../../shared/components/DynamicFormRenderer';
 import type { ChecklistFieldSchema } from '../../../types/checklist';
 import { createItem, getCatalogConfig, getItem, updateItem } from '../../../services/catalogService';
+import { inventoryService } from '../../../services/inventoryService';
 import { getApiErrorMessage } from '../../../services/apiClient';
+import type { InventorySupplier } from '../../../types/inventory';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -229,6 +231,9 @@ export function CatalogForm() {
   const [customSchema, setCustomSchema] = useState(DEFAULT_CATALOG_METADATA_SCHEMA);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
+  const [suppliers, setSuppliers] = useState<InventorySupplier[]>([]);
+  const [suppliersLoading, setSuppliersLoading] = useState(false);
+  const [supplierLoadError, setSupplierLoadError] = useState('');
 
   // ── Form state ─────────────────────────────────────────────────────────────
   const [name,        setName]        = useState(existingItem?.name ?? '');
@@ -237,6 +242,7 @@ export function CatalogForm() {
   const [unit,        setUnit]        = useState(existingItem?.unit ?? 'un');
   const [selectedType, setSelectedType] = useState<CatalogItemType>(existingItem?.type ?? 'service');
   const [status,      setStatus]      = useState<CatalogItemStatus>(existingItem?.status ?? 'active');
+  const [selectedSupplierId, setSelectedSupplierId] = useState(existingItem?.supplierId ?? '');
   const [tracksInventory, setTracksInventory] = useState(false);
   const [catalogVisible, setCatalogVisible] = useState(true);
   const [price,       setPrice]       = useState(existingItem?.price?.toString() ?? '');
@@ -264,6 +270,7 @@ export function CatalogForm() {
       setUnit(item.unit ?? 'un');
       setSelectedType(item.type);
       setStatus(item.status);
+      setSelectedSupplierId(item.supplierId ?? '');
       setTracksInventory(item.tracksInventory);
       setCatalogVisible(item.catalogVisible);
       setPrice(String(item.price));
@@ -271,6 +278,21 @@ export function CatalogForm() {
       setMetadataValues(Object.fromEntries(item.metadata.map(field => [field.key, field.value])));
     })().catch(() => setFormError('Nao foi possivel carregar os dados do catalogo.'));
   }, [id, isEdit]);
+
+  useEffect(() => {
+    setSuppliersLoading(true);
+    setSupplierLoadError('');
+    void inventoryService.listSuppliers()
+      .then(setSuppliers)
+      .catch(error => setSupplierLoadError(getApiErrorMessage(error, 'Nao foi possivel carregar fornecedores.')))
+      .finally(() => setSuppliersLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!STOCKABLE_FORM_TYPES.has(selectedType)) {
+      setSelectedSupplierId('');
+    }
+  }, [selectedType]);
 
   // ── Type field helpers ─────────────────────────────────────────────────────
   function setField(key: string, value: unknown) {
@@ -309,6 +331,7 @@ export function CatalogForm() {
       unit,
       type: selectedType,
       status: nextStatus,
+      supplierId: STOCKABLE_FORM_TYPES.has(selectedType) ? (selectedSupplierId || null) : (existingItem?.supplierId ? null : undefined),
       tracksInventory,
       catalogVisible,
       price: price.trim() === '' ? undefined : Number(price),
@@ -506,6 +529,48 @@ export function CatalogForm() {
               </FormField>
             </div>
           </SectionCard>
+
+          {STOCKABLE_FORM_TYPES.has(selectedType) && (
+            <SectionCard
+              title="Fornecimento"
+              subtitle="Fornecedor preferencial opcional para compra deste item."
+              icon={<Truck size={16} />}
+              iconColor="#0F766E"
+              iconBg="#ECFDF5"
+            >
+              <FormField label="Fornecedor" hint="Opcional. A compra futura podera usar este fornecedor como referencia sem impedir outras ofertas.">
+                <select
+                  value={selectedSupplierId}
+                  onChange={e => setSelectedSupplierId(e.target.value)}
+                  disabled={suppliersLoading}
+                  style={selectStyle}
+                  data-testid="catalog-supplier-select"
+                >
+                  <option value="">{suppliersLoading ? 'Carregando fornecedores...' : 'Sem fornecedor'}</option>
+                  {suppliers.map(supplier => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.document ? `${supplier.name} - ${supplier.document}` : supplier.name}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+              {supplierLoadError && (
+                <p style={{ margin: '8px 0 0', fontSize: 12, color: '#B91C1C' }}>
+                  {supplierLoadError}
+                </p>
+              )}
+              {!suppliersLoading && !supplierLoadError && suppliers.length === 0 && (
+                <p style={{ margin: '8px 0 0', fontSize: 12, color: '#64748B' }}>
+                  Nenhum fornecedor cadastrado. <Link to="/inventory/suppliers" style={{ color: '#0F766E', fontWeight: 700 }}>Cadastrar fornecedor</Link>
+                </p>
+              )}
+              {!suppliersLoading && !supplierLoadError && suppliers.length > 0 && (
+                <Link to="/inventory/suppliers" style={{ display: 'inline-flex', marginTop: 8, color: '#0F766E', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
+                  Gerenciar fornecedores
+                </Link>
+              )}
+            </SectionCard>
+          )}
 
           {/* Card: Tipo e Status */}
           <SectionCard title="Tipo e Status">
