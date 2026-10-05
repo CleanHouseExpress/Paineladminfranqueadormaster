@@ -144,7 +144,7 @@ export function SalesForm() {
       </div><label style={{ display: 'block', marginTop: 12 }}>Observações<textarea style={{ ...inputStyle, minHeight: 70 }} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></label></div>
       <div style={cardStyle}><div style={{ display: 'flex', justifyContent: 'space-between' }}><h3 style={{ marginTop: 0 }}>Itens</h3><Button onClick={() => setItems(rows => [...rows, blankItem()])}><Plus size={13} /> Item</Button></div>
         {computed.map(item => <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '1.3fr 1.4fr .55fr .8fr .8fr auto', gap: 7, marginBottom: 8, alignItems: 'end' }}>
-          <select style={inputStyle} value={item.catalogItemId ?? ''} onChange={e => chooseCatalog(item.id, e.target.value)}><option value="">Manual</option>{opts.catalog.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}</select>
+          <select style={inputStyle} value={item.catalogItemId ?? ''} onChange={e => chooseCatalog(item.id, e.target.value)}><option value="">Manual</option>{opts.catalog.map(o => <option key={o.id} value={o.id} disabled={o.eligibleForSale === false}>{o.label}</option>)}</select>
           <input style={inputStyle} value={item.description} placeholder="Descrição" onChange={e => patchItem(item.id, { description: e.target.value })} />
           <input style={inputStyle} type="number" min=".001" step=".001" value={item.quantity} onChange={e => patchItem(item.id, { quantity: Number(e.target.value) })} />
           <input style={inputStyle} type="number" min="0" step=".01" value={item.unitPrice} onChange={e => patchItem(item.id, { unitPrice: Number(e.target.value) })} />

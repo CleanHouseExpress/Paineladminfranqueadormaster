@@ -77,6 +77,8 @@ export const salesService = {
   catalog: async (): Promise<CatalogSalesOption[]> =>
     (await apiClient.get<Array<Record<string, any>>>('/api/company/catalog/items/options')).map(item => ({
       id: String(item.value), label: item.label, type: item.type, price: Number(item.price ?? 0),
+      eligibleForSale: typeof item.eligible_for_sale === 'boolean' ? item.eligible_for_sale : undefined,
+      blockingReasons: Array.isArray(item.blocking_reasons) ? item.blocking_reasons.map(String) : [],
     })),
   metadata: (entity: 'sales_orders' | 'sales_order_items') => apiClient.get<ApiItem<Record<string, any>>>(`/api/metadata/${entity}`),
   updateMetadata: (entity: 'sales_orders' | 'sales_order_items', payload: Record<string, any>) => apiClient.put<ApiItem<Record<string, any>>>(`/api/metadata/${entity}`, payload),
