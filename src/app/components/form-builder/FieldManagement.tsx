@@ -94,12 +94,18 @@ function MetadataFieldVisibility({ entity }: { entity: string }) {
                   <div className="font-medium">{field.label}</div>
                   <div className="font-mono text-xs text-muted-foreground">{field.key}</div>
                 </div>
-                <Switch
-                  aria-label={`Exibir ${field.label}`}
-                  checked={field.visible !== false}
-                  disabled={saving}
-                  onCheckedChange={checked => setVisibility(field.key, checked)}
-                />
+                <div className="flex items-center gap-3">
+                  {field.required ? (
+                    <span className="text-xs text-muted-foreground">Obrigatório</span>
+                  ) : null}
+                  <Switch
+                    aria-label={`Exibir ${field.label}`}
+                    checked={field.visible !== false}
+                    disabled={saving || field.required === true}
+                    title={field.required ? 'Campos obrigatórios permanecem visíveis.' : undefined}
+                    onCheckedChange={checked => setVisibility(field.key, checked)}
+                  />
+                </div>
               </div>
             ))}
           </div>
