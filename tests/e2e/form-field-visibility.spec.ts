@@ -32,6 +32,8 @@ async function mockTenantSession(page: Page) {
   await page.route('**/api/me/permissions', route => json(route, {
     data: [{ id: 'tenant.customers.create', name: 'tenant.customers.create' }],
   }));
+  await page.route('**/api/checklists/templates**', route => json(route, { data: [] }));
+  await page.route('**/api/checklists/template-library**', route => json(route, { data: [] }));
 }
 
 test('formulario dinamico exibe somente os campos visiveis configurados para o tenant', async ({ page }) => {
@@ -83,7 +85,9 @@ test('administrador oculta um campo de Clientes no Form Builder e salva a config
     await json(route, { data: metadata });
   });
 
-  await page.goto('/settings/form-builder/customers');
+  await page.goto('/settings/form-builder');
+  await expect(page.getByRole('heading', { name: 'Configuração de campos' })).toBeVisible();
+  await page.getByRole('link', { name: 'Clientes' }).click();
 
   const requiredVisibility = page.getByRole('switch', { name: 'Exibir Nome' });
   await expect(requiredVisibility).toBeChecked();
