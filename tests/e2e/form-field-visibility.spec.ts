@@ -66,8 +66,8 @@ test('administrador oculta um campo de Clientes no Form Builder e salva a config
     singular_label: 'Cliente',
     plural_label: 'Clientes',
     form_schema: [
-      { key: 'name', label: 'Nome', type: 'text', visible: true, order: 10 },
-      { key: 'internal_code', label: 'Codigo interno', type: 'text', visible: true, order: 20 },
+      { key: 'name', label: 'Nome', type: 'text', required: true, visible: true, order: 10 },
+      { key: 'internal_code', label: 'Codigo interno', type: 'text', required: false, visible: true, order: 20 },
     ],
     table_schema: [],
   };
@@ -84,6 +84,10 @@ test('administrador oculta um campo de Clientes no Form Builder e salva a config
   });
 
   await page.goto('/settings/form-builder/customers');
+
+  const requiredVisibility = page.getByRole('switch', { name: 'Exibir Nome' });
+  await expect(requiredVisibility).toBeChecked();
+  await expect(requiredVisibility).toBeDisabled();
 
   const visibility = page.getByRole('switch', { name: 'Exibir Codigo interno' });
   await expect(visibility).toBeChecked();
