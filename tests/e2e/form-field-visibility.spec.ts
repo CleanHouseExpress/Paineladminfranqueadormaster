@@ -56,3 +56,54 @@ test('formulario dinamico exibe somente os campos visiveis configurados para o t
   await expect(page.getByLabel('Nome visivel')).toBeVisible();
   await expect(page.getByLabel('Codigo interno oculto')).toHaveCount(0);
 });
+
+test('administrador oculta um campo de Clientes no Form Builder e salva a configuracao', async ({ page }) => {
+  await mockTenantSession(page);
+
+  const metadata = {
+    entity: 'customers',
+    entity_key: 'customers',
+    singular_label: 'Cliente',
+    plural_label: 'Clientes',
+    form_schema: [
+      { key: 'name', label: 'Nome', type: 'text', visible: true, order: 10 },
+      { key: 'internal_code', label: 'Codigo interno', type: 'text', visible: true, order: 20 },
+    ],
+    table_schema: [],
+  };
+
+  await page.route('**/api/metadata/customers', async route => {
+    if (route.request().method() === 'PUT') {
+      const payload = route.request().postDataJSON() as typeof metadata;
+      metadata.form_schema = payload.form_schema;
+      await json(route, { data: metadata });
+      return;
+    }
+
+    await json(route, { data: metadata });
+  });
+
+  await page.goto('/settings/form-builder/customers');
+
+  const visibility = page.getByRole('switch', { name: 'Exibir Codigo interno' });
+  await expect(visibility).toBeChecked();
+
+  const updateRequest = page.waitForRequest(request => (
+    request.method() === 'PUT'
+    && new URL(request.url()).pathname === '/api/metadata/customers'
+  ));
+
+  await visibility.click();
+  await page.getByRole('button', { name: 'Salvar alteracoes' }).click();
+
+  const request = await updateRequest;
+  expect(request.postDataJSON()).toMatchObject({
+    form_schema: [
+      { key: 'name', visible: true },
+      { key: 'internal_code', visible: false },
+    ],
+  });
+
+  await page.reload();
+  await expect(page.getByRole('switch', { name: 'Exibir Codigo interno' })).not.toBeChecked();
+});
