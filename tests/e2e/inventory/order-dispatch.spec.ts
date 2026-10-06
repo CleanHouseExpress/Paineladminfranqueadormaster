@@ -75,3 +75,40 @@ test('pedido de compra aprovado permite dispatch manual e exibe o resultado no h
   await expect(history).toContainText('Fornecedor Central');
   await expect(history).toContainText(/1 tentativa/i);
 });
+
+test('historico de dispatch exibe referencia externa e erro auditavel da tentativa', async ({ page }) => {
+  await mockAuth(page);
+
+  await page.route('**/api/v1/purchase-orders/193', route => json(route, {
+    data: {
+      id: 193,
+      number: 'PC-00193',
+      status: 'approved',
+      supplier: { id: 31, name: 'Fornecedor Central', email: 'pedidos@fornecedor.test' },
+      unit: { id: 101, name: 'Unidade Centro' },
+      total: 1250,
+      allowed_dispatch_channels: ['MANUAL'],
+      dispatches: [
+        {
+          id: 902,
+          channel: 'API',
+          status: 'failed',
+          recipient: 'Fornecedor Central',
+          attempts: 2,
+          external_reference: 'dispatch-ext-902',
+          last_error: 'Fornecedor indisponível',
+          created_at: '2026-10-05T22:25:05Z',
+        },
+      ],
+    },
+  }));
+
+  await page.goto('/inventory/purchase-orders/193');
+
+  const history = page.getByRole('region', { name: /Histórico de envios/i });
+  await expect(history).toContainText('API');
+  await expect(history).toContainText('Falhou');
+  await expect(history).toContainText('2 tentativas');
+  await expect(history).toContainText('dispatch-ext-902');
+  await expect(history).toContainText('Fornecedor indisponível');
+});

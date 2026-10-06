@@ -49,6 +49,16 @@ function DispatchHistory({ dispatches }: { dispatches: OrderDispatch[] }) {
           <span style={{ color: '#64748B', fontSize: 13 }}>
             {dispatch.attempts} {dispatch.attempts === 1 ? 'tentativa' : 'tentativas'}
           </span>
+          {dispatch.external_reference && (
+            <span style={{ color: '#64748B', fontSize: 13 }}>
+              Referência externa: {dispatch.external_reference}
+            </span>
+          )}
+          {dispatch.last_error && (
+            <span style={{ color: '#B91C1C', fontSize: 13 }}>
+              Erro: {dispatch.last_error}
+            </span>
+          )}
         </article>
       ))}
     </section>
