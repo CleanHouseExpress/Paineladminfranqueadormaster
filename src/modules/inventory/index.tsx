@@ -11,3 +11,5 @@ export {
   InventoryMovements,
   InventorySettings,
 } from '../../app/components/inventory/InventoryPages';
+
+export { ReplenishmentPage } from './ReplenishmentPage';
