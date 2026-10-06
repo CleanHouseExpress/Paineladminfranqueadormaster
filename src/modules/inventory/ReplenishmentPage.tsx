@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { ChevronLeft, PackagePlus } from 'lucide-react';
 import { toast } from 'sonner';
@@ -74,24 +74,24 @@ export function ReplenishmentPage() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      try {
-        const units = await unitManagementService.getUnitOptions();
-        const unitId = Number(units[0]?.value);
-        if (!unitId) throw new Error('Nenhuma unidade disponivel.');
-        const data = await replenishmentService.listSuggestions(unitId);
-        if (active) setSuggestions(data);
-      } catch (loadError) {
-        if (active) setError(getApiErrorMessage(loadError, 'Nao foi possivel carregar as sugestoes.'));
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    void load();
-    return () => { active = false; };
+  const loadSuggestions = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const units = await unitManagementService.getUnitOptions();
+      const unitId = Number(units[0]?.value);
+      if (!unitId) throw new Error('Nenhuma unidade disponivel.');
+      setSuggestions(await replenishmentService.listSuggestions(unitId));
+    } catch (loadError) {
+      setError(getApiErrorMessage(loadError, 'Nao foi possivel carregar as sugestoes.'));
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadSuggestions();
+  }, [loadSuggestions]);
 
   const selectedCount = useMemo(() => Object.keys(selected).length, [selected]);
 
@@ -132,9 +132,14 @@ export function ReplenishmentPage() {
             <p style={{ margin: '3px 0 0', color: '#64748B', fontSize: 13 }}>Recomendações de compra calculadas com o saldo atual.</p>
           </div>
         </div>
-        <button type="button" disabled={!selectedCount || creating || !hasPermission('tenant.procurement.purchase_orders.create')} onClick={() => void createOrders()} style={{ border: 0, borderRadius: 10, padding: '10px 16px', color: '#fff', fontWeight: 700, background: !selectedCount || creating || !hasPermission('tenant.procurement.purchase_orders.create') ? '#CBD5E1' : '#6366F1', cursor: !selectedCount || creating || !hasPermission('tenant.procurement.purchase_orders.create') ? 'not-allowed' : 'pointer' }}>
-          {creating ? 'Criando...' : 'Criar pedidos de compra'}
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button type="button" disabled={loading} onClick={() => void loadSuggestions()} style={{ border: '1px solid #CBD5E1', borderRadius: 10, padding: '10px 16px', color: '#475569', fontWeight: 700, background: '#fff', cursor: loading ? 'wait' : 'pointer' }}>
+            Atualizar sugestões
+          </button>
+          <button type="button" disabled={!selectedCount || creating || !hasPermission('tenant.procurement.purchase_orders.create')} onClick={() => void createOrders()} style={{ border: 0, borderRadius: 10, padding: '10px 16px', color: '#fff', fontWeight: 700, background: !selectedCount || creating || !hasPermission('tenant.procurement.purchase_orders.create') ? '#CBD5E1' : '#6366F1', cursor: !selectedCount || creating || !hasPermission('tenant.procurement.purchase_orders.create') ? 'not-allowed' : 'pointer' }}>
+            {creating ? 'Criando...' : 'Criar pedidos de compra'}
+          </button>
+        </div>
       </header>
 
       {loading && <p>Carregando sugestões...</p>}

@@ -128,6 +128,44 @@ test('identifica item sem oferta e consultar sugestoes nao cria pedido nem movim
   expect(movementRequests).toEqual([]);
 });
 
+test('nova consulta recalcula sugestoes com o saldo atual sem alterar pedidos existentes', async ({ page }) => {
+  let consultation = 0;
+  const purchaseOrderRequests: string[] = [];
+  const existingOrderRequests: string[] = [];
+
+  await page.route('**/api/company/procurement/replenishment-suggestions**', route => {
+    consultation += 1;
+    const currentStock = consultation === 1 ? 3 : 12;
+    return json(route, {
+      data: [{
+        ...suggestions[0],
+        current_stock: currentStock,
+        required_quantity: 17 - currentStock,
+        offers: [{
+          ...suggestions[0].offers[0],
+          suggested_quantity: consultation === 1 ? 15 : 5,
+        }],
+      }],
+      meta: { total: 1 },
+    });
+  });
+  await page.route('**/api/company/procurement/purchase-orders**', route => {
+    if (route.request().method() === 'GET') existingOrderRequests.push(route.request().method());
+    else purchaseOrderRequests.push(route.request().method());
+    return json(route, { data: [], meta: { total: 0 } });
+  });
+
+  await page.goto('/inventory/replenishment');
+
+  const milk = page.getByRole('row', { name: /Leite integral/i });
+  await expect(milk).toContainText('Sugerido 15');
+  await page.getByRole('button', { name: /Atualizar sugest(?:o|õ)es/i }).click();
+  await expect(milk).toContainText('Sugerido 5');
+  await expect.poll(() => consultation).toBe(2);
+  expect(purchaseOrderRequests).toEqual([]);
+  expect(existingOrderRequests).toEqual([]);
+});
+
 test('acao explicita cria pedidos separados por fornecedor com as quantidades ajustadas', async ({ page }) => {
   const payloads: Array<Record<string, unknown>> = [];
   await mockSuggestions(page);
