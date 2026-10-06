@@ -861,6 +861,7 @@ export function InventorySuppliers() {
   const [globalLoading, setGlobalLoading] = useState(true);
   const [globalError, setGlobalError] = useState('');
   const [changingId, setChangingId] = useState<string | null>(null);
+  const [selectedOfferIds, setSelectedOfferIds] = useState<Record<string, string[]>>({});
 
   const loadGlobalSuppliers = async () => {
     setGlobalLoading(true);
@@ -880,7 +881,7 @@ export function InventorySuppliers() {
     setChangingId(supplier.id);
     try {
       if (supplier.enabled) await inventoryService.disableGlobalSupplier(supplier.id);
-      else await inventoryService.enableGlobalSupplier(supplier.id);
+      else await inventoryService.enableGlobalSupplier(supplier.id, selectedOfferIds[supplier.id] ?? []);
       await Promise.all([reload(), loadGlobalSuppliers()]);
       toast.success(supplier.enabled ? 'Fornecedor desabilitado da rede.' : 'Fornecedor habilitado para a rede.');
     } catch (changeError) {
@@ -904,9 +905,27 @@ export function InventorySuppliers() {
           <div>
             <strong style={{ color: '#0F172A', fontSize: 14 }}>{supplier.name}</strong>
             {supplier.document && <div style={{ color: '#64748B', fontSize: 12, marginTop: 3 }}>{supplier.document}</div>}
-            {supplier.offers.length > 0 && <div style={{ color: '#475569', fontSize: 12, marginTop: 7 }}>Ofertas: {supplier.offers.map(offer => offer.name).join(', ')}</div>}
+            {supplier.offers.length > 0 && <div style={{ display: 'grid', gap: 5, marginTop: 7 }}>
+              {supplier.offers.map(offer => <label key={offer.id} style={{ display: 'flex', alignItems: 'center', gap: 7, color: '#475569', fontSize: 12 }}>
+                <input
+                  type="checkbox"
+                  checked={(selectedOfferIds[supplier.id] ?? []).includes(offer.id)}
+                  disabled={supplier.enabled || !offer.active || changingId === supplier.id}
+                  onChange={event => setSelectedOfferIds(current => {
+                    const selected = current[supplier.id] ?? [];
+                    return {
+                      ...current,
+                      [supplier.id]: event.target.checked
+                        ? [...selected, offer.id]
+                        : selected.filter(id => id !== offer.id),
+                    };
+                  })}
+                />
+                {offer.name}
+              </label>)}
+            </div>}
           </div>
-          {hasPermission('tenant.inventory.suppliers.manage') && <button type="button" disabled={changingId === supplier.id} onClick={() => void changeGlobalSupplier(supplier)} style={{ padding: '8px 13px', borderRadius: 9, border: supplier.enabled ? '1px solid #DC2626' : 0, background: supplier.enabled ? '#fff' : '#4F46E5', color: supplier.enabled ? '#DC2626' : '#fff', fontSize: 12, fontWeight: 700, cursor: changingId === supplier.id ? 'wait' : 'pointer' }}>
+          {hasPermission('tenant.procurement.suppliers.manage') && <button type="button" disabled={changingId === supplier.id || (!supplier.enabled && (selectedOfferIds[supplier.id] ?? []).length === 0)} onClick={() => void changeGlobalSupplier(supplier)} style={{ padding: '8px 13px', borderRadius: 9, border: supplier.enabled ? '1px solid #DC2626' : 0, background: supplier.enabled ? '#fff' : '#4F46E5', color: supplier.enabled ? '#DC2626' : '#fff', fontSize: 12, fontWeight: 700, cursor: changingId === supplier.id ? 'wait' : 'pointer' }}>
             {supplier.enabled ? 'Desabilitar da rede' : 'Habilitar para a rede'}
           </button>}
         </article>)}
