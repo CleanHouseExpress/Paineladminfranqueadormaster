@@ -105,9 +105,20 @@ export function InventorySettingsPage() {
 }
 
 export function InventoryTransfersPage() {
+  const { hasPermission } = usePermission();
   const [transfers, setTransfers] = useState<InventoryTransfer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [formLoading, setFormLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [units, setUnits] = useState<UnitOption[]>([]);
+  const [locations, setLocations] = useState<StockLocation[]>([]);
+  const [items, setItems] = useState<InventoryItem[]>([]);
+  const [form, setForm] = useState({ originUnitId: '', originLocationId: '', destinationUnitId: '', destinationLocationId: '', itemId: '', quantity: '' });
+
+  const originLocations = useMemo(() => locations.filter(location => location.unitId === form.originUnitId), [locations, form.originUnitId]);
+  const destinationLocations = useMemo(() => locations.filter(location => location.unitId === form.destinationUnitId), [locations, form.destinationUnitId]);
 
   const load = async () => {
     setLoading(true);
@@ -117,12 +128,83 @@ export function InventoryTransfersPage() {
     finally { setLoading(false); }
   };
 
+  const openForm = async () => {
+    setFormOpen(true);
+    if (units.length || locations.length || items.length) return;
+    setFormLoading(true);
+    try {
+      const [unitOptions, locationRows, itemRows] = await Promise.all([
+        unitManagementService.getUnitOptions(),
+        inventoryService.listLocations({ active: true }),
+        inventoryService.listItems({ active: true }),
+      ]);
+      setUnits(unitOptions);
+      setLocations(locationRows);
+      setItems(itemRows);
+    } catch (loadError) {
+      toast.error(errorMessage(loadError));
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const createTransfer = async () => {
+    const quantity = Number(form.quantity);
+    if (!form.originUnitId || !form.originLocationId || !form.destinationUnitId || !form.destinationLocationId || !form.itemId || quantity <= 0) {
+      toast.error('Preencha origem, destino, item e quantidade.');
+      return;
+    }
+    if (form.originUnitId === form.destinationUnitId) {
+      toast.error('Origem e destino devem ser unidades diferentes.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await inventoryService.createTransfer({
+        origin_unit_id: Number(form.originUnitId),
+        destination_unit_id: Number(form.destinationUnitId),
+        origin_stock_location_id: Number(form.originLocationId),
+        destination_stock_location_id: Number(form.destinationLocationId),
+        items: [{ inventory_item_id: Number(form.itemId), quantity }],
+      });
+      toast.success('Transferencia solicitada.');
+      setFormOpen(false);
+      setForm({ originUnitId: '', originLocationId: '', destinationUnitId: '', destinationLocationId: '', itemId: '', quantity: '' });
+      await load();
+    } catch (createError) {
+      toast.error(errorMessage(createError));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   useEffect(() => { void load(); }, []);
   if (loading) return <ModuleStateView state="loading" />;
   if (error) return <ModuleStateView state="error" errorMessage={error} onRetry={() => void load()} />;
 
   return (
     <Shell title="Transferências" description="Abastecimento interno entre unidades com rastreabilidade pelo ledger de estoque.">
+      {hasPermission('tenant.inventory.transfer') && <button type="button" style={{ ...button, width: 'fit-content', background: '#0F172A', color: '#fff', border: 0 }} onClick={() => void openForm()}><Plus size={15} />Nova transferência</button>}
+      {formOpen && (
+        <div style={{ ...card, display: 'grid', gap: 12 }}>
+          <strong>Solicitar transferência interna</strong>
+          {formLoading ? <ModuleStateView state="loading" /> : <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
+              <label>Unidade de origem<select style={input} value={form.originUnitId} onChange={event => setForm(current => ({ ...current, originUnitId: event.target.value, originLocationId: '' }))}><option value="">Selecione</option>{units.map(unit => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</select></label>
+              <label>Local de origem<select style={input} value={form.originLocationId} onChange={event => setForm(current => ({ ...current, originLocationId: event.target.value }))}><option value="">Selecione</option>{originLocations.map(location => <option key={location.id} value={location.id}>{location.name}</option>)}</select></label>
+              <label>Unidade de destino<select style={input} value={form.destinationUnitId} onChange={event => setForm(current => ({ ...current, destinationUnitId: event.target.value, destinationLocationId: '' }))}><option value="">Selecione</option>{units.map(unit => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</select></label>
+              <label>Local de destino<select style={input} value={form.destinationLocationId} onChange={event => setForm(current => ({ ...current, destinationLocationId: event.target.value }))}><option value="">Selecione</option>{destinationLocations.map(location => <option key={location.id} value={location.id}>{location.name}</option>)}</select></label>
+              <label>Item<select style={input} value={form.itemId} onChange={event => setForm(current => ({ ...current, itemId: event.target.value }))}><option value="">Selecione</option>{items.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+              <label>Quantidade<input style={input} type="number" min="0.01" step="any" value={form.quantity} onChange={event => setForm(current => ({ ...current, quantity: event.target.value }))} /></label>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" style={button} onClick={() => setFormOpen(false)}>Cancelar</button>
+              <button type="button" disabled={submitting} style={{ ...button, background: '#2563EB', color: '#fff', border: 0 }} onClick={() => void createTransfer()}>{submitting ? 'Solicitando...' : 'Solicitar transferência'}</button>
+            </div>
+          </>}
+        </div>
+      )}
       {transfers.length === 0 ? <ModuleStateView state="empty" emptyHint="Nenhuma transferência interna encontrada." /> : (
         <div style={tableWrap}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
