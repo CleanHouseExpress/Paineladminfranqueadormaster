@@ -34,9 +34,11 @@ interface ApiCatalogItem {
   promoted_from_item_id?: number | string | null;
   tracks_inventory?: boolean | number | null;
   catalog_visible?: boolean | number | null;
+  sellable: boolean | number;
   supplier_id?: number | string | null;
   suppliers?: Array<{ id: number | string; name: string; offer_id?: number | string | null }>;
   standard_price?: number | null;
+  base_price?: number | null;
   effective_price?: number | null;
   price_source?: 'unit' | 'network' | 'none' | null;
   has_override?: boolean | null;
@@ -199,7 +201,12 @@ function toItem(api: ApiCatalogItem): CatalogItem {
     promotedFromItemId: api.promoted_from_item_id ?? null,
     tracksInventory: apiBoolean(api.tracks_inventory, apiBoolean(api.product_detail?.track_stock, false)),
     catalogVisible: apiBoolean(api.catalog_visible, true),
-    price: Number(api.standard_price ?? api.effective_price ?? 0),
+    sellable: apiBoolean(api.sellable),
+    price: api.standard_price != null
+      ? Number(api.standard_price)
+      : api.base_price != null
+        ? Number(api.base_price)
+        : api.effective_price != null ? Number(api.effective_price) : null,
     sku: api.sku ?? undefined,
     unit: api.unit_of_measure ?? undefined,
     supplierId: api.supplier_id != null ? String(api.supplier_id) : null,
@@ -238,6 +245,7 @@ function toPayload(data: CatalogMutation) {
     status: data.status,
     ...(data.tracksInventory !== undefined ? { tracks_inventory: Boolean(data.tracksInventory) } : {}),
     ...(data.catalogVisible !== undefined ? { catalog_visible: Boolean(data.catalogVisible) } : {}),
+    ...(data.sellable !== undefined ? { sellable: Boolean(data.sellable) } : {}),
     standard_price: data.price ?? null,
     ...(data.confirmInventoryDisable ? { confirm_inventory_disable: true } : {}),
     sku: data.sku || null,
