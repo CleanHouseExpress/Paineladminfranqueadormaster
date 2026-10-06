@@ -754,10 +754,10 @@ export const inventoryService = {
   },
   getTransfer: async (id: string | number) => toTransfer((await apiClient.get<DataResponse<ApiTransfer>>(`/api/company/inventory/transfers/${id}`)).data),
   createTransfer: async (payload: Record<string, unknown>) => toTransfer((await apiClient.post<DataResponse<ApiTransfer>>('/api/company/inventory/transfers', payload)).data),
-  transferAction: async (id: string | number, action: 'approve' | 'dispatch' | 'receive' | 'cancel', payload: Record<string, unknown> = {}) => {
+  transferAction: async (id: string | number, action: 'approve' | 'ship' | 'receive' | 'cancel', payload: Record<string, unknown> = {}) => {
     const idempotencyKey = action === 'receive' ? newClientKey() : undefined;
     const body = idempotencyKey ? { ...payload, idempotency_key: idempotencyKey } : payload;
-    return toTransfer((await apiClient.post<DataResponse<ApiTransfer>>(`/api/company/inventory/transfers/${id}/${action}`, body, idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : undefined)).data);
+    return toTransfer((await apiClient.patch<DataResponse<ApiTransfer>>(`/api/company/inventory/transfers/${id}/${action}`, body, idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : undefined)).data);
   },
   listCounts: async (filters: Record<string, string | number | boolean | undefined> = {}) => {
     const response = await apiClient.get<ListResponse<ApiCount>>(`/api/company/inventory/counts${queryString({ per_page: 100, ...filters })}`);
