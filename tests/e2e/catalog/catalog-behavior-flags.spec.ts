@@ -10,11 +10,12 @@ type ApiCatalogItem = {
   name: string;
   item_type: string;
   status: string;
-  base_price: number;
+  base_price: number | null;
   sku: string | null;
   unit_of_measure: string;
   tracks_inventory: boolean;
   catalog_visible: boolean;
+  sellable: boolean;
   metadata: Record<string, unknown>;
   product_detail?: Record<string, unknown> | null;
   created_at: string;
@@ -27,18 +28,22 @@ const baseItem = (
   tracks_inventory: boolean,
   catalog_visible: boolean,
   item_type = 'product',
+  sellable = true,
+  base_price: number | null = 24,
+  min_stock = 3,
 ): ApiCatalogItem => ({
   id,
   name,
   item_type,
   status: 'active',
-  base_price: 24,
+  base_price,
   sku: `CAT-${id}`,
   unit_of_measure: 'un',
   tracks_inventory,
   catalog_visible,
+  sellable,
   metadata: {},
-  product_detail: item_type === 'product' ? { min_stock: 3, cost_price: 12 } : null,
+  product_detail: item_type === 'product' ? { min_stock, cost_price: 12 } : null,
   created_at: '2026-08-04T10:00:00.000Z',
   updated_at: '2026-08-04T10:00:00.000Z',
 });
@@ -139,6 +144,8 @@ async function mockCatalogApi(page: Page, initialItems = [
         Boolean(payload.tracks_inventory),
         Boolean(payload.catalog_visible),
         String(payload.item_type ?? 'service'),
+        Boolean(payload.sellable),
+        payload.standard_price == null ? null : Number(payload.standard_price),
       );
       items = [...items, created];
       return json(route, { data: created }, 201);
@@ -155,6 +162,7 @@ async function mockCatalogApi(page: Page, initialItems = [
           status: String(payload.status ?? item.status),
           tracks_inventory: Boolean(payload.tracks_inventory),
           catalog_visible: Boolean(payload.catalog_visible),
+          sellable: payload.sellable === undefined ? item.sellable : Boolean(payload.sellable),
           updated_at: '2026-08-04T12:00:00.000Z',
         }
         : item);
@@ -306,6 +314,161 @@ test('catalog exibe flags para usuario somente leitura sem liberar edicao', asyn
   await expect(page.getByTestId('catalog-behavior-section')).toContainText('Visivel no catalogo');
   await expect(page.getByRole('button', { name: /^Editar$/i })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Editar Item/i })).toHaveCount(0);
+});
+
+test('catalog cria sellable true e false sem acoplar visibilidade quando autorizado', async ({ page }) => {
+  await mockAuth(page, [
+    'tenant.catalog.view',
+    'tenant.catalog.create',
+    'tenant.catalog.sellability.update',
+  ]);
+  const api = await mockCatalogApi(page);
+
+  await page.goto('/catalog/new');
+  const sellable = page.getByRole('switch', { name: /Disponível para venda/i });
+  const visible = page.getByTestId('catalog-visible-switch');
+  await expect(sellable).toHaveAttribute('aria-checked', 'true');
+  await expect(visible).toHaveAttribute('aria-checked', 'true');
+
+  await sellable.click();
+  await expect(sellable).toHaveAttribute('aria-checked', 'false');
+  await expect(visible).toHaveAttribute('aria-checked', 'true');
+  await fillNameAndSave(page, 'Item nao vendavel');
+  expect(api.mutations.at(-1)).toMatchObject({ sellable: false, catalog_visible: true });
+
+  await page.goto('/catalog/new');
+  await page.getByTestId('catalog-visible-switch').click();
+  await expect(page.getByRole('switch', { name: /Disponível para venda/i })).toHaveAttribute('aria-checked', 'true');
+  await fillNameAndSave(page, 'Item vendavel e oculto');
+  expect(api.mutations.at(-1)).toMatchObject({ sellable: true, catalog_visible: false });
+});
+
+test('catalog omite sellable na criacao quando falta permissao granular', async ({ page }) => {
+  await mockAuth(page, ['tenant.catalog.view', 'tenant.catalog.create']);
+  const api = await mockCatalogApi(page);
+
+  await page.goto('/catalog/new');
+  await expect(page.getByRole('switch', { name: /Disponível para venda/i })).toHaveCount(0);
+  await fillNameAndSave(page, 'Item com default do servidor');
+
+  expect(api.mutations).toHaveLength(1);
+  expect(api.mutations[0]).not.toHaveProperty('sellable');
+});
+
+test('catalog preserva combinacoes explicitas de sellable com preco nulo e estoque zero', async ({ page }) => {
+  await mockAuth(page, ['tenant.catalog.view', 'tenant.catalog.update', 'tenant.catalog.sellability.update']);
+  await mockCatalogApi(page, [
+    baseItem(21, 'Visivel sem venda', true, true, 'product', false, null, 0),
+    baseItem(22, 'Oculto com venda', true, false, 'product', true, null, 0),
+  ]);
+
+  await page.goto('/catalog/21/edit');
+  await expect(page.getByTestId('catalog-visible-switch')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('switch', { name: /Disponível para venda/i })).toHaveAttribute('aria-checked', 'false');
+
+  await page.goto('/catalog/22/edit');
+  await expect(page.getByTestId('catalog-visible-switch')).toHaveAttribute('aria-checked', 'false');
+  await expect(page.getByRole('switch', { name: /Disponível para venda/i })).toHaveAttribute('aria-checked', 'true');
+
+  await page.goto('/catalog');
+  await expect(page.getByRole('row', { name: /Visivel sem venda/i })).toContainText('Indisponível para venda');
+  await expect(page.getByRole('row', { name: /Oculto com venda/i })).toContainText('Disponível para venda');
+
+  await page.goto('/catalog/22');
+  await expect(page.getByTestId('catalog-behavior-section')).toContainText('Oculto no catalogo');
+  await expect(page.getByTestId('catalog-behavior-section')).toContainText('Disponível para venda');
+});
+
+test('catalog edita sellable nos dois sentidos sem alterar catalog_visible', async ({ page }) => {
+  await mockAuth(page, ['tenant.catalog.view', 'tenant.catalog.update', 'tenant.catalog.sellability.update']);
+  const api = await mockCatalogApi(page, [
+    baseItem(23, 'Vendavel visivel', false, true, 'service', true),
+    baseItem(24, 'Nao vendavel oculto', false, false, 'service', false),
+  ]);
+
+  await page.goto('/catalog/23/edit');
+  await page.getByRole('switch', { name: /Disponível para venda/i }).click();
+  await page.getByRole('button', { name: /Salvar Item/i }).click();
+  await expect(page).toHaveURL(/\/catalog\/23$/);
+  expect(api.mutations.at(-1)).toMatchObject({ sellable: false, catalog_visible: true });
+
+  await page.goto('/catalog/24/edit');
+  await page.getByRole('switch', { name: /Disponível para venda/i }).click();
+  await page.getByRole('button', { name: /Salvar Item/i }).click();
+  await expect(page).toHaveURL(/\/catalog\/24$/);
+  expect(api.mutations.at(-1)).toMatchObject({ sellable: true, catalog_visible: false });
+});
+
+test('catalog mostra sellable somente leitura e o omite do PUT sem permissao granular', async ({ page }) => {
+  await mockAuth(page, ['tenant.catalog.view', 'tenant.catalog.update']);
+  const api = await mockCatalogApi(page, [baseItem(31, 'Venda bloqueada por RBAC', false, true, 'service', false)]);
+
+  await page.goto('/catalog/31/edit');
+  const sellable = page.getByRole('switch', { name: /Disponível para venda/i });
+  await expect(sellable).toHaveAttribute('aria-checked', 'false');
+  await expect(sellable).toBeDisabled();
+  await page.getByPlaceholder(/Nome do item/i).fill('Venda bloqueada atualizada');
+  await page.getByRole('button', { name: /Salvar Item/i }).click();
+  await expect(page).toHaveURL(/\/catalog\/31$/);
+
+  expect(api.mutations.at(-1)).not.toHaveProperty('sellable');
+});
+
+test('catalog mantem draft de sellable apos 422 e permite corrigir e reenviar', async ({ page }) => {
+  await mockAuth(page, ['tenant.catalog.view', 'tenant.catalog.update', 'tenant.catalog.sellability.update']);
+  const api = await mockCatalogApi(page, [baseItem(41, 'Draft de venda', false, true, 'service', true)]);
+  let rejected = false;
+  await page.route('**/api/company/catalog/items/41', async route => {
+    if (route.request().method() === 'PUT' && !rejected) {
+      rejected = true;
+      return json(route, { message: 'A configuracao de venda precisa ser revisada.' }, 422);
+    }
+    return route.fallback();
+  });
+
+  await page.goto('/catalog/41/edit');
+  const sellable = page.getByRole('switch', { name: /Disponível para venda/i });
+  await sellable.click();
+  await page.getByRole('button', { name: /Salvar Item/i }).click();
+
+  await expect(page.getByText('A configuracao de venda precisa ser revisada.')).toBeVisible();
+  await expect(sellable).toHaveAttribute('aria-checked', 'false');
+  await expect(page).toHaveURL(/\/catalog\/41\/edit$/);
+
+  await sellable.click();
+  await page.getByRole('button', { name: /Salvar Item/i }).click();
+  await expect(page).toHaveURL(/\/catalog\/41$/);
+  expect(api.mutations.at(-1)).toMatchObject({ sellable: true });
+});
+
+test('catalog mantem draft apos 403, reidrata permissoes e bloqueia nova alteracao', async ({ page }) => {
+  await mockAuth(page, ['tenant.catalog.view', 'tenant.catalog.update', 'tenant.catalog.sellability.update']);
+  await mockCatalogApi(page, [baseItem(51, 'Permissao desatualizada', false, true, 'service', true)]);
+  let permissionRequests = 0;
+  await page.route('**/api/me/permissions', route => {
+    permissionRequests += 1;
+    const permissions = permissionRequests === 1
+      ? ['tenant.catalog.view', 'tenant.catalog.update', 'tenant.catalog.sellability.update']
+      : ['tenant.catalog.view', 'tenant.catalog.update'];
+    return json(route, { data: permissions });
+  });
+  await page.route('**/api/company/catalog/items/51', route => {
+    if (route.request().method() === 'PUT') {
+      return json(route, { message: 'Voce nao pode alterar a disponibilidade para venda.' }, 403);
+    }
+    return route.fallback();
+  });
+
+  await page.goto('/catalog/51/edit');
+  const sellable = page.getByRole('switch', { name: /Disponível para venda/i });
+  await sellable.click();
+  await page.getByRole('button', { name: /Salvar Item/i }).click();
+
+  await expect(page.getByText('Voce nao pode alterar a disponibilidade para venda.')).toBeVisible();
+  await expect(sellable).toHaveAttribute('aria-checked', 'false');
+  await expect.poll(() => permissionRequests).toBeGreaterThanOrEqual(2);
+  await expect(sellable).toBeDisabled();
+  await expect(page).toHaveURL(/\/catalog\/51\/edit$/);
 });
 
 test('pricing continua administrando item apos alteracao das flags do catalogo', async ({ page }) => {
