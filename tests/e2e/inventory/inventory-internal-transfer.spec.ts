@@ -41,6 +41,17 @@ test('@release @inventory solicita abastecimento interno sem fornecedor ou pedid
   await page.route('**/api/company/inventory/settings', route => json(route, inventorySettings(true)));
   await page.route('**/api/company/inventory/transfers**', route => {
     if (route.request().method() === 'GET') return json(route, { data: [], meta: { total: 0 } });
+    if (route.request().method() === 'POST') {
+      return json(route, { data: {
+        id: 1,
+        origin_unit_id: origin.id,
+        origin_unit_name: origin.name,
+        destination_unit_id: destination.id,
+        destination_unit_name: destination.name,
+        status: 'requested',
+        items: [{ id: 1, inventory_item_id: item.id, item_name: item.name, quantity: 12, unit_cost: 0 }],
+      } }, 201);
+    }
     return route.fallback();
   });
   await page.route('**/api/company/units/options', route => json(route, [
