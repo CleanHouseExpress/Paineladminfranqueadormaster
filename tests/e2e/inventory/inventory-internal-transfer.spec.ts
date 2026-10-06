@@ -136,7 +136,7 @@ test('@release @inventory oculta custo sem permissao financeira', async ({ page 
     origin_unit_name: 'CD Central',
     destination_unit_id: 202,
     destination_unit_name: 'Unidade Centro',
-    status: 'requested',
+    status: 'approved',
     requested_at: '2026-10-06T09:00:00.000Z',
     items: [{ id: 1, inventory_item_id: 10, item_name: 'Cafe em graos', quantity: 12, unit_cost: 987.65 }],
   } }));
@@ -144,6 +144,7 @@ test('@release @inventory oculta custo sem permissao financeira', async ({ page 
   await page.goto('/inventory/transfers/196');
   await expect(page.getByRole('columnheader', { name: /custo unit.rio/i })).toHaveCount(0);
   await expect(page.getByText(/987[,.]65/)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Enviar' })).toHaveCount(0);
 });
 
 test('@release @inventory nao consulta transferencias quando recurso esta desativado', async ({ page }) => {
