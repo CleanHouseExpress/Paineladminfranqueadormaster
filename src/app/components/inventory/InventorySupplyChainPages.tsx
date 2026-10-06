@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { ArrowLeft, CheckCircle2, Plus, RotateCcw, Save, Truck, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { inventoryService } from '../../../services/inventoryService';
+import { getApiErrorMessage } from '../../../services/apiClient';
 import { unitManagementService } from '../../../services/unitManagementService';
 import { ModuleStateView } from '../../../shared/components/ModuleStateView';
 import { usePermission } from '../../../shared/hooks/usePermission';
@@ -17,7 +18,23 @@ const th: React.CSSProperties = { textAlign: 'left', padding: '10px 12px', color
 const td: React.CSSProperties = { padding: '10px 12px', borderBottom: '1px solid #F1F5F9', fontSize: 13, verticalAlign: 'middle' };
 
 function Shell({ title, description, settings, children }: { title: string; description: string; settings?: InventorySettings | null; children: ReactNode }) {
-  const links = [['/inventory', 'Visao Geral'], ['/inventory/items', 'Itens'], ['/inventory/movements', 'Movimentacoes'], ['/inventory/transfers', 'Transferencias'], ['/inventory/settings', 'Configuracoes']];
+  const [resolvedSettings, setResolvedSettings] = useState<InventorySettings | null>(settings ?? null);
+
+  useEffect(() => {
+    if (settings) {
+      setResolvedSettings(settings);
+      return;
+    }
+    void inventoryService.getSettings().then(setResolvedSettings).catch(() => setResolvedSettings(null));
+  }, [settings]);
+
+  const links = [
+    ['/inventory', 'Visao Geral'],
+    ['/inventory/items', 'Itens'],
+    ['/inventory/movements', 'Movimentacoes'],
+    ...(resolvedSettings?.enable_transfers ? [['/inventory/transfers', 'Transferencias']] : []),
+    ['/inventory/settings', 'Configuracoes'],
+  ];
 
   return (
     <div style={{ padding: 24, background: '#F8FAFC', minHeight: '100%' }}>
@@ -51,9 +68,7 @@ function dateLabel(value?: string | null) {
 }
 
 function errorMessage(error: unknown) {
-  const data = (error as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } })?.response?.data;
-  const firstError = data?.errors ? Object.values(data.errors)[0]?.[0] : null;
-  return firstError || data?.message || 'Nao foi possivel concluir a operacao.';
+  return getApiErrorMessage(error, 'Nao foi possivel concluir a operacao.');
 }
 
 const flagLabels: Record<string, string> = {
@@ -106,6 +121,7 @@ export function InventorySettingsPage() {
 
 export function InventoryTransfersPage() {
   const { hasPermission } = usePermission();
+  const [settings, setSettings] = useState<InventorySettings | null>(null);
   const [transfers, setTransfers] = useState<InventoryTransfer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -113,33 +129,37 @@ export function InventoryTransfersPage() {
   const [formLoading, setFormLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [units, setUnits] = useState<UnitOption[]>([]);
-  const [locations, setLocations] = useState<StockLocation[]>([]);
   const [items, setItems] = useState<InventoryItem[]>([]);
-  const [form, setForm] = useState({ originUnitId: '', originLocationId: '', destinationUnitId: '', destinationLocationId: '', itemId: '', quantity: '' });
-
-  const originLocations = useMemo(() => locations.filter(location => location.unitId === form.originUnitId), [locations, form.originUnitId]);
-  const destinationLocations = useMemo(() => locations.filter(location => location.unitId === form.destinationUnitId), [locations, form.destinationUnitId]);
+  const [form, setForm] = useState({ originUnitId: '', destinationUnitId: '', itemId: '', quantity: '' });
 
   const load = async () => {
     setLoading(true);
     setError(null);
-    try { setTransfers(await inventoryService.listTransfers()); }
-    catch { setError('Nao foi possivel carregar as transferencias.'); }
-    finally { setLoading(false); }
+    try {
+      const currentSettings = await inventoryService.getSettings();
+      setSettings(currentSettings);
+      if (!currentSettings.enable_transfers) {
+        setTransfers([]);
+        return;
+      }
+      setTransfers(await inventoryService.listTransfers());
+    } catch (loadError) {
+      setError(errorMessage(loadError));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const openForm = async () => {
     setFormOpen(true);
-    if (units.length || locations.length || items.length) return;
+    if (units.length || items.length) return;
     setFormLoading(true);
     try {
-      const [unitOptions, locationRows, itemRows] = await Promise.all([
+      const [unitOptions, itemRows] = await Promise.all([
         unitManagementService.getUnitOptions(),
-        inventoryService.listLocations({ active: true }),
         inventoryService.listItems({ active: true }),
       ]);
       setUnits(unitOptions);
-      setLocations(locationRows);
       setItems(itemRows);
     } catch (loadError) {
       toast.error(errorMessage(loadError));
@@ -150,7 +170,7 @@ export function InventoryTransfersPage() {
 
   const createTransfer = async () => {
     const quantity = Number(form.quantity);
-    if (!form.originUnitId || !form.originLocationId || !form.destinationUnitId || !form.destinationLocationId || !form.itemId || quantity <= 0) {
+    if (!form.originUnitId || !form.destinationUnitId || !form.itemId || quantity <= 0) {
       toast.error('Preencha origem, destino, item e quantidade.');
       return;
     }
@@ -164,13 +184,11 @@ export function InventoryTransfersPage() {
       await inventoryService.createTransfer({
         origin_unit_id: Number(form.originUnitId),
         destination_unit_id: Number(form.destinationUnitId),
-        origin_stock_location_id: Number(form.originLocationId),
-        destination_stock_location_id: Number(form.destinationLocationId),
         items: [{ inventory_item_id: Number(form.itemId), quantity }],
       });
       toast.success('Transferencia solicitada.');
       setFormOpen(false);
-      setForm({ originUnitId: '', originLocationId: '', destinationUnitId: '', destinationLocationId: '', itemId: '', quantity: '' });
+      setForm({ originUnitId: '', destinationUnitId: '', itemId: '', quantity: '' });
       await load();
     } catch (createError) {
       toast.error(errorMessage(createError));
@@ -182,19 +200,24 @@ export function InventoryTransfersPage() {
   useEffect(() => { void load(); }, []);
   if (loading) return <ModuleStateView state="loading" />;
   if (error) return <ModuleStateView state="error" errorMessage={error} onRetry={() => void load()} />;
+  if (settings && !settings.enable_transfers) {
+    return (
+      <Shell title="Transferências" description="Abastecimento interno entre unidades com rastreabilidade pelo ledger de estoque." settings={settings}>
+        <ModuleStateView state="empty" emptyHint="Transferencias internas estão desativadas para esta rede." />
+      </Shell>
+    );
+  }
 
   return (
-    <Shell title="Transferências" description="Abastecimento interno entre unidades com rastreabilidade pelo ledger de estoque.">
+    <Shell title="Transferências" description="Abastecimento interno entre unidades com rastreabilidade pelo ledger de estoque." settings={settings}>
       {hasPermission('tenant.inventory.transfer') && <button type="button" style={{ ...button, width: 'fit-content', background: '#0F172A', color: '#fff', border: 0 }} onClick={() => void openForm()}><Plus size={15} />Nova transferência</button>}
       {formOpen && (
         <div style={{ ...card, display: 'grid', gap: 12 }}>
           <strong>Solicitar transferência interna</strong>
           {formLoading ? <ModuleStateView state="loading" /> : <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
-              <label>Unidade de origem<select style={input} value={form.originUnitId} onChange={event => setForm(current => ({ ...current, originUnitId: event.target.value, originLocationId: '' }))}><option value="">Selecione</option>{units.map(unit => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</select></label>
-              <label>Local de origem<select style={input} value={form.originLocationId} onChange={event => setForm(current => ({ ...current, originLocationId: event.target.value }))}><option value="">Selecione</option>{originLocations.map(location => <option key={location.id} value={location.id}>{location.name}</option>)}</select></label>
-              <label>Unidade de destino<select style={input} value={form.destinationUnitId} onChange={event => setForm(current => ({ ...current, destinationUnitId: event.target.value, destinationLocationId: '' }))}><option value="">Selecione</option>{units.map(unit => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</select></label>
-              <label>Local de destino<select style={input} value={form.destinationLocationId} onChange={event => setForm(current => ({ ...current, destinationLocationId: event.target.value }))}><option value="">Selecione</option>{destinationLocations.map(location => <option key={location.id} value={location.id}>{location.name}</option>)}</select></label>
+              <label>Unidade de origem<select style={input} value={form.originUnitId} onChange={event => setForm(current => ({ ...current, originUnitId: event.target.value }))}><option value="">Selecione</option>{units.map(unit => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</select></label>
+              <label>Unidade de destino<select style={input} value={form.destinationUnitId} onChange={event => setForm(current => ({ ...current, destinationUnitId: event.target.value }))}><option value="">Selecione</option>{units.map(unit => <option key={unit.value} value={unit.value}>{unit.label}</option>)}</select></label>
               <label>Item<select style={input} value={form.itemId} onChange={event => setForm(current => ({ ...current, itemId: event.target.value }))}><option value="">Selecione</option>{items.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
               <label>Quantidade<input style={input} type="number" min="0.01" step="any" value={form.quantity} onChange={event => setForm(current => ({ ...current, quantity: event.target.value }))} /></label>
             </div>
@@ -229,6 +252,7 @@ export function InventoryTransfersPage() {
 export function InventoryTransferDetailPage() {
   const { id } = useParams();
   const { hasPermission } = usePermission();
+  const [settings, setSettings] = useState<InventorySettings | null>(null);
   const [transfer, setTransfer] = useState<InventoryTransfer | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -237,25 +261,47 @@ export function InventoryTransferDetailPage() {
     if (!id) return;
     setLoading(true);
     setError(null);
-    try { setTransfer(await inventoryService.getTransfer(id)); }
-    catch { setError('Nao foi possivel carregar a transferencia.'); }
-    finally { setLoading(false); }
+    try {
+      const currentSettings = await inventoryService.getSettings();
+      setSettings(currentSettings);
+      if (!currentSettings.enable_transfers) {
+        setTransfer(null);
+        return;
+      }
+      setTransfer(await inventoryService.getTransfer(id));
+    } catch (loadError) {
+      setError(errorMessage(loadError));
+    } finally {
+      setLoading(false);
+    }
   };
   useEffect(() => { void load(); }, [id]);
 
-  const runAction = async (action: 'approve' | 'dispatch' | 'receive' | 'cancel') => {
+  const runAction = async (action: 'approve' | 'ship' | 'receive' | 'cancel') => {
     if (!id) return;
     try {
       setTransfer(await inventoryService.transferAction(id, action));
       toast.success('Transferencia atualizada.');
-    } catch (actionError) { toast.error(errorMessage(actionError)); }
+    } catch (actionError) {
+      toast.error(errorMessage(actionError));
+    }
   };
 
   if (loading) return <ModuleStateView state="loading" />;
-  if (error || !transfer) return <ModuleStateView state="error" errorMessage={error ?? 'Transferencia nao encontrada.'} onRetry={() => void load()} />;
+  if (error) return <ModuleStateView state="error" errorMessage={error} onRetry={() => void load()} />;
+  if (settings && !settings.enable_transfers) {
+    return (
+      <Shell title="Transferências" description="Abastecimento interno entre unidades com rastreabilidade pelo ledger de estoque." settings={settings}>
+        <ModuleStateView state="empty" emptyHint="Transferencias internas estão desativadas para esta rede." />
+      </Shell>
+    );
+  }
+  if (!transfer) return <ModuleStateView state="error" errorMessage="Transferencia nao encontrada." onRetry={() => void load()} />;
+
+  const canViewCost = hasPermission('tenant.inventory.cost.view');
 
   return (
-    <Shell title={`Transferência ${transfer.number ?? `#${transfer.id}`}`} description={`${transfer.origin_unit_name} → ${transfer.destination_unit_name}`}>
+    <Shell title={`Transferência ${transfer.number ?? `#${transfer.id}`}`} description={`${transfer.origin_unit_name} → ${transfer.destination_unit_name}`} settings={settings}>
       <Link to="/inventory/transfers" style={{ ...button, width: 'fit-content', textDecoration: 'none', color: '#475569' }}><ArrowLeft size={15} />Voltar</Link>
       <div style={{ ...card, display: 'grid', gap: 8 }}>
         <strong>Status: {statusLabel(transfer.status)}</strong>
@@ -264,13 +310,13 @@ export function InventoryTransferDetailPage() {
       </div>
       <div style={tableWrap}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead><tr><th style={th}>Item</th><th style={th}>Quantidade</th><th style={th}>Custo unitário</th></tr></thead>
-          <tbody>{transfer.items.map(item => <tr key={item.id}><td style={td}>{item.item_name}</td><td style={td}>{item.quantity}</td><td style={td}>{item.unit_cost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td></tr>)}</tbody>
+          <thead><tr><th style={th}>Item</th><th style={th}>Quantidade</th>{canViewCost && <th style={th}>Custo unitário</th>}</tr></thead>
+          <tbody>{transfer.items.map(item => <tr key={item.id}><td style={td}>{item.item_name}</td><td style={td}>{item.quantity}</td>{canViewCost && <td style={td}>{item.unit_cost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>}</tr>)}</tbody>
         </table>
       </div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {transfer.status === 'requested' && hasPermission('tenant.inventory.transfer.approve') && <button style={button} onClick={() => void runAction('approve')}><CheckCircle2 size={15} />Aprovar</button>}
-        {transfer.status === 'approved' && hasPermission('tenant.inventory.transfer') && <button style={button} onClick={() => void runAction('dispatch')}><Truck size={15} />Enviar</button>}
+        {transfer.status === 'approved' && hasPermission('tenant.inventory.transfer.approve') && <button style={button} onClick={() => void runAction('ship')}><Truck size={15} />Enviar</button>}
         {transfer.status === 'in_transit' && hasPermission('tenant.inventory.transfer.receive') && <button style={button} onClick={() => void runAction('receive')}><CheckCircle2 size={15} />Receber</button>}
         {['requested', 'approved'].includes(transfer.status) && hasPermission('tenant.inventory.transfer') && <button style={button} onClick={() => void runAction('cancel')}><XCircle size={15} />Cancelar</button>}
       </div>
