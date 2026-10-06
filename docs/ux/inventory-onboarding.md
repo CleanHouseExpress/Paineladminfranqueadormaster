@@ -27,7 +27,7 @@ Backend:
 - `InventorySettingsService`: capability, modo, flags, terminologia e audit de configuracao.
 - `StockMovementService`: ledger oficial, saldos, validacao de saldo negativo, idempotencia, reversao e efeitos gerenciais.
 - `StockCountService`: inventario fisico, snapshot, divergencias, confirmacao, cancelamento e estorno.
-- `InventoryTransferService`: rotas existem, mas o fluxo esta indisponivel nesta fase.
+- Transferencias internas: as rotas de listagem e detalhe consomem o ledger oficial por meio da API de Inventory, com acoes de aprovacao, envio, recebimento e cancelamento condicionadas ao RBAC existente.
 - `MetadataEngineService` e seeders: entidades `inventory_items`, `inventory_item_unit_settings`, `inventory_suppliers`, `inventory_categories`, `stock_locations`, `stock_movements`, `stock_counts` e `stock_count_items`.
 - `TenantOnboardingService`: onboarding geral do tenant, util como referencia de persistencia e retomada, mas nao como regra de estoque.
 - `ImplementationMaterializer`: guided setup de implantacao, util como referencia de estrutura de progresso, nao como fonte para o wizard de estoque.

@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { ArrowLeft, CheckCircle2, Plus, RotateCcw, Save, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Plus, RotateCcw, Save, Truck, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { inventoryService } from '../../../services/inventoryService';
 import { unitManagementService } from '../../../services/unitManagementService';
 import { ModuleStateView } from '../../../shared/components/ModuleStateView';
 import { usePermission } from '../../../shared/hooks/usePermission';
-import type { InventoryCount, InventoryItem, InventorySettings, StockLocation } from '../../../types/inventory';
+import type { InventoryCount, InventoryItem, InventorySettings, InventoryTransfer, StockLocation } from '../../../types/inventory';
 import type { UnitOption } from '../../../types/unitManagement';
 
 const card: React.CSSProperties = { background: '#fff', border: '1px solid #E2E8F0', borderRadius: 8, padding: 18 };
@@ -17,7 +17,7 @@ const th: React.CSSProperties = { textAlign: 'left', padding: '10px 12px', color
 const td: React.CSSProperties = { padding: '10px 12px', borderBottom: '1px solid #F1F5F9', fontSize: 13, verticalAlign: 'middle' };
 
 function Shell({ title, description, settings, children }: { title: string; description: string; settings?: InventorySettings | null; children: ReactNode }) {
-  const links = [['/inventory', 'Visao Geral'], ['/inventory/items', 'Itens'], ['/inventory/movements', 'Movimentacoes'], ['/inventory/settings', 'Configuracoes']];
+  const links = [['/inventory', 'Visao Geral'], ['/inventory/items', 'Itens'], ['/inventory/movements', 'Movimentacoes'], ['/inventory/transfers', 'Transferencias'], ['/inventory/settings', 'Configuracoes']];
 
   return (
     <div style={{ padding: 24, background: '#F8FAFC', minHeight: '100%' }}>
@@ -36,7 +36,7 @@ function Shell({ title, description, settings, children }: { title: string; desc
 }
 
 function statusLabel(status: string) {
-  return ({ draft: 'Rascunho', confirmed: 'Confirmada', canceled: 'Cancelada', reversed: 'Estornada' } as Record<string, string>)[status] ?? status;
+  return ({ draft: 'Rascunho', requested: 'Solicitada', approved: 'Aprovada', in_transit: 'Em trânsito', received: 'Recebida', confirmed: 'Confirmada', canceled: 'Cancelada', reversed: 'Estornada' } as Record<string, string>)[status] ?? status;
 }
 
 function diffLabel(value: number | null | undefined) {
@@ -57,6 +57,7 @@ function errorMessage(error: unknown) {
 }
 
 const flagLabels: Record<string, string> = {
+  enable_transfers: 'Transferencias internas',
   enable_stock_minimum: 'Estoque minimo',
   enable_stock_ideal: 'Estoque ideal',
   enable_reorder_point: 'Ponto de reposicao',
@@ -80,7 +81,6 @@ export function InventorySettingsPage() {
   const save = async () => {
     setSettings(await inventoryService.updateSettings({
       ...settings,
-      enable_transfers: false,
       enable_inventory_counts: false,
     }));
     toast.success('Configuracoes aplicadas imediatamente.');
@@ -104,26 +104,96 @@ export function InventorySettingsPage() {
   );
 }
 
-function Unavailable({ title, description, hint }: { title: string; description: string; hint: string }) {
-  const [settings, setSettings] = useState<InventorySettings | null>(null);
-  useEffect(() => { void inventoryService.getSettings().then(setSettings); }, []);
-  if (!settings) return <ModuleStateView state="loading" />;
+export function InventoryTransfersPage() {
+  const [transfers, setTransfers] = useState<InventoryTransfer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try { setTransfers(await inventoryService.listTransfers()); }
+    catch { setError('Nao foi possivel carregar as transferencias.'); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { void load(); }, []);
+  if (loading) return <ModuleStateView state="loading" />;
+  if (error) return <ModuleStateView state="error" errorMessage={error} onRetry={() => void load()} />;
 
   return (
-    <div data-testid="inventory-transfers-unavailable">
-      <Shell title={title} description={description} settings={settings}>
-        <ModuleStateView state="empty" emptyHint={hint} />
-      </Shell>
-    </div>
+    <Shell title="Transferências" description="Abastecimento interno entre unidades com rastreabilidade pelo ledger de estoque.">
+      {transfers.length === 0 ? <ModuleStateView state="empty" emptyHint="Nenhuma transferência interna encontrada." /> : (
+        <div style={tableWrap}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead><tr><th style={th}>Transferência</th><th style={th}>Origem</th><th style={th}>Destino</th><th style={th}>Status</th><th style={th}>Solicitada em</th><th style={th}>Itens</th></tr></thead>
+            <tbody>{transfers.map(transfer => (
+              <tr key={transfer.id}>
+                <td style={td}><Link to={`/inventory/transfers/${transfer.id}`} style={{ color: '#2563EB', fontWeight: 700 }}>{transfer.number ?? `#${transfer.id}`}</Link></td>
+                <td style={td}>{transfer.origin_unit_name}</td>
+                <td style={td}>{transfer.destination_unit_name}</td>
+                <td style={td}>{statusLabel(transfer.status)}</td>
+                <td style={td}>{dateLabel(transfer.requested_at)}</td>
+                <td style={td}>{transfer.items.length}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
+    </Shell>
   );
 }
 
-export function InventoryTransfersPage() {
-  return <Unavailable title="Transferencias" description="Fluxo antigo bloqueado enquanto a reimplementacao sobre o ledger novo nao e publicada." hint="Transferencias estao temporariamente indisponiveis nesta fase." />;
-}
-
 export function InventoryTransferDetailPage() {
-  return <Unavailable title="Transferencia indisponivel" description="Este fluxo sera reimplementado em fase propria." hint="A rota direta de transferencias esta bloqueada temporariamente." />;
+  const { id } = useParams();
+  const { hasPermission } = usePermission();
+  const [transfer, setTransfer] = useState<InventoryTransfer | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    if (!id) return;
+    setLoading(true);
+    setError(null);
+    try { setTransfer(await inventoryService.getTransfer(id)); }
+    catch { setError('Nao foi possivel carregar a transferencia.'); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { void load(); }, [id]);
+
+  const runAction = async (action: 'approve' | 'dispatch' | 'receive' | 'cancel') => {
+    if (!id) return;
+    try {
+      setTransfer(await inventoryService.transferAction(id, action));
+      toast.success('Transferencia atualizada.');
+    } catch (actionError) { toast.error(errorMessage(actionError)); }
+  };
+
+  if (loading) return <ModuleStateView state="loading" />;
+  if (error || !transfer) return <ModuleStateView state="error" errorMessage={error ?? 'Transferencia nao encontrada.'} onRetry={() => void load()} />;
+
+  return (
+    <Shell title={`Transferência ${transfer.number ?? `#${transfer.id}`}`} description={`${transfer.origin_unit_name} → ${transfer.destination_unit_name}`}>
+      <Link to="/inventory/transfers" style={{ ...button, width: 'fit-content', textDecoration: 'none', color: '#475569' }}><ArrowLeft size={15} />Voltar</Link>
+      <div style={{ ...card, display: 'grid', gap: 8 }}>
+        <strong>Status: {statusLabel(transfer.status)}</strong>
+        <span>Solicitada em {dateLabel(transfer.requested_at)}</span>
+        {transfer.notes && <span>{transfer.notes}</span>}
+      </div>
+      <div style={tableWrap}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead><tr><th style={th}>Item</th><th style={th}>Quantidade</th><th style={th}>Custo unitário</th></tr></thead>
+          <tbody>{transfer.items.map(item => <tr key={item.id}><td style={td}>{item.item_name}</td><td style={td}>{item.quantity}</td><td style={td}>{item.unit_cost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td></tr>)}</tbody>
+        </table>
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {transfer.status === 'requested' && hasPermission('tenant.inventory.transfer.approve') && <button style={button} onClick={() => void runAction('approve')}><CheckCircle2 size={15} />Aprovar</button>}
+        {transfer.status === 'approved' && hasPermission('tenant.inventory.transfer') && <button style={button} onClick={() => void runAction('dispatch')}><Truck size={15} />Enviar</button>}
+        {transfer.status === 'in_transit' && hasPermission('tenant.inventory.transfer.receive') && <button style={button} onClick={() => void runAction('receive')}><CheckCircle2 size={15} />Receber</button>}
+        {['requested', 'approved'].includes(transfer.status) && hasPermission('tenant.inventory.transfer') && <button style={button} onClick={() => void runAction('cancel')}><XCircle size={15} />Cancelar</button>}
+      </div>
+    </Shell>
+  );
 }
 
 export function InventoryCountsPage() {

@@ -213,6 +213,31 @@ interface ApiCount {
   updated_at?: string | null;
 }
 
+interface ApiTransfer {
+  id: number | string;
+  number?: string;
+  origin_unit_id: number | string;
+  origin_unit_name?: string;
+  origin_unit?: { id: number | string; name: string } | null;
+  destination_unit_id: number | string;
+  destination_unit_name?: string;
+  destination_unit?: { id: number | string; name: string } | null;
+  status: string;
+  notes?: string;
+  requested_at?: string;
+  approved_at?: string | null;
+  dispatched_at?: string | null;
+  received_at?: string | null;
+  items?: Array<{
+    id: number | string;
+    inventory_item_id: number | string;
+    item_name?: string;
+    item?: { name: string } | null;
+    quantity: number | string;
+    unit_cost?: number | string | null;
+  }>;
+}
+
 interface ApiMetrics {
   items: number;
   active_items: number;
@@ -493,6 +518,30 @@ function toCount(count: ApiCount): InventoryCount {
   };
 }
 
+function toTransfer(transfer: ApiTransfer): InventoryTransfer {
+  return {
+    id: Number(transfer.id),
+    number: transfer.number,
+    origin_unit_id: Number(transfer.origin_unit_id),
+    origin_unit_name: transfer.origin_unit_name ?? transfer.origin_unit?.name ?? `Unidade ${transfer.origin_unit_id}`,
+    destination_unit_id: Number(transfer.destination_unit_id),
+    destination_unit_name: transfer.destination_unit_name ?? transfer.destination_unit?.name ?? `Unidade ${transfer.destination_unit_id}`,
+    status: transfer.status,
+    notes: transfer.notes,
+    requested_at: transfer.requested_at,
+    approved_at: transfer.approved_at,
+    dispatched_at: transfer.dispatched_at,
+    received_at: transfer.received_at,
+    items: (transfer.items ?? []).map(item => ({
+      id: Number(item.id),
+      inventory_item_id: Number(item.inventory_item_id),
+      item_name: item.item_name ?? item.item?.name ?? `Insumo ${item.inventory_item_id}`,
+      quantity: Number(item.quantity),
+      unit_cost: Number(item.unit_cost ?? 0),
+    })),
+  };
+}
+
 function toUnitSetting(setting: ApiUnitSetting): InventoryItemUnitSetting {
   return {
     id: String(setting.id),
@@ -699,10 +748,17 @@ export const inventoryService = {
 
   getSettings: async () => normalizeSettings((await apiClient.get<DataResponse<InventorySettings>>('/api/company/inventory/settings')).data),
   updateSettings: async (payload: Partial<InventorySettings>) => normalizeSettings((await apiClient.put<DataResponse<InventorySettings>>('/api/company/inventory/settings', payload)).data),
-  listTransfers: async (): Promise<InventoryTransfer[]> => Promise.reject(new Error('Transferencias estao temporariamente indisponiveis.')),
-  getTransfer: async (): Promise<InventoryTransfer> => Promise.reject(new Error('Transferencias estao temporariamente indisponiveis.')),
-  createTransfer: async (): Promise<InventoryTransfer> => Promise.reject(new Error('Transferencias estao temporariamente indisponiveis.')),
-  transferAction: async (): Promise<InventoryTransfer> => Promise.reject(new Error('Transferencias estao temporariamente indisponiveis.')),
+  listTransfers: async (filters: Record<string, string | number | boolean | undefined> = {}) => {
+    const response = await apiClient.get<ListResponse<ApiTransfer>>(`/api/company/inventory/transfers${queryString({ per_page: 100, ...filters })}`);
+    return response.data.map(toTransfer);
+  },
+  getTransfer: async (id: string | number) => toTransfer((await apiClient.get<DataResponse<ApiTransfer>>(`/api/company/inventory/transfers/${id}`)).data),
+  createTransfer: async (payload: Record<string, unknown>) => toTransfer((await apiClient.post<DataResponse<ApiTransfer>>('/api/company/inventory/transfers', payload)).data),
+  transferAction: async (id: string | number, action: 'approve' | 'dispatch' | 'receive' | 'cancel', payload: Record<string, unknown> = {}) => {
+    const idempotencyKey = action === 'receive' ? newClientKey() : undefined;
+    const body = idempotencyKey ? { ...payload, idempotency_key: idempotencyKey } : payload;
+    return toTransfer((await apiClient.post<DataResponse<ApiTransfer>>(`/api/company/inventory/transfers/${id}/${action}`, body, idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : undefined)).data);
+  },
   listCounts: async (filters: Record<string, string | number | boolean | undefined> = {}) => {
     const response = await apiClient.get<ListResponse<ApiCount>>(`/api/company/inventory/counts${queryString({ per_page: 100, ...filters })}`);
     return response.data.map(toCount);

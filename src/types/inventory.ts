@@ -224,7 +224,8 @@ export interface InventorySettings {
 
 export interface InventoryTransfer {
   id: number; origin_unit_id: number; origin_unit_name: string; destination_unit_id: number;
-  destination_unit_name: string; status: string; notes?: string; requested_at?: string;
+  destination_unit_name: string; status: string; number?: string; notes?: string; requested_at?: string;
+  approved_at?: string | null; dispatched_at?: string | null; received_at?: string | null;
   items: Array<{ id: number; inventory_item_id: number; item_name: string; quantity: number; unit_cost: number }>;
 }
 
