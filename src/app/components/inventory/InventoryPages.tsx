@@ -20,6 +20,7 @@ import { InventoryNetworkOnboardingWizard } from './InventoryNetworkOnboardingWi
 import {
   INVENTORY_PERMISSIONS, MOVEMENT_TYPE_CONFIG, UNITS_OF_MEASURE,
   type InventoryCategory, type InventoryItem, type InventoryMetadata,
+  type GlobalSupplier,
   type InventoryItemUnitSetting,
   type InventoryMetrics, type InventoryMovement, type InventoryPayload,
   type InventorySettings, type InventorySupplier, type MovementType,
@@ -767,9 +768,9 @@ function Modal({ title, open, onClose, children }: { title: string; open: boolea
 }
 
 function CrudPage<T extends InventoryCategory | InventorySupplier>({
-  kind, title, description, records, loading, reload,
+  kind, title, description, records, loading, reload, tableTestId,
 }: {
-  kind: 'category' | 'supplier'; title: string; description: string; records: T[]; loading: boolean; reload: () => Promise<void>;
+  kind: 'category' | 'supplier'; title: string; description: string; records: T[]; loading: boolean; reload: () => Promise<void>; tableTestId?: string;
 }) {
   const { hasPermission } = usePermission();
   const [open, setOpen] = useState(false);
@@ -822,10 +823,12 @@ function CrudPage<T extends InventoryCategory | InventorySupplier>({
     <PageHeader title={title} description={description} back="/inventory" icon={isSupplier ? <Truck size={21} /> : <Package size={21} />} actions={
       hasPermission(INVENTORY_PERMISSIONS.create) ? <PrimaryButton onClick={() => showModal()}><Plus size={14} /> Novo{isSupplier ? ' Fornecedor' : 'a Categoria'}</PrimaryButton> : undefined
     } />
-    <DynamicTableRenderer columns={columns} data={records as unknown as Record<string, unknown>[]} loading={loading} emptyMessage={`Nenhum${isSupplier ? ' fornecedor' : 'a categoria'} cadastrado(a).`} actions={[
-      { label: 'Editar', icon: <Edit size={13} />, onClick: row => showModal(row as unknown as T), showCondition: () => hasPermission(INVENTORY_PERMISSIONS.update) },
-      { label: 'Excluir', icon: <Trash2 size={13} />, variant: 'danger', onClick: row => void remove(row as unknown as T), showCondition: () => hasPermission(INVENTORY_PERMISSIONS.delete) },
-    ]} />
+    <div data-testid={tableTestId}>
+      <DynamicTableRenderer columns={columns} data={records as unknown as Record<string, unknown>[]} loading={loading} emptyMessage={`Nenhum${isSupplier ? ' fornecedor' : 'a categoria'} cadastrado(a).`} actions={[
+        { label: 'Editar', icon: <Edit size={13} />, onClick: row => showModal(row as unknown as T), showCondition: () => hasPermission(INVENTORY_PERMISSIONS.update) },
+        { label: 'Excluir', icon: <Trash2 size={13} />, variant: 'danger', onClick: row => void remove(row as unknown as T), showCondition: () => hasPermission(INVENTORY_PERMISSIONS.delete) },
+      ]} />
+    </div>
     <Modal title={`${editing ? 'Editar' : 'Novo'} ${isSupplier ? 'Fornecedor' : 'Categoria'}`} open={open} onClose={() => setOpen(false)}>
       <div style={{ display: 'grid', gap: 13 }}>
         <label style={{ fontSize: 12, fontWeight: 650 }}>Nome<input value={String(form.name ?? '')} onChange={e => setForm(current => ({ ...current, name: e.target.value }))} style={{ ...inputStyle, marginTop: 5 }} /></label>
@@ -853,8 +856,63 @@ export function InventoryCategories() {
 
 export function InventorySuppliers() {
   const { suppliers, loading, error, reload } = useInventoryData();
+  const { hasPermission } = usePermission();
+  const [globalSuppliers, setGlobalSuppliers] = useState<GlobalSupplier[]>([]);
+  const [globalLoading, setGlobalLoading] = useState(true);
+  const [globalError, setGlobalError] = useState('');
+  const [changingId, setChangingId] = useState<string | null>(null);
+
+  const loadGlobalSuppliers = async () => {
+    setGlobalLoading(true);
+    setGlobalError('');
+    try {
+      setGlobalSuppliers(await inventoryService.listGlobalSuppliers());
+    } catch (loadError) {
+      setGlobalError(getApiErrorMessage(loadError, 'Não foi possível carregar o catálogo Orchestra.'));
+    } finally {
+      setGlobalLoading(false);
+    }
+  };
+
+  useEffect(() => { void loadGlobalSuppliers(); }, []);
+
+  const changeGlobalSupplier = async (supplier: GlobalSupplier) => {
+    setChangingId(supplier.id);
+    try {
+      if (supplier.enabled) await inventoryService.disableGlobalSupplier(supplier.id);
+      else await inventoryService.enableGlobalSupplier(supplier.id);
+      await Promise.all([reload(), loadGlobalSuppliers()]);
+      toast.success(supplier.enabled ? 'Fornecedor desabilitado da rede.' : 'Fornecedor habilitado para a rede.');
+    } catch (changeError) {
+      toast.error(getApiErrorMessage(changeError, 'Não foi possível alterar a habilitação do fornecedor.'));
+    } finally {
+      setChangingId(null);
+    }
+  };
+
   if (error) return <ModuleStateView state="error" errorMessage={error} />;
-  return <CrudPage kind="supplier" title="Fornecedores" description="Cadastre os parceiros que abastecem a operação." records={suppliers} loading={loading} reload={reload} />;
+  return <>
+    <CrudPage kind="supplier" title="Fornecedores" description="Cadastre os parceiros que abastecem a operação." records={suppliers} loading={loading} reload={reload} tableTestId="tenant-supplier-list" />
+    <section data-testid="global-suppliers-catalog" style={{ ...cardStyle, margin: '0 24px 24px', padding: 20 }}>
+      <h2 style={{ margin: 0, color: '#0F172A', fontSize: 17 }}>Catálogo Orchestra</h2>
+      <p style={{ margin: '5px 0 16px', color: '#64748B', fontSize: 13 }}>Habilite explicitamente os fornecedores e ofertas disponíveis para esta rede.</p>
+      {globalLoading && <p style={{ color: '#64748B', fontSize: 13 }}>Carregando catálogo...</p>}
+      {globalError && <p role="alert" style={{ color: '#DC2626', fontSize: 13 }}>{globalError}</p>}
+      {!globalLoading && !globalError && globalSuppliers.length === 0 && <p style={{ color: '#64748B', fontSize: 13 }}>Nenhum fornecedor global disponível.</p>}
+      <div style={{ display: 'grid', gap: 10 }}>
+        {globalSuppliers.map(supplier => <article key={supplier.id} style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <div>
+            <strong style={{ color: '#0F172A', fontSize: 14 }}>{supplier.name}</strong>
+            {supplier.document && <div style={{ color: '#64748B', fontSize: 12, marginTop: 3 }}>{supplier.document}</div>}
+            {supplier.offers.length > 0 && <div style={{ color: '#475569', fontSize: 12, marginTop: 7 }}>Ofertas: {supplier.offers.map(offer => offer.name).join(', ')}</div>}
+          </div>
+          {hasPermission('tenant.inventory.suppliers.manage') && <button type="button" disabled={changingId === supplier.id} onClick={() => void changeGlobalSupplier(supplier)} style={{ padding: '8px 13px', borderRadius: 9, border: supplier.enabled ? '1px solid #DC2626' : 0, background: supplier.enabled ? '#fff' : '#4F46E5', color: supplier.enabled ? '#DC2626' : '#fff', fontSize: 12, fontWeight: 700, cursor: changingId === supplier.id ? 'wait' : 'pointer' }}>
+            {supplier.enabled ? 'Desabilitar da rede' : 'Habilitar para a rede'}
+          </button>}
+        </article>)}
+      </div>
+    </section>
+  </>;
 }
 
 export function InventoryLocations() {
