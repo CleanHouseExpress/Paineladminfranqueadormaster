@@ -10,6 +10,8 @@ function json(route: Route, body: unknown) {
 }
 
 async function mockSalesSession(page: Page) {
+  const catalogRequests: string[] = [];
+
   await disableOnboarding(page);
   await page.addInitScript(() => {
     window.localStorage.setItem('orchestra_auth_token', 'sales-eligibility-token');
@@ -36,33 +38,46 @@ async function mockSalesSession(page: Page) {
     { value: 101, label: 'Unidade Centro' },
   ]));
   await page.route('**/api/company/contracts/options', route => json(route, []));
-  await page.route('**/api/company/catalog/items/options', route => json(route, [
-    {
-      value: 42,
-      label: 'Produto elegivel',
-      type: 'product',
-      price: 100,
-      eligible_for_sale: true,
-      blocking_reasons: [],
-    },
-    {
-      value: 43,
-      label: 'Produto sem preco',
-      type: 'product',
-      price: null,
-      eligible_for_sale: false,
-      blocking_reasons: ['missing_effective_price'],
-    },
-  ]));
+  await page.route('**/api/company/catalog/items/options**', route => {
+    const url = new URL(route.request().url());
+    catalogRequests.push(url.toString());
+
+    return json(route, url.searchParams.get('unit_id') === '101' ? [
+      {
+        value: 42,
+        label: 'Produto interno elegivel',
+        type: 'product',
+        price: 100,
+        catalog_visible: false,
+        eligible_for_sale: true,
+        blocking_reasons: [],
+      },
+      {
+        value: 43,
+        label: 'Produto visivel sem preco',
+        type: 'product',
+        price: null,
+        catalog_visible: true,
+        eligible_for_sale: false,
+        blocking_reasons: ['missing_effective_price'],
+      },
+    ] : []);
+  });
+
+  return { catalogRequests };
 }
 
-test('venda impede selecionar produto que o backend marcou como inelegivel', async ({ page }) => {
-  await mockSalesSession(page);
+test('venda consulta elegibilidade da unidade e nao usa visibilidade como regra de venda', async ({ page }) => {
+  const { catalogRequests } = await mockSalesSession(page);
   await page.goto('/sales/new');
 
   await expect(page.getByRole('heading', { name: 'Nova venda' })).toBeVisible();
+  await page.getByLabel('Unidade').selectOption('101');
+  await expect.poll(() => catalogRequests.some(
+    requestUrl => new URL(requestUrl).searchParams.get('unit_id') === '101',
+  )).toBe(true);
 
   const catalog = page.locator('select').nth(3);
-  await expect(catalog.getByRole('option', { name: 'Produto elegivel' })).toBeEnabled();
-  await expect(catalog.getByRole('option', { name: 'Produto sem preco' })).toBeDisabled();
+  await expect(catalog.getByRole('option', { name: 'Produto interno elegivel' })).toBeEnabled();
+  await expect(catalog.getByRole('option', { name: 'Produto visivel sem preco' })).toBeDisabled();
 });

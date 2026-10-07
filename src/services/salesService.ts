@@ -74,8 +74,8 @@ export const salesService = {
   units: async () => normalizeOptions(await apiClient.get<Array<Record<string, any>>>('/api/company/units/options')),
   contracts: async () => normalizeOptions(await apiClient.get<Array<Record<string, any>>>('/api/company/contracts/options')),
   accounts: async () => normalizeOptions(await apiClient.get<Array<Record<string, any>>>('/api/company/financial/accounts/options')),
-  catalog: async (): Promise<CatalogSalesOption[]> =>
-    (await apiClient.get<Array<Record<string, any>>>('/api/company/catalog/items/options')).map(item => ({
+  catalog: async (unitId: string): Promise<CatalogSalesOption[]> =>
+    (await apiClient.get<Array<Record<string, any>>>(`/api/company/catalog/items/options?unit_id=${encodeURIComponent(unitId)}`)).map(item => ({
       id: String(item.value), label: item.label, type: item.type, price: Number(item.price ?? 0),
       eligibleForSale: typeof item.eligible_for_sale === 'boolean' ? item.eligible_for_sale : undefined,
       blockingReasons: Array.isArray(item.blocking_reasons) ? item.blocking_reasons.map(String) : [],

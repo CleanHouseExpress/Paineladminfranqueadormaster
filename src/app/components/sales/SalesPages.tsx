@@ -109,16 +109,25 @@ export function SalesForm() {
   const [loading, setLoading] = useState(Boolean(id)); const [saving, setSaving] = useState(false);
   useEffect(() => { void (async () => {
     try {
-      const [customers, units, contracts, catalog, accounts, existing] = await Promise.all([
+      const [customers, units, contracts, accounts, existing] = await Promise.all([
         salesService.customers().catch(() => []), salesService.units().catch(() => []),
-        salesService.contracts().catch(() => []), salesService.catalog().catch(() => []),
+        salesService.contracts().catch(() => []),
         hasPermission(SALES_PERMISSIONS.generateFinancial) ? salesService.accounts().catch(() => []) : Promise.resolve([]),
         id ? salesService.get(id) : Promise.resolve(null),
       ]);
-      setOpts({ customers, units, contracts, catalog, accounts });
+      setOpts({ customers, units, contracts, catalog: [], accounts });
       if (existing) { setOrder(existing); setForm(f => ({ ...f, customerId: existing.customerId ?? '', unitId: existing.unitId ?? '', contractId: existing.contractId ?? '', saleDate: existing.saleDate, notes: existing.notes ?? '' })); setItems(existing.items); }
     } catch { toast.error('Não foi possível carregar o formulário.'); } finally { setLoading(false); }
   })(); }, [id]);
+  useEffect(() => {
+    let active = true;
+    setOpts(current => ({ ...current, catalog: [] }));
+    if (!form.unitId) return () => { active = false; };
+    void salesService.catalog(form.unitId)
+      .then(catalog => { if (active) setOpts(current => ({ ...current, catalog })); })
+      .catch(() => { if (active) toast.error('Não foi possível carregar os produtos da unidade.'); });
+    return () => { active = false; };
+  }, [form.unitId]);
   const computed = useMemo(() => items.map(item => ({ ...item, total: item.quantity * item.unitPrice - item.discount })), [items]);
   const subtotal = computed.reduce((s, i) => s + i.quantity * i.unitPrice, 0); const discount = computed.reduce((s, i) => s + i.discount, 0); const total = subtotal - discount;
   const patchItem = (itemId: string, patch: Partial<SalesOrderItem>) => setItems(rows => rows.map(row => row.id === itemId ? { ...row, ...patch } : row));
