@@ -8,6 +8,11 @@ function normalizePermission(permission: AuthPermission): string {
   return String(permission.slug ?? permission.key ?? permission.name ?? permission.id ?? '');
 }
 
+const LEGACY_PERMISSION_ALIASES: Record<string, string> = {
+  'tenant.procurement.purchase_orders.view': 'tenant.procurement.view',
+  'tenant.procurement.purchase_orders.manage': 'tenant.procurement.purchase_orders.create',
+};
+
 export function usePermission() {
   const { permissions } = useAuth();
   const { unlockAllModules } = useModuleContext();
@@ -17,7 +22,9 @@ export function usePermission() {
     [permissions],
   );
 
-  const hasPermission = (permission: string) => unlockAllModules || permissionSet.has(permission);
+  const hasPermission = (permission: string) => unlockAllModules
+    || permissionSet.has(permission)
+    || permissionSet.has(LEGACY_PERMISSION_ALIASES[permission]);
   const hasAnyPermission = (items: string[]) => items.length === 0 || items.some(hasPermission);
   const hasAllPermissions = (items: string[]) => items.every(hasPermission);
 

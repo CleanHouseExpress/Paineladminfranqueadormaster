@@ -1,29 +1,36 @@
 import { apiClient } from './apiClient';
 
 export interface ReplenishmentOffer {
-  id: number;
+  supplier_offer_id: number;
   supplier_id: number;
-  supplier_name: string;
-  authorized: boolean;
-  preferred: boolean;
+  supplier: {
+    id: number;
+    name: string;
+  };
+  purchase_uom: string;
+  package_uom: string;
+  inventory_uom: string;
+  conversion_factor: number;
   unit_price: number;
-  lead_time_days: number;
-  moq: number;
+  currency: string;
+  minimum_order_quantity: number;
   purchase_multiple: number;
   package_quantity: number;
-  suggested_quantity: number;
+  lead_time_min: number;
+  lead_time_max: number;
+  availability_status: string;
+  suggested_purchase_quantity: number;
+  suggested_inventory_quantity: number;
 }
 
 export interface ReplenishmentSuggestion {
   inventory_item_id: number;
-  item_name: string;
-  sku?: string | null;
+  name: string;
   unit_id: number;
-  unit_name: string;
   current_stock: number;
   minimum_stock: number;
   target_stock: number;
-  required_quantity: number;
+  needed_quantity: number;
   offers: ReplenishmentOffer[];
 }
 
@@ -32,14 +39,12 @@ interface SuggestionsResponse {
 }
 
 export interface PurchaseOrderItem {
-  inventory_item_id: number;
   supplier_offer_id: number;
   quantity: number;
 }
 
-export interface CreatePurchaseOrderPayload {
+export interface CreatePurchaseOrdersPayload {
   unit_id: number;
-  supplier_id: number;
   items: PurchaseOrderItem[];
 }
 
@@ -50,6 +55,6 @@ export const replenishmentService = {
     )
   ).data,
 
-  createPurchaseOrder: (payload: CreatePurchaseOrderPayload) =>
-    apiClient.post('/api/company/procurement/purchase-orders', payload),
+  createPurchaseOrders: (payload: CreatePurchaseOrdersPayload) =>
+    apiClient.post('/api/company/procurement/replenishment-suggestions/purchase-orders', payload),
 };

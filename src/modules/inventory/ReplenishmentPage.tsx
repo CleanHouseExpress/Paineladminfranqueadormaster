@@ -39,23 +39,23 @@ function Offer({
       <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, color: '#334155' }}>
         <input
           type="checkbox"
-          aria-label={`${item.item_name} - ${offer.supplier_name}`}
+          aria-label={`${item.name} - ${offer.supplier.name}`}
           checked={Boolean(selected)}
           onChange={event => onSelect(event.target.checked)}
         />
-        {offer.supplier_name}{offer.preferred ? ' (preferencial)' : ''}
+        {offer.supplier.name}
       </label>
       <div style={{ color: '#64748B', fontSize: 12 }}>
-        Sugerido {offer.suggested_quantity} · MOQ {offer.moq} · múltiplo {offer.purchase_multiple} · embalagem {offer.package_quantity} · prazo {offer.lead_time_days} dias
+        Sugerido {offer.suggested_purchase_quantity} · MOQ {offer.minimum_order_quantity} · múltiplo {offer.purchase_multiple} · embalagem {offer.package_quantity} · prazo {offer.lead_time_min}–{offer.lead_time_max} dias
       </div>
       {selected && (
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#475569', fontSize: 12 }}>
-          Quantidade de {item.item_name}
+          Quantidade de {item.name}
           <input
             type="number"
-            min={offer.moq}
+            min={offer.minimum_order_quantity}
             step={offer.purchase_multiple}
-            aria-label={`Quantidade de ${item.item_name}`}
+            aria-label={`Quantidade de ${item.name}`}
             value={selected.quantity}
             onChange={event => onQuantity(Number(event.target.value))}
             style={{ width: 90, border: '1px solid #CBD5E1', borderRadius: 7, padding: '6px 8px' }}
@@ -96,22 +96,22 @@ export function ReplenishmentPage() {
   const selectedCount = useMemo(() => Object.keys(selected).length, [selected]);
 
   const createOrders = async () => {
-    const groups = new Map<string, Parameters<typeof replenishmentService.createPurchaseOrder>[0]>();
+    const unitId = suggestions.find(item => item.offers.some(offer => selected[offerKey(item.inventory_item_id, offer.supplier_offer_id)]))?.unit_id;
+    if (!unitId) return;
+
+    const items: Parameters<typeof replenishmentService.createPurchaseOrders>[0]['items'] = [];
     suggestions.forEach(item => item.offers.forEach(offer => {
-      const choice = selected[offerKey(item.inventory_item_id, offer.id)];
+      const choice = selected[offerKey(item.inventory_item_id, offer.supplier_offer_id)];
       if (!choice) return;
-      const key = `${item.unit_id}:${offer.supplier_id}`;
-      const group = groups.get(key) ?? { unit_id: item.unit_id, supplier_id: offer.supplier_id, items: [] };
-      group.items.push({ inventory_item_id: item.inventory_item_id, supplier_offer_id: offer.id, quantity: choice.quantity });
-      groups.set(key, group);
+      items.push({ supplier_offer_id: offer.supplier_offer_id, quantity: choice.quantity });
     }));
-    if (!groups.size) return;
+    if (!items.length) return;
 
     setCreating(true);
     try {
-      await Promise.all([...groups.values()].map(payload => replenishmentService.createPurchaseOrder(payload)));
+      await replenishmentService.createPurchaseOrders({ unit_id: unitId, items });
       setSelected({});
-      toast.success(groups.size === 1 ? 'Pedido de compra criado.' : 'Pedidos de compra criados.');
+      toast.success('Pedidos de compra criados.');
     } catch (createError) {
       toast.error(getApiErrorMessage(createError, 'Nao foi possivel criar os pedidos de compra.'));
     } finally {
@@ -136,7 +136,7 @@ export function ReplenishmentPage() {
           <button type="button" disabled={loading} onClick={() => void loadSuggestions()} style={{ border: '1px solid #CBD5E1', borderRadius: 10, padding: '10px 16px', color: '#475569', fontWeight: 700, background: '#fff', cursor: loading ? 'wait' : 'pointer' }}>
             Atualizar sugestões
           </button>
-          <button type="button" disabled={!selectedCount || creating || !hasPermission('tenant.procurement.purchase_orders.create')} onClick={() => void createOrders()} style={{ border: 0, borderRadius: 10, padding: '10px 16px', color: '#fff', fontWeight: 700, background: !selectedCount || creating || !hasPermission('tenant.procurement.purchase_orders.create') ? '#CBD5E1' : '#6366F1', cursor: !selectedCount || creating || !hasPermission('tenant.procurement.purchase_orders.create') ? 'not-allowed' : 'pointer' }}>
+          <button type="button" disabled={!selectedCount || creating || !hasPermission('tenant.procurement.purchase_orders.manage')} onClick={() => void createOrders()} style={{ border: 0, borderRadius: 10, padding: '10px 16px', color: '#fff', fontWeight: 700, background: !selectedCount || creating || !hasPermission('tenant.procurement.purchase_orders.manage') ? '#CBD5E1' : '#6366F1', cursor: !selectedCount || creating || !hasPermission('tenant.procurement.purchase_orders.manage') ? 'not-allowed' : 'pointer' }}>
             {creating ? 'Criando...' : 'Criar pedidos de compra'}
           </button>
         </div>
@@ -151,15 +151,15 @@ export function ReplenishmentPage() {
             <tbody>
               {suggestions.map(item => (
                 <tr key={item.inventory_item_id} style={{ borderTop: '1px solid #E2E8F0', verticalAlign: 'top' }}>
-                  <td style={{ padding: 14 }}><strong>{item.item_name}</strong><div style={{ color: '#64748B', fontSize: 12 }}>{item.sku}</div></td>
+                  <td style={{ padding: 14 }}><strong>{item.name}</strong></td>
                   <td style={{ padding: '14px 0' }}>{item.current_stock}</td>
                   <td style={{ padding: '14px 0' }}>{item.target_stock}</td>
                   <td style={{ padding: 14 }}>
                     {!item.offers.length && <span style={{ color: '#B45309', fontWeight: 700 }}>Sem oferta autorizada</span>}
                     {item.offers.map(offer => {
-                      const key = offerKey(item.inventory_item_id, offer.id);
-                      return <Offer key={offer.id} item={item} offer={offer} selected={selected[key]} onSelect={checked => setSelected(current => {
-                        if (checked) return { ...current, [key]: { quantity: offer.suggested_quantity } };
+                      const key = offerKey(item.inventory_item_id, offer.supplier_offer_id);
+                      return <Offer key={offer.supplier_offer_id} item={item} offer={offer} selected={selected[key]} onSelect={checked => setSelected(current => {
+                        if (checked) return { ...current, [key]: { quantity: offer.suggested_purchase_quantity } };
                         const next = { ...current }; delete next[key]; return next;
                       })} onQuantity={quantity => setSelected(current => ({ ...current, [key]: { quantity } }))} />;
                     })}

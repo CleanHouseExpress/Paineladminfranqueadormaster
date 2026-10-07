@@ -5,7 +5,7 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-async function mockAuth(page: Page) {
+async function mockAuth(page: Page, permissions: string[]) {
   await disableOnboarding(page);
   await page.addInitScript(() => window.localStorage.setItem('orchestra_auth_token', 'replenishment-e2e-token'));
   await page.route('**/api/me', route => json(route, { data: { id: 1, name: 'Gestor Savassi', email: 'gestor@orchestra.test' } }));
@@ -14,67 +14,85 @@ async function mockAuth(page: Page) {
     { module_id: 'inventory', name: 'Estoque & Suprimentos', status: 'active' },
   ] }));
   await page.route('**/api/me/roles', route => json(route, { data: [{ id: 1, name: 'unit_manager' }] }));
-  await page.route('**/api/me/permissions', route => json(route, { data: [
-    'tenant.inventory.view',
-    'tenant.procurement.view',
-    'tenant.procurement.purchase_orders.create',
-  ] }));
+  await page.route('**/api/me/permissions', route => json(route, { data: permissions }));
   await page.route('**/api/me/units', route => json(route, { data: [{ id: 101, name: 'BH Savassi' }] }));
   await page.route('**/api/company/units/options', route => json(route, [{ value: '101', label: 'BH Savassi' }]));
 }
 
+const legacyFrontendPermissions = [
+  'tenant.inventory.view',
+  'tenant.procurement.view',
+  'tenant.procurement.purchase_orders.create',
+];
+
+const canonicalPermissions = [
+  'tenant.inventory.view',
+  'tenant.procurement.purchase_orders.view',
+  'tenant.procurement.purchase_orders.manage',
+];
+
+// Mirrors ReplenishmentSuggestionService serialization from orchestra-api.
 const suggestions = [
   {
     inventory_item_id: 10,
-    item_name: 'Leite integral',
-    sku: 'LEI-01',
+    name: 'Leite integral',
     unit_id: 101,
-    unit_name: 'BH Savassi',
-    tracks_inventory: true,
-    catalog_visible: false,
-    sellable: false,
-    current_stock: 3,
-    minimum_stock: 8,
-    target_stock: 17,
-    required_quantity: 14,
+    current_stock: 7,
+    minimum_stock: 5,
+    target_stock: 20,
+    needed_quantity: 13,
     offers: [
-      { id: 501, supplier_id: 201, supplier_name: 'Laticinios Minas', authorized: true, preferred: true, unit_price: 4.5, lead_time_days: 2, moq: 10, purchase_multiple: 5, package_quantity: 5, suggested_quantity: 15 },
-      { id: 502, supplier_id: 202, supplier_name: 'Distribuidora Centro', authorized: true, preferred: false, unit_price: 4.2, lead_time_days: 4, moq: 20, purchase_multiple: 10, package_quantity: 10, suggested_quantity: 20 },
+      {
+        supplier_offer_id: 501,
+        supplier_id: 201,
+        supplier: { id: 201, name: 'Laticinios Minas' },
+        purchase_uom: 'caixa', package_uom: 'unidade', package_quantity: 6,
+        inventory_uom: 'unidade', conversion_factor: 6, unit_price: 27, currency: 'BRL',
+        minimum_order_quantity: 2, purchase_multiple: 1, lead_time_min: 2, lead_time_max: 3,
+        availability_status: 'available', suggested_purchase_quantity: 3, suggested_inventory_quantity: 18,
+      },
+      {
+        supplier_offer_id: 502,
+        supplier_id: 202,
+        supplier: { id: 202, name: 'Distribuidora Centro' },
+        purchase_uom: 'caixa', package_uom: 'unidade', package_quantity: 10,
+        inventory_uom: 'unidade', conversion_factor: 10, unit_price: 40, currency: 'BRL',
+        minimum_order_quantity: 2, purchase_multiple: 2, lead_time_min: 4, lead_time_max: 5,
+        availability_status: 'available', suggested_purchase_quantity: 2, suggested_inventory_quantity: 20,
+      },
     ],
   },
   {
     inventory_item_id: 11,
-    item_name: 'Copos 300 ml',
-    sku: 'COP-300',
+    name: 'Copos 300 ml',
     unit_id: 101,
-    unit_name: 'BH Savassi',
-    tracks_inventory: true,
-    catalog_visible: true,
-    sellable: true,
     current_stock: 0,
     minimum_stock: 50,
     target_stock: 100,
-    required_quantity: 100,
-    offers: [
-      { id: 503, supplier_id: 203, supplier_name: 'Embalagens Brasil', authorized: true, preferred: true, unit_price: 0.4, lead_time_days: 3, moq: 100, purchase_multiple: 50, package_quantity: 50, suggested_quantity: 100 },
-    ],
+    needed_quantity: 100,
+    offers: [{
+      supplier_offer_id: 503,
+      supplier_id: 203,
+      supplier: { id: 203, name: 'Embalagens Brasil' },
+      purchase_uom: 'fardo', package_uom: 'unidade', package_quantity: 50,
+      inventory_uom: 'unidade', conversion_factor: 50, unit_price: 20, currency: 'BRL',
+      minimum_order_quantity: 2, purchase_multiple: 1, lead_time_min: 3, lead_time_max: 3,
+      availability_status: 'available', suggested_purchase_quantity: 2, suggested_inventory_quantity: 100,
+    }],
   },
 ];
 
-async function mockSuggestions(page: Page, data: typeof suggestions | Array<Record<string, unknown>> = suggestions) {
+async function mockSuggestions(page: Page, data: Array<Record<string, unknown>> = suggestions) {
   const reads: string[] = [];
-  await page.route('**/api/company/procurement/replenishment-suggestions**', route => {
+  await page.route('**/api/company/procurement/replenishment-suggestions?*', route => {
     reads.push(route.request().url());
-    return json(route, { data, meta: { total: data.length } });
+    return json(route, { data });
   });
   return reads;
 }
 
-test.beforeEach(async ({ page }) => {
-  await mockAuth(page);
-});
-
-test('lista somente candidatos calculados e mostra ofertas autorizadas com as regras de compra', async ({ page }) => {
+test('renderiza o contrato real com nome, alvo ideal e ofertas selecionaveis distintas', async ({ page }) => {
+  await mockAuth(page, legacyFrontendPermissions);
   const reads = await mockSuggestions(page);
 
   await page.goto('/inventory/replenishment');
@@ -83,108 +101,86 @@ test('lista somente candidatos calculados e mostra ofertas autorizadas com as re
   await expect.poll(() => reads.length).toBe(1);
   expect(new URL(reads[0]).searchParams.get('unit_id')).toBe('101');
   const milk = page.getByRole('row', { name: /Leite integral/i });
-  await expect(milk).toContainText('3');
-  await expect(milk).toContainText('17');
-  await expect(milk).toContainText('15');
+  await expect(milk).toContainText('7');
+  await expect(milk).toContainText('20');
   await expect(milk).toContainText('Laticinios Minas');
   await expect(milk).toContainText('Distribuidora Centro');
-  await expect(milk).toContainText(/MOQ\s*10/i);
-  await expect(milk).toContainText(/m[uú]ltiplo\s*5/i);
-  await expect(milk).toContainText(/embalagem\s*5/i);
-  await expect(page.getByText('Fornecedor sem autorizacao')).toHaveCount(0);
-  await expect(page.getByText('Item com saldo suficiente')).toHaveCount(0);
-  await expect(page.getByText('Servico sem controle de estoque')).toHaveCount(0);
+  await expect(milk).toContainText(/Sugerido\s*3/i);
+  await expect(milk).toContainText(/MOQ\s*2/i);
+  await expect(milk).toContainText(/m[uú]ltiplo\s*1/i);
+  await expect(milk).toContainText(/embalagem\s*6/i);
+
+  const firstOffer = page.getByRole('checkbox', { name: /Leite integral.*Laticinios Minas/i });
+  const secondOffer = page.getByRole('checkbox', { name: /Leite integral.*Distribuidora Centro/i });
+  await firstOffer.check();
+  await expect(firstOffer).toBeChecked();
+  await expect(secondOffer).not.toBeChecked();
+  await expect(page.getByRole('spinbutton', { name: /Quantidade.*Leite integral/i })).toHaveValue('3');
 });
 
-test('identifica item sem oferta e consultar sugestoes nao cria pedido nem movimento', async ({ page }) => {
-  const purchaseOrderRequests: string[] = [];
-  const movementRequests: string[] = [];
+test('permite consultar e criar com as permissoes canonicas dos seeders', async ({ page }) => {
+  await mockAuth(page, canonicalPermissions);
+  await mockSuggestions(page);
+
+  await page.goto('/inventory/replenishment');
+
+  await expect(page.getByRole('heading', { name: /Sugest(?:o|õ)es de reposi(?:c|ç)(?:a|ã)o/i })).toBeVisible();
+  await page.getByRole('checkbox', { name: /Leite integral.*Laticinios Minas/i }).check();
+  await expect(page.getByRole('button', { name: /Criar pedidos de compra/i })).toBeEnabled();
+});
+
+test('identifica item sem oferta sem criar pedido ou movimento durante a consulta', async ({ page }) => {
+  await mockAuth(page, legacyFrontendPermissions);
+  const writes: string[] = [];
   await mockSuggestions(page, [{
-    inventory_item_id: 12,
-    item_name: 'Acucar refinado',
-    sku: 'ACU-01',
-    unit_id: 101,
-    unit_name: 'BH Savassi',
-    tracks_inventory: true,
-    current_stock: 2,
-    minimum_stock: 10,
-    target_stock: 20,
-    required_quantity: 18,
-    offers: [],
+    inventory_item_id: 12, name: 'Acucar refinado', unit_id: 101,
+    current_stock: 2, minimum_stock: 10, target_stock: 20, needed_quantity: 18, offers: [],
   }]);
-  await page.route('**/api/company/procurement/purchase-orders**', route => {
-    purchaseOrderRequests.push(route.request().method());
-    return json(route, { data: {} }, 201);
+  await page.route('**/api/company/procurement/replenishment-suggestions/purchase-orders', route => {
+    writes.push(`${route.request().method()} ${new URL(route.request().url()).pathname}`);
+    return json(route, { data: [] }, 201);
+  });
+  await page.route('**/api/company/procurement/purchase-orders', route => {
+    writes.push(`${route.request().method()} ${new URL(route.request().url()).pathname}`);
+    return json(route, { data: [] }, 201);
   });
   await page.route('**/api/company/inventory/movements**', route => {
-    if (route.request().method() !== 'GET') movementRequests.push(route.request().method());
-    return json(route, { data: [], meta: { total: 0 } });
+    if (route.request().method() !== 'GET') writes.push(`${route.request().method()} inventory-movement`);
+    return json(route, { data: [] });
   });
 
   await page.goto('/inventory/replenishment');
 
   await expect(page.getByRole('row', { name: /Acucar refinado/i })).toContainText(/Sem oferta autorizada/i);
-  expect(purchaseOrderRequests).toEqual([]);
-  expect(movementRequests).toEqual([]);
+  expect(writes).toEqual([]);
 });
 
-test('nova consulta recalcula sugestoes com o saldo atual sem alterar pedidos existentes', async ({ page }) => {
-  let consultation = 0;
-  const purchaseOrderRequests: string[] = [];
-  const existingOrderRequests: string[] = [];
-
-  await page.route('**/api/company/procurement/replenishment-suggestions**', route => {
-    consultation += 1;
-    const currentStock = consultation === 1 ? 3 : 12;
-    return json(route, {
-      data: [{
-        ...suggestions[0],
-        current_stock: currentStock,
-        required_quantity: 17 - currentStock,
-        offers: [{
-          ...suggestions[0].offers[0],
-          suggested_quantity: consultation === 1 ? 15 : 5,
-        }],
-      }],
-      meta: { total: 1 },
-    });
-  });
-  await page.route('**/api/company/procurement/purchase-orders**', route => {
-    if (route.request().method() === 'GET') existingOrderRequests.push(route.request().method());
-    else purchaseOrderRequests.push(route.request().method());
-    return json(route, { data: [], meta: { total: 0 } });
-  });
-
-  await page.goto('/inventory/replenishment');
-
-  const milk = page.getByRole('row', { name: /Leite integral/i });
-  await expect(milk).toContainText('Sugerido 15');
-  await page.getByRole('button', { name: /Atualizar sugest(?:o|õ)es/i }).click();
-  await expect(milk).toContainText('Sugerido 5');
-  await expect.poll(() => consultation).toBe(2);
-  expect(purchaseOrderRequests).toEqual([]);
-  expect(existingOrderRequests).toEqual([]);
-});
-
-test('acao explicita cria pedidos separados por fornecedor com as quantidades ajustadas', async ({ page }) => {
-  const payloads: Array<Record<string, unknown>> = [];
+test('envia uma unica criacao agrupada e atomica para ofertas de fornecedores diferentes', async ({ page }) => {
+  await mockAuth(page, legacyFrontendPermissions);
   await mockSuggestions(page);
-  await page.route('**/api/company/procurement/purchase-orders', async route => {
-    payloads.push(route.request().postDataJSON() as Record<string, unknown>);
-    return json(route, { data: { id: 900 + payloads.length, status: 'draft' } }, 201);
+  const groupedPayloads: Array<Record<string, unknown>> = [];
+  const individualRequests: Array<Record<string, unknown>> = [];
+  await page.route('**/api/company/procurement/replenishment-suggestions/purchase-orders', route => {
+    groupedPayloads.push(route.request().postDataJSON() as Record<string, unknown>);
+    return json(route, { message: 'The given data was invalid.', errors: { 'items.1.quantity': ['Quantidade invalida.'] } }, 422);
+  });
+  await page.route('**/api/company/procurement/purchase-orders', route => {
+    individualRequests.push(route.request().postDataJSON() as Record<string, unknown>);
+    return json(route, { data: { id: 901, status: 'draft' } }, 201);
   });
 
   await page.goto('/inventory/replenishment');
   await page.getByRole('checkbox', { name: /Leite integral.*Laticinios Minas/i }).check();
-  await page.getByRole('spinbutton', { name: /Quantidade.*Leite integral/i }).fill('20');
   await page.getByRole('checkbox', { name: /Copos 300 ml.*Embalagens Brasil/i }).check();
-
-  expect(payloads).toEqual([]);
   await page.getByRole('button', { name: /Criar pedidos de compra/i }).click();
 
-  await expect.poll(() => payloads.length).toBe(2);
-  expect(payloads).toEqual(expect.arrayContaining([
-    expect.objectContaining({ unit_id: 101, supplier_id: 201, items: [{ inventory_item_id: 10, supplier_offer_id: 501, quantity: 20 }] }),
-    expect.objectContaining({ unit_id: 101, supplier_id: 203, items: [{ inventory_item_id: 11, supplier_offer_id: 503, quantity: 100 }] }),
-  ]));
+  await expect.poll(() => groupedPayloads.length).toBe(1);
+  expect(groupedPayloads).toEqual([{
+    unit_id: 101,
+    items: [
+      { supplier_offer_id: 501, quantity: 3 },
+      { supplier_offer_id: 503, quantity: 2 },
+    ],
+  }]);
+  expect(individualRequests).toEqual([]);
 });

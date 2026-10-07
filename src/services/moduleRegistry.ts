@@ -313,7 +313,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
       { path: '/inventory/locations', componentId: 'inventory-locations', requiredPermissions: ['tenant.inventory.view'] },
       { path: '/inventory/unit-items', componentId: 'inventory-unit-items', requiredPermissions: ['tenant.inventory.view'] },
       { path: '/inventory/balances', componentId: 'inventory-balances', requiredPermissions: ['tenant.inventory.view'] },
-      { path: '/inventory/replenishment', componentId: 'inventory-replenishment', moduleId: 'inventory', requiredPermissions: ['tenant.inventory.view', 'tenant.procurement.view'] },
+      { path: '/inventory/replenishment', componentId: 'inventory-replenishment', moduleId: 'inventory', requiredPermissions: ['tenant.inventory.view', 'tenant.procurement.purchase_orders.view'] },
       { path: '/inventory/movements', componentId: 'inventory-movements', requiredPermissions: ['tenant.inventory.view'] },
       { path: '/inventory/settings', componentId: 'inventory-settings', requiredPermissions: ['tenant.inventory.configure'] },
       { path: '/inventory/transfers', componentId: 'inventory-transfers', requiredPermissions: ['tenant.inventory.view'] },
