@@ -96,6 +96,60 @@ test('master habilita e desabilita fornecedor Orchestra explicitamente para sua 
   await expect(page.getByRole('button', { name: 'Habilitar para a rede' })).toBeVisible();
 });
 
+test('master pode liberar fornecedor para unidade retornada em pagina posterior', async ({ page }) => {
+  await mockAuth(page);
+
+  let enablePayload: unknown = null;
+
+  await page.route('**/api/company/units**', route => {
+    const pageNumber = new URL(route.request().url()).searchParams.get('page') ?? '1';
+
+    if (pageNumber === '2') {
+      return json(route, {
+        data: [{ id: 201, name: 'Unidade Centesima Primeira' }],
+        meta: { current_page: 2, last_page: 2, per_page: 100, total: 101 },
+      });
+    }
+
+    return json(route, {
+      data: [{ id: 101, name: 'Primeira Unidade' }],
+      meta: { current_page: 1, last_page: 2, per_page: 100, total: 101 },
+    });
+  });
+  await page.route('**/api/company/inventory/items**', route => json(route, { data: [], meta: { total: 0 } }));
+  await page.route('**/api/company/inventory/categories**', route => json(route, { data: [], meta: { total: 0 } }));
+  await page.route('**/api/company/inventory/suppliers?per_page=100', route => json(route, { data: [], meta: { total: 0 } }));
+  await page.route('**/api/company/inventory/global-suppliers**', route => {
+    const request = route.request();
+    const pathname = new URL(request.url()).pathname;
+
+    if (request.method() === 'POST' && pathname.endsWith('/51/enable')) {
+      const body = request.postData();
+      enablePayload = body ? JSON.parse(body) : null;
+      return json(route, { data: { id: 901, global_supplier_id: 51 } }, 201);
+    }
+
+    return json(route, { data: [{
+      id: 51,
+      name: 'Cafes Orchestra',
+      document: '12.345.678/0001-90',
+      active: true,
+      enabled: false,
+      offers: [{ id: 71, name: 'Cafe Especial 1kg', active: true }],
+    }] });
+  });
+
+  await page.goto('/inventory/suppliers');
+
+  await page.getByRole('checkbox', { name: 'Cafe Especial 1kg' }).check();
+  const laterPageUnit = page.getByRole('checkbox', { name: 'Unidade Centesima Primeira' });
+  await expect(laterPageUnit).toBeVisible();
+  await laterPageUnit.check();
+  await page.getByRole('button', { name: 'Habilitar para a rede' }).click();
+
+  expect(enablePayload).toEqual({ offer_ids: [71], unit_ids: [201] });
+});
+
 test('permissao delegada de unidade nao expoe o catalogo central nem controles de rede', async ({ page }) => {
   await mockAuth(page, [
     'tenant.inventory.view',

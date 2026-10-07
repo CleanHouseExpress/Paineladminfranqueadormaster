@@ -879,12 +879,23 @@ export function InventorySuppliers() {
     setGlobalLoading(true);
     setGlobalError('');
     try {
-      const [nextGlobalSuppliers, unitsResponse] = await Promise.all([
+      const [nextGlobalSuppliers, firstUnitsPage] = await Promise.all([
         inventoryService.listGlobalSuppliers(),
         unitManagementService.listUnits({ per_page: 100 }),
       ]);
+      const remainingUnitPages = Array.from(
+        { length: Math.max(0, firstUnitsPage.meta.last_page - 1) },
+        (_, index) => index + 2,
+      );
+      const remainingUnitsResponses = await Promise.all(
+        remainingUnitPages.map(page => unitManagementService.listUnits({ per_page: 100, page })),
+      );
+      const allUnits = [
+        ...firstUnitsPage.data,
+        ...remainingUnitsResponses.flatMap(response => response.data),
+      ];
       setGlobalSuppliers(nextGlobalSuppliers);
-      setUnits(unitsResponse.data.map(unit => ({ value: unit.id, label: unit.name })));
+      setUnits(allUnits.map(unit => ({ value: unit.id, label: unit.name })));
     } catch (loadError) {
       setGlobalError(getApiErrorMessage(loadError, 'Não foi possível carregar o catálogo Orchestra.'));
     } finally {
