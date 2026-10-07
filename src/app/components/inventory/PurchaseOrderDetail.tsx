@@ -108,7 +108,14 @@ export function PurchaseOrderDetailPage() {
     setSubmitError('');
     try {
       const dispatch = await orderDispatchService.create(id, channel, recipient, idempotencyKey.current);
-      setOrder(current => current ? { ...current, dispatches: [dispatch, ...current.dispatches] } : current);
+      setOrder(current => current ? {
+        ...current,
+        dispatches: [dispatch, ...current.dispatches.filter(item => item.id !== dispatch.id)],
+      } : current);
+      if (dispatch.status === 'failed') {
+        setSubmitError(dispatch.last_error || 'Não foi possível enviar o pedido.');
+        return;
+      }
       idempotencyKey.current = '';
       setDialogOpen(false);
     } catch (requestError) {

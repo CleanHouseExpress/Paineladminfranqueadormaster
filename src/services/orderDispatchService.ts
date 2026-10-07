@@ -27,19 +27,12 @@ export interface PurchaseOrder {
   } | null;
   unit: { id: number; name: string };
   total: number;
+  allowed_dispatch_channels?: string[];
 }
 
 export interface PurchaseOrderDispatchData extends PurchaseOrder {
   allowed_dispatch_channels: OrderDispatchChannel[];
   dispatches: OrderDispatch[];
-}
-
-interface ProcurementPolicy {
-  procurement_enabled?: boolean;
-  manual_dispatch_enabled?: boolean;
-  email_dispatch_enabled?: boolean;
-  whatsapp_dispatch_enabled?: boolean;
-  api_dispatch_enabled?: boolean;
 }
 
 interface DataResponse<T> {
@@ -56,32 +49,18 @@ function normalizeDispatch(dispatch: Omit<OrderDispatch, 'channel'> & { channel:
   return { ...dispatch, channel: normalizeChannel(dispatch.channel) };
 }
 
-function allowedChannels(policy: ProcurementPolicy): OrderDispatchChannel[] {
-  if (policy.procurement_enabled === false) return [];
-
-  const channelFlags: Array<[OrderDispatchChannel, boolean | undefined]> = [
-    ['manual', policy.manual_dispatch_enabled],
-    ['email', policy.email_dispatch_enabled],
-    ['whatsapp', policy.whatsapp_dispatch_enabled],
-    ['api', policy.api_dispatch_enabled],
-  ];
-
-  return channelFlags.filter(([, enabled]) => enabled === true).map(([channel]) => channel);
-}
-
 export const orderDispatchService = {
   getPurchaseOrder: async (id: string): Promise<PurchaseOrderDispatchData> => {
     const orderPath = `${procurementPath}/purchase-orders/${id}`;
-    const [orderResponse, policyResponse, dispatchResponse] = await Promise.all([
+    const [orderResponse, dispatchResponse] = await Promise.all([
       apiClient.get<DataResponse<PurchaseOrder>>(orderPath),
-      apiClient.get<DataResponse<ProcurementPolicy>>(`${procurementPath}/policy`),
       apiClient.get<DataResponse<Array<Omit<OrderDispatch, 'channel'> & { channel: string }>>>(`${orderPath}/dispatches`),
     ]);
 
     return {
       ...orderResponse.data,
       status: orderResponse.data.status.toLowerCase(),
-      allowed_dispatch_channels: allowedChannels(policyResponse.data),
+      allowed_dispatch_channels: (orderResponse.data.allowed_dispatch_channels ?? []).map(normalizeChannel),
       dispatches: dispatchResponse.data.map(normalizeDispatch),
     };
   },
