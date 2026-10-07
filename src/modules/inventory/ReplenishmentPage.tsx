@@ -8,8 +8,8 @@ import {
   replenishmentService,
   type ReplenishmentOffer,
   type ReplenishmentSuggestion,
+  type ReplenishmentUnit,
 } from '../../services/replenishmentService';
-import { unitManagementService } from '../../services/unitManagementService';
 import { usePermission } from '../../shared/hooks/usePermission';
 
 type SelectedOffer = { quantity: number };
@@ -68,20 +68,19 @@ function Offer({
 
 export function ReplenishmentPage() {
   const { hasPermission } = usePermission();
+  const [units, setUnits] = useState<ReplenishmentUnit[]>([]);
+  const [unitId, setUnitId] = useState<number | null>(null);
   const [suggestions, setSuggestions] = useState<ReplenishmentSuggestion[]>([]);
   const [selected, setSelected] = useState<Record<string, SelectedOffer>>({});
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
 
-  const loadSuggestions = useCallback(async () => {
+  const loadSuggestions = useCallback(async (selectedUnitId: number) => {
     setLoading(true);
     setError('');
     try {
-      const units = await unitManagementService.getUnitOptions();
-      const unitId = Number(units[0]?.value);
-      if (!unitId) throw new Error('Nenhuma unidade disponivel.');
-      setSuggestions(await replenishmentService.listSuggestions(unitId));
+      setSuggestions(await replenishmentService.listSuggestions(selectedUnitId));
     } catch (loadError) {
       setError(getApiErrorMessage(loadError, 'Nao foi possivel carregar as sugestoes.'));
     } finally {
@@ -90,13 +89,30 @@ export function ReplenishmentPage() {
   }, []);
 
   useEffect(() => {
-    void loadSuggestions();
-  }, [loadSuggestions]);
+    void replenishmentService.listAccessibleUnits()
+      .then(accessibleUnits => {
+        const firstUnitId = Number(accessibleUnits[0]?.id);
+        if (!firstUnitId) throw new Error('Nenhuma unidade disponivel.');
+        setUnits(accessibleUnits);
+        setUnitId(firstUnitId);
+      })
+      .catch(loadError => {
+        setError(getApiErrorMessage(loadError, 'Nao foi possivel carregar as unidades.'));
+        setLoading(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (unitId) void loadSuggestions(unitId);
+  }, [loadSuggestions, unitId]);
 
   const selectedCount = useMemo(() => Object.keys(selected).length, [selected]);
+  const selectedUnit = useMemo(
+    () => units.find(unit => Number(unit.id) === unitId),
+    [unitId, units],
+  );
 
   const createOrders = async () => {
-    const unitId = suggestions.find(item => item.offers.some(offer => selected[offerKey(item.inventory_item_id, offer.supplier_offer_id)]))?.unit_id;
     if (!unitId) return;
 
     const items: Parameters<typeof replenishmentService.createPurchaseOrders>[0]['items'] = [];
@@ -133,7 +149,24 @@ export function ReplenishmentPage() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button type="button" disabled={loading} onClick={() => void loadSuggestions()} style={{ border: '1px solid #CBD5E1', borderRadius: 10, padding: '10px 16px', color: '#475569', fontWeight: 700, background: '#fff', cursor: loading ? 'wait' : 'pointer' }}>
+          <label style={{ display: 'grid', gap: 3, color: '#475569', fontSize: 12, fontWeight: 700 }}>
+            Unidade
+            <select
+              aria-label="Unidade"
+              value={unitId ?? ''}
+              disabled={loading || !units.length}
+              onChange={event => {
+                setSelected({});
+                setSuggestions([]);
+                setUnitId(Number(event.target.value));
+              }}
+              style={{ border: '1px solid #CBD5E1', borderRadius: 10, padding: '9px 12px', color: '#334155', background: '#fff' }}
+            >
+              {units.map(unit => <option key={unit.id} value={unit.id}>{unit.name} (#{unit.id})</option>)}
+            </select>
+            {selectedUnit && <span style={{ fontSize: 11, fontWeight: 600, color: '#64748B' }}>{selectedUnit.name}</span>}
+          </label>
+          <button type="button" disabled={loading || !unitId} onClick={() => unitId && void loadSuggestions(unitId)} style={{ border: '1px solid #CBD5E1', borderRadius: 10, padding: '10px 16px', color: '#475569', fontWeight: 700, background: '#fff', cursor: loading ? 'wait' : 'pointer' }}>
             Atualizar sugestões
           </button>
           <button type="button" disabled={!selectedCount || creating || !hasPermission('tenant.procurement.purchase_orders.manage')} onClick={() => void createOrders()} style={{ border: 0, borderRadius: 10, padding: '10px 16px', color: '#fff', fontWeight: 700, background: !selectedCount || creating || !hasPermission('tenant.procurement.purchase_orders.manage') ? '#CBD5E1' : '#6366F1', cursor: !selectedCount || creating || !hasPermission('tenant.procurement.purchase_orders.manage') ? 'not-allowed' : 'pointer' }}>

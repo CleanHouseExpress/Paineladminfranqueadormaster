@@ -38,6 +38,15 @@ interface SuggestionsResponse {
   data: ReplenishmentSuggestion[];
 }
 
+export interface ReplenishmentUnit {
+  id: string | number;
+  name: string;
+}
+
+interface UnitsResponse {
+  data: ReplenishmentUnit[];
+}
+
 export interface PurchaseOrderItem {
   supplier_offer_id: number;
   quantity: number;
@@ -49,6 +58,10 @@ export interface CreatePurchaseOrdersPayload {
 }
 
 export const replenishmentService = {
+  listAccessibleUnits: async () => (
+    await apiClient.get<UnitsResponse>('/api/me/units')
+  ).data,
+
   listSuggestions: async (unitId: number) => (
     await apiClient.get<SuggestionsResponse>(
       `/api/company/procurement/replenishment-suggestions?unit_id=${encodeURIComponent(unitId)}`,

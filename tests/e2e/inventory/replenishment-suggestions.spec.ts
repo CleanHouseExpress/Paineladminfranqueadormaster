@@ -5,7 +5,11 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-async function mockAuth(page: Page, permissions: string[]) {
+async function mockAuth(
+  page: Page,
+  permissions: string[],
+  units = [{ id: 101, name: 'BH Savassi' }],
+) {
   await disableOnboarding(page);
   await page.addInitScript(() => window.localStorage.setItem('orchestra_auth_token', 'replenishment-e2e-token'));
   await page.route('**/api/me', route => json(route, { data: { id: 1, name: 'Gestor Savassi', email: 'gestor@orchestra.test' } }));
@@ -15,8 +19,8 @@ async function mockAuth(page: Page, permissions: string[]) {
   ] }));
   await page.route('**/api/me/roles', route => json(route, { data: [{ id: 1, name: 'unit_manager' }] }));
   await page.route('**/api/me/permissions', route => json(route, { data: permissions }));
-  await page.route('**/api/me/units', route => json(route, { data: [{ id: 101, name: 'BH Savassi' }] }));
-  await page.route('**/api/company/units/options', route => json(route, [{ value: '101', label: 'BH Savassi' }]));
+  await page.route('**/api/me/units', route => json(route, { data: units }));
+  await page.route('**/api/company/units/options', route => json(route, units.map(unit => ({ value: String(unit.id), label: unit.name }))));
 }
 
 const legacyFrontendPermissions = [
@@ -127,6 +131,63 @@ test('permite consultar e criar com as permissoes canonicas dos seeders', async 
   await expect(page.getByRole('heading', { name: /Sugest(?:o|õ)es de reposi(?:c|ç)(?:a|ã)o/i })).toBeVisible();
   await page.getByRole('checkbox', { name: /Leite integral.*Laticinios Minas/i }).check();
   await expect(page.getByRole('button', { name: /Criar pedidos de compra/i })).toBeEnabled();
+});
+
+test('permite escolher entre unidades acessiveis e limpa a selecao ao trocar de unidade', async ({ page }) => {
+  await mockAuth(page, canonicalPermissions, [
+    { id: 101, name: 'BH Savassi' },
+    { id: 202, name: 'SP Centro' },
+  ]);
+  const requestedUnits: string[] = [];
+  const orderPayloads: Array<Record<string, unknown>> = [];
+  await page.route('**/api/company/procurement/replenishment-suggestions?*', route => {
+    const unitId = new URL(route.request().url()).searchParams.get('unit_id') ?? '';
+    requestedUnits.push(unitId);
+    return json(route, { data: suggestions.map(item => ({ ...item, unit_id: Number(unitId) })) });
+  });
+  await page.route('**/api/company/procurement/replenishment-suggestions/purchase-orders', route => {
+    orderPayloads.push(route.request().postDataJSON() as Record<string, unknown>);
+    return json(route, { data: [{ id: 901, status: 'draft' }] }, 201);
+  });
+
+  await page.goto('/inventory/replenishment');
+
+  const unitSelector = page.getByRole('combobox', { name: /Unidade/i });
+  await expect(unitSelector).toHaveValue('101');
+  await expect(page.getByText('BH Savassi', { exact: true })).toBeVisible();
+  await page.getByRole('checkbox', { name: /Leite integral.*Laticinios Minas/i }).check();
+
+  await unitSelector.selectOption('202');
+
+  await expect.poll(() => requestedUnits).toEqual(['101', '202']);
+  await expect(unitSelector).toHaveValue('202');
+  await expect(page.getByText('SP Centro', { exact: true })).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: /Leite integral.*Laticinios Minas/i })).not.toBeChecked();
+  await expect(page.getByRole('button', { name: /Criar pedidos de compra/i })).toBeDisabled();
+
+  await page.getByRole('checkbox', { name: /Leite integral.*Laticinios Minas/i }).check();
+  await page.getByRole('button', { name: /Criar pedidos de compra/i }).click();
+  await expect.poll(() => orderPayloads.length).toBe(1);
+  expect(orderPayloads[0]).toMatchObject({ unit_id: 202 });
+});
+
+test('consulta sugestoes com UnitAccess sem depender da permissao administrativa de unidades', async ({ page }) => {
+  await mockAuth(page, canonicalPermissions, [{ id: 101, name: 'BH Savassi' }]);
+  await page.unroute('**/api/company/units/options');
+  let administrativeUnitDiscoveryCalls = 0;
+  await page.route('**/api/company/units/options', route => {
+    administrativeUnitDiscoveryCalls += 1;
+    return json(route, { message: 'This action is unauthorized.' }, 403);
+  });
+  const reads = await mockSuggestions(page);
+
+  await page.goto('/inventory/replenishment');
+
+  await expect(page.getByRole('heading', { name: /Sugest(?:o|õ)es de reposi(?:c|ç)(?:a|ã)o/i })).toBeVisible();
+  await expect(page.getByRole('row', { name: /Leite integral/i })).toBeVisible();
+  await expect.poll(() => reads.length).toBe(1);
+  expect(new URL(reads[0]).searchParams.get('unit_id')).toBe('101');
+  expect(administrativeUnitDiscoveryCalls).toBe(0);
 });
 
 test('identifica item sem oferta sem criar pedido ou movimento durante a consulta', async ({ page }) => {
