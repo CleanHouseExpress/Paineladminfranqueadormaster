@@ -319,7 +319,7 @@ export const MODULE_REGISTRY: ModuleDefinition[] = [
       { path: '/inventory/counts', componentId: 'inventory-counts', requiredPermissions: ['tenant.inventory.stock_counts.view'] },
       { path: '/inventory/counts/new', componentId: 'inventory-count-detail', requiredPermissions: ['tenant.inventory.stock_counts.create'] },
       { path: '/inventory/counts/:id', componentId: 'inventory-count-detail', requiredPermissions: ['tenant.inventory.stock_counts.view'] },
-      { path: '/inventory/purchase-orders/:id', componentId: 'purchase-order-detail', requiredPermissions: ['tenant.purchase-orders.view'] },
+      { path: '/inventory/purchase-orders/:id', componentId: 'purchase-order-detail', requiredPermissions: ['tenant.procurement.purchase_orders.view'] },
     ],
     marketplace: { show: true, category: 'Operação', price: 'Incluso' },
   },

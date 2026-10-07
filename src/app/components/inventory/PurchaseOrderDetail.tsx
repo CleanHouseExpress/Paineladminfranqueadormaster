@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router';
 import { Send } from 'lucide-react';
 
@@ -9,7 +9,7 @@ import {
   orderDispatchService,
   type OrderDispatch,
   type OrderDispatchChannel,
-  type PurchaseOrder,
+  type PurchaseOrderDispatchData,
 } from '../../../services/orderDispatchService';
 import { Button } from '../ui/button';
 import {
@@ -17,10 +17,10 @@ import {
 } from '../ui/dialog';
 
 const channelLabels: Record<OrderDispatchChannel, string> = {
-  MANUAL: 'Manual',
-  EMAIL: 'E-mail',
-  WHATSAPP: 'WhatsApp',
-  API: 'API',
+  manual: 'Manual',
+  email: 'E-mail',
+  whatsapp: 'WhatsApp',
+  api: 'API',
 };
 
 const statusLabels: Record<OrderDispatch['status'], string> = {
@@ -68,13 +68,14 @@ function DispatchHistory({ dispatches }: { dispatches: OrderDispatch[] }) {
 export function PurchaseOrderDetailPage() {
   const { id = '' } = useParams();
   const { hasPermission } = usePermission();
-  const [order, setOrder] = useState<PurchaseOrder | null>(null);
+  const [order, setOrder] = useState<PurchaseOrderDispatchData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [channel, setChannel] = useState<OrderDispatchChannel | ''>('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const idempotencyKey = useRef('');
 
   useEffect(() => {
     let active = true;
@@ -94,11 +95,21 @@ export function PurchaseOrderDetailPage() {
 
   async function confirmDispatch() {
     if (!channel || !order) return;
+    const recipient = order.supplier_snapshot?.email
+      ?? order.supplier.email
+      ?? order.supplier_snapshot?.contact_name
+      ?? order.supplier.name;
+    if (!idempotencyKey.current) {
+      idempotencyKey.current = typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `order-dispatch-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    }
     setSubmitting(true);
     setSubmitError('');
     try {
-      const dispatch = await orderDispatchService.create(id, channel);
+      const dispatch = await orderDispatchService.create(id, channel, recipient, idempotencyKey.current);
       setOrder(current => current ? { ...current, dispatches: [dispatch, ...current.dispatches] } : current);
+      idempotencyKey.current = '';
       setDialogOpen(false);
     } catch (requestError) {
       setSubmitError(getApiErrorMessage(requestError, 'Não foi possível enviar o pedido.'));
@@ -107,12 +118,20 @@ export function PurchaseOrderDetailPage() {
     }
   }
 
+  function setDispatchDialogOpen(open: boolean) {
+    if (!open) {
+      idempotencyKey.current = '';
+      setSubmitError('');
+    }
+    setDialogOpen(open);
+  }
+
   if (loading) return <ModuleStateView state="loading" />;
   if (error || !order) return <ModuleStateView state="error" errorMessage={error || 'Pedido não encontrado.'} />;
 
   const canDispatch = order.status === 'approved'
     && order.allowed_dispatch_channels.length > 0
-    && hasPermission('tenant.order-dispatches.create');
+    && hasPermission('tenant.procurement.purchase_orders.dispatch');
 
   return (
     <div style={pageStyle}>
@@ -124,7 +143,7 @@ export function PurchaseOrderDetailPage() {
           </span>
         </div>
         {canDispatch && (
-          <Button onClick={() => setDialogOpen(true)}><Send /> Enviar pedido</Button>
+          <Button onClick={() => setDispatchDialogOpen(true)}><Send /> Enviar pedido</Button>
         )}
       </div>
 
@@ -135,7 +154,7 @@ export function PurchaseOrderDetailPage() {
 
       <DispatchHistory dispatches={order.dispatches} />
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={setDispatchDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Despachar pedido</DialogTitle>
@@ -146,7 +165,10 @@ export function PurchaseOrderDetailPage() {
             <select
               id="dispatch-channel"
               value={channel}
-              onChange={event => setChannel(event.target.value as OrderDispatchChannel)}
+              onChange={event => {
+                idempotencyKey.current = '';
+                setChannel(event.target.value as OrderDispatchChannel);
+              }}
               style={{ height: 38, border: '1px solid #CBD5E1', borderRadius: 8, padding: '0 10px', background: '#fff' }}
             >
               {order.allowed_dispatch_channels.map(item => (
@@ -156,7 +178,7 @@ export function PurchaseOrderDetailPage() {
           </label>
           {submitError && <p role="alert" style={{ margin: 0, color: '#B91C1C', fontSize: 13 }}>{submitError}</p>}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={submitting}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setDispatchDialogOpen(false)} disabled={submitting}>Cancelar</Button>
             <Button onClick={() => void confirmDispatch()} disabled={!channel || submitting}>
               {submitting ? 'Enviando...' : 'Confirmar envio'}
             </Button>

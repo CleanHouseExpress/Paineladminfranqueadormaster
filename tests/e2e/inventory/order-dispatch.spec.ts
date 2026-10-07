@@ -19,40 +19,72 @@ async function mockAuth(page: Page) {
   await page.route('**/api/me/roles', route => json(route, { data: [{ id: 1, name: 'company_admin' }] }));
   await page.route('**/api/me/permissions', route => json(route, { data: [
     'tenant.inventory.view',
-    'tenant.purchase-orders.view',
-    'tenant.order-dispatches.create',
+    'tenant.procurement.purchase_orders.view',
+    'tenant.procurement.purchase_orders.dispatch',
+    'tenant.procurement.policy.view',
   ] }));
   await page.route('**/api/me/units', route => json(route, []));
 }
 
-test('pedido de compra aprovado permite dispatch manual e exibe o resultado no historico', async ({ page }) => {
+const order = {
+  id: 193,
+  number: 'PC-00193',
+  status: 'approved',
+  supplier: { id: 31, name: 'Fornecedor Central', document: '12345678000199' },
+  supplier_snapshot: {
+    id: 31,
+    name: 'Fornecedor Central',
+    document: '12345678000199',
+    email: 'pedidos@fornecedor.test',
+    phone: null,
+    contact_name: 'Equipe de compras',
+  },
+  unit: { id: 101, name: 'Unidade Centro', code: 'CENTRO' },
+  total: 1250,
+};
+
+const policy = {
+  procurement_enabled: true,
+  manual_dispatch_enabled: true,
+  email_dispatch_enabled: false,
+  whatsapp_dispatch_enabled: false,
+  api_dispatch_enabled: false,
+  effective: { procurement_enabled: true, supplier_management_enabled: true },
+};
+
+test('pedido aprovado usa os contratos reais de procurement para dispatch manual', async ({ page }) => {
   await mockAuth(page);
 
-  const order = {
-    id: 193,
-    number: 'PC-00193',
-    status: 'approved',
-    supplier: { id: 31, name: 'Fornecedor Central', email: 'pedidos@fornecedor.test' },
-    unit: { id: 101, name: 'Unidade Centro' },
-    total: 1250,
-    allowed_dispatch_channels: ['MANUAL'],
-    dispatches: [],
-  };
   let dispatchPayload: Record<string, unknown> | undefined;
+  const idempotencyKeys: Array<string | undefined> = [];
+  let dispatchAttempts = 0;
 
-  await page.route('**/api/v1/purchase-orders/193', route => json(route, { data: order }));
-  await page.route('**/api/v1/purchase-orders/193/dispatches', route => {
+  await page.route('**/api/company/procurement/purchase-orders/193', route => json(route, { data: order }));
+  await page.route('**/api/company/procurement/policy', route => json(route, { data: policy }));
+  await page.route('**/api/company/procurement/purchase-orders/193/dispatches', route => {
+    if (route.request().method() === 'GET') return json(route, { data: [] });
+
+    dispatchAttempts += 1;
     dispatchPayload = route.request().postDataJSON() as Record<string, unknown>;
+    idempotencyKeys.push(route.request().headers()['idempotency-key']);
+    if (dispatchAttempts === 1) {
+      return json(route, { message: 'Falha temporária no dispatch.' }, 503);
+    }
     return json(route, {
       data: {
         id: 901,
-        channel: 'MANUAL',
+        purchase_order_id: 193,
+        channel: 'manual',
         status: 'sent',
-        recipient: 'Fornecedor Central',
+        recipient: 'pedidos@fornecedor.test',
         attempts: 1,
+        payload_snapshot: { order_number: 'PC-00193' },
         external_reference: null,
         last_error: null,
+        attempted_at: '2026-10-05T22:20:05Z',
+        sent_at: '2026-10-05T22:20:05Z',
         created_at: '2026-10-05T22:20:05Z',
+        updated_at: '2026-10-05T22:20:05Z',
       },
     }, 201);
   });
@@ -64,43 +96,46 @@ test('pedido de compra aprovado permite dispatch manual e exibe o resultado no h
   await page.getByRole('button', { name: /Enviar pedido/i }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('heading', { name: /Despachar pedido/i })).toBeVisible();
-  await expect(dialog.getByLabel(/Canal/i)).toHaveValue('MANUAL');
+  await expect(dialog.getByLabel(/Canal/i)).toHaveValue('manual');
   await expect(dialog.getByRole('option', { name: /E-mail|WhatsApp|API/i })).toHaveCount(0);
   await dialog.getByRole('button', { name: /Confirmar envio/i }).click();
+  await expect(dialog.getByRole('alert')).toContainText('Falha temporária no dispatch.');
+  await dialog.getByRole('button', { name: /Confirmar envio/i }).click();
 
-  expect(dispatchPayload).toMatchObject({ channel: 'MANUAL' });
+  expect(dispatchAttempts).toBe(2);
+  expect(dispatchPayload).toEqual({ channel: 'manual', recipient: 'pedidos@fornecedor.test' });
+  expect(idempotencyKeys[0]).toBeTruthy();
+  expect(idempotencyKeys[1]).toBe(idempotencyKeys[0]);
   const history = page.getByRole('region', { name: /Histórico de envios/i });
   await expect(history).toContainText('Manual');
   await expect(history).toContainText('Enviado');
-  await expect(history).toContainText('Fornecedor Central');
+  await expect(history).toContainText('pedidos@fornecedor.test');
   await expect(history).toContainText(/1 tentativa/i);
 });
 
-test('historico de dispatch exibe referencia externa e erro auditavel da tentativa', async ({ page }) => {
+test('historico separado normaliza os valores do backend e exibe a auditoria da tentativa', async ({ page }) => {
   await mockAuth(page);
 
-  await page.route('**/api/v1/purchase-orders/193', route => json(route, {
-    data: {
-      id: 193,
-      number: 'PC-00193',
-      status: 'approved',
-      supplier: { id: 31, name: 'Fornecedor Central', email: 'pedidos@fornecedor.test' },
-      unit: { id: 101, name: 'Unidade Centro' },
-      total: 1250,
-      allowed_dispatch_channels: ['MANUAL'],
-      dispatches: [
-        {
-          id: 902,
-          channel: 'API',
-          status: 'failed',
-          recipient: 'Fornecedor Central',
-          attempts: 2,
-          external_reference: 'dispatch-ext-902',
-          last_error: 'Fornecedor indisponível',
-          created_at: '2026-10-05T22:25:05Z',
-        },
-      ],
-    },
+  await page.route('**/api/company/procurement/purchase-orders/193', route => json(route, { data: order }));
+  await page.route('**/api/company/procurement/policy', route => json(route, { data: policy }));
+  await page.route('**/api/company/procurement/purchase-orders/193/dispatches', route => json(route, {
+    data: [
+      {
+        id: 902,
+        purchase_order_id: 193,
+        channel: 'api',
+        status: 'failed',
+        recipient: 'Fornecedor Central',
+        attempts: 2,
+        payload_snapshot: { order_number: 'PC-00193' },
+        external_reference: 'dispatch-ext-902',
+        last_error: 'Fornecedor indisponível',
+        attempted_at: '2026-10-05T22:25:05Z',
+        sent_at: null,
+        created_at: '2026-10-05T22:25:05Z',
+        updated_at: '2026-10-05T22:26:05Z',
+      },
+    ],
   }));
 
   await page.goto('/inventory/purchase-orders/193');
