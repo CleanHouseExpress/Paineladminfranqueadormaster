@@ -625,9 +625,12 @@ export const inventoryService = {
   })).data),
   deleteSupplier: (id: string) => apiClient.delete<void>(`/api/company/inventory/suppliers/${id}`),
   listGlobalSuppliers: async () => (await apiClient.get<ListResponse<ApiGlobalSupplier>>('/api/company/inventory/global-suppliers')).data.map(toGlobalSupplier),
-  enableGlobalSupplier: (id: string, offerIds: string[]) => apiClient.post<DataResponse<ApiSupplier>>(
+  enableGlobalSupplier: (id: string, offerIds: string[], unitIds: Array<string | number>) => apiClient.post<DataResponse<ApiSupplier>>(
     `/api/company/inventory/global-suppliers/${id}/enable`,
-    { offer_ids: offerIds.map(offerId => /^\d+$/.test(offerId) ? Number(offerId) : offerId) },
+    {
+      offer_ids: offerIds.map(offerId => /^\d+$/.test(offerId) ? Number(offerId) : offerId),
+      unit_ids: unitIds.map(unitId => typeof unitId === 'string' && /^\d+$/.test(unitId) ? Number(unitId) : unitId),
+    },
   ),
   disableGlobalSupplier: (id: string) => apiClient.delete<void>(`/api/company/inventory/global-suppliers/${id}/enable`),
 

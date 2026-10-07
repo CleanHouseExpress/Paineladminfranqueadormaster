@@ -11,6 +11,7 @@ import { DynamicFormRenderer } from '../../../shared/components/DynamicFormRende
 import { DynamicTableRenderer, type ColumnDef } from '../../../shared/components/DynamicTableRenderer';
 import { ModuleStateView } from '../../../shared/components/ModuleStateView';
 import { usePermission } from '../../../shared/hooks/usePermission';
+import { useAuth } from '../../../shared/context/AuthContext';
 import { unitManagementService } from '../../../services/unitManagementService';
 import { inventoryService } from '../../../services/inventoryService';
 import { inventoryOnboardingService } from '../../../services/inventoryOnboardingService';
@@ -857,17 +858,33 @@ export function InventoryCategories() {
 export function InventorySuppliers() {
   const { suppliers, loading, error, reload } = useInventoryData();
   const { hasPermission } = usePermission();
+  const { roles } = useAuth();
+  const hasNetworkAuthority = roles.some(role => {
+    const roleName = role.name.trim().toLowerCase().replace(/[\s-]+/g, '_');
+    return roleName === 'company_admin' || roleName === 'admin_master';
+  });
+  const canAccessGlobalCatalog = hasNetworkAuthority && (
+    hasPermission('tenant.procurement.suppliers.view')
+    || hasPermission('tenant.procurement.suppliers.manage')
+  );
   const [globalSuppliers, setGlobalSuppliers] = useState<GlobalSupplier[]>([]);
+  const [units, setUnits] = useState<UnitOption[]>([]);
   const [globalLoading, setGlobalLoading] = useState(true);
   const [globalError, setGlobalError] = useState('');
   const [changingId, setChangingId] = useState<string | null>(null);
   const [selectedOfferIds, setSelectedOfferIds] = useState<Record<string, string[]>>({});
+  const [selectedUnitIds, setSelectedUnitIds] = useState<Record<string, number[]>>({});
 
   const loadGlobalSuppliers = async () => {
     setGlobalLoading(true);
     setGlobalError('');
     try {
-      setGlobalSuppliers(await inventoryService.listGlobalSuppliers());
+      const [nextGlobalSuppliers, unitsResponse] = await Promise.all([
+        inventoryService.listGlobalSuppliers(),
+        unitManagementService.listUnits({ per_page: 100 }),
+      ]);
+      setGlobalSuppliers(nextGlobalSuppliers);
+      setUnits(unitsResponse.data.map(unit => ({ value: unit.id, label: unit.name })));
     } catch (loadError) {
       setGlobalError(getApiErrorMessage(loadError, 'Não foi possível carregar o catálogo Orchestra.'));
     } finally {
@@ -875,13 +892,19 @@ export function InventorySuppliers() {
     }
   };
 
-  useEffect(() => { void loadGlobalSuppliers(); }, []);
+  useEffect(() => {
+    if (canAccessGlobalCatalog) void loadGlobalSuppliers();
+  }, [canAccessGlobalCatalog]);
 
   const changeGlobalSupplier = async (supplier: GlobalSupplier) => {
     setChangingId(supplier.id);
     try {
       if (supplier.enabled) await inventoryService.disableGlobalSupplier(supplier.id);
-      else await inventoryService.enableGlobalSupplier(supplier.id, selectedOfferIds[supplier.id] ?? []);
+      else await inventoryService.enableGlobalSupplier(
+        supplier.id,
+        selectedOfferIds[supplier.id] ?? [],
+        selectedUnitIds[supplier.id] ?? [],
+      );
       await Promise.all([reload(), loadGlobalSuppliers()]);
       toast.success(supplier.enabled ? 'Fornecedor desabilitado da rede.' : 'Fornecedor habilitado para a rede.');
     } catch (changeError) {
@@ -894,7 +917,7 @@ export function InventorySuppliers() {
   if (error) return <ModuleStateView state="error" errorMessage={error} />;
   return <>
     <CrudPage kind="supplier" title="Fornecedores" description="Cadastre os parceiros que abastecem a operação." records={suppliers} loading={loading} reload={reload} tableTestId="tenant-supplier-list" />
-    <section data-testid="global-suppliers-catalog" style={{ ...cardStyle, margin: '0 24px 24px', padding: 20 }}>
+    {canAccessGlobalCatalog && <section data-testid="global-suppliers-catalog" style={{ ...cardStyle, margin: '0 24px 24px', padding: 20 }}>
       <h2 style={{ margin: 0, color: '#0F172A', fontSize: 17 }}>Catálogo Orchestra</h2>
       <p style={{ margin: '5px 0 16px', color: '#64748B', fontSize: 13 }}>Habilite explicitamente os fornecedores e ofertas disponíveis para esta rede.</p>
       {globalLoading && <p style={{ color: '#64748B', fontSize: 13 }}>Carregando catálogo...</p>}
@@ -924,13 +947,33 @@ export function InventorySuppliers() {
                 {offer.name}
               </label>)}
             </div>}
+            {units.length > 0 && <div style={{ display: 'grid', gap: 5, marginTop: 10 }}>
+              <span style={{ color: '#334155', fontSize: 12, fontWeight: 650 }}>Liberar para unidades</span>
+              {units.map(unit => <label key={unit.value} style={{ display: 'flex', alignItems: 'center', gap: 7, color: '#475569', fontSize: 12 }}>
+                <input
+                  type="checkbox"
+                  checked={(selectedUnitIds[supplier.id] ?? []).includes(unit.value)}
+                  disabled={supplier.enabled || changingId === supplier.id}
+                  onChange={event => setSelectedUnitIds(current => {
+                    const selected = current[supplier.id] ?? [];
+                    return {
+                      ...current,
+                      [supplier.id]: event.target.checked
+                        ? [...selected, unit.value]
+                        : selected.filter(id => id !== unit.value),
+                    };
+                  })}
+                />
+                {unit.label}
+              </label>)}
+            </div>}
           </div>
-          {hasPermission('tenant.procurement.suppliers.manage') && <button type="button" disabled={changingId === supplier.id || (!supplier.enabled && (selectedOfferIds[supplier.id] ?? []).length === 0)} onClick={() => void changeGlobalSupplier(supplier)} style={{ padding: '8px 13px', borderRadius: 9, border: supplier.enabled ? '1px solid #DC2626' : 0, background: supplier.enabled ? '#fff' : '#4F46E5', color: supplier.enabled ? '#DC2626' : '#fff', fontSize: 12, fontWeight: 700, cursor: changingId === supplier.id ? 'wait' : 'pointer' }}>
+          {hasPermission('tenant.procurement.suppliers.manage') && <button type="button" disabled={changingId === supplier.id || (!supplier.enabled && ((selectedOfferIds[supplier.id] ?? []).length === 0 || (selectedUnitIds[supplier.id] ?? []).length === 0))} onClick={() => void changeGlobalSupplier(supplier)} style={{ padding: '8px 13px', borderRadius: 9, border: supplier.enabled ? '1px solid #DC2626' : 0, background: supplier.enabled ? '#fff' : '#4F46E5', color: supplier.enabled ? '#DC2626' : '#fff', fontSize: 12, fontWeight: 700, cursor: changingId === supplier.id ? 'wait' : 'pointer' }}>
             {supplier.enabled ? 'Desabilitar da rede' : 'Habilitar para a rede'}
           </button>}
         </article>)}
       </div>
-    </section>
+    </section>}
   </>;
 }
 
