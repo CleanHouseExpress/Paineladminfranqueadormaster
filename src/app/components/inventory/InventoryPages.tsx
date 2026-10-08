@@ -879,10 +879,17 @@ export function InventorySuppliers() {
     setGlobalLoading(true);
     setGlobalError('');
     try {
-      const [nextGlobalSuppliers, firstUnitsPage] = await Promise.all([
-        inventoryService.listGlobalSuppliers(),
-        unitManagementService.listUnits({ per_page: 100 }),
-      ]);
+      setGlobalSuppliers(await inventoryService.listGlobalSuppliers());
+    } catch (loadError) {
+      setGlobalError(getApiErrorMessage(loadError, 'Não foi possível carregar o catálogo Orchestra.'));
+    } finally {
+      setGlobalLoading(false);
+    }
+  };
+
+  const loadUnits = async () => {
+    try {
+      const firstUnitsPage = await unitManagementService.listUnits({ per_page: 100 });
       const remainingUnitPages = Array.from(
         { length: Math.max(0, firstUnitsPage.meta.last_page - 1) },
         (_, index) => index + 2,
@@ -894,17 +901,17 @@ export function InventorySuppliers() {
         ...firstUnitsPage.data,
         ...remainingUnitsResponses.flatMap(response => response.data),
       ];
-      setGlobalSuppliers(nextGlobalSuppliers);
       setUnits(allUnits.map(unit => ({ value: unit.id, label: unit.name })));
-    } catch (loadError) {
-      setGlobalError(getApiErrorMessage(loadError, 'Não foi possível carregar o catálogo Orchestra.'));
-    } finally {
-      setGlobalLoading(false);
+    } catch {
+      setUnits([]);
     }
   };
 
   useEffect(() => {
-    if (canAccessGlobalCatalog) void loadGlobalSuppliers();
+    if (canAccessGlobalCatalog) {
+      void loadGlobalSuppliers();
+      void loadUnits();
+    }
   }, [canAccessGlobalCatalog]);
 
   const changeGlobalSupplier = async (supplier: GlobalSupplier) => {
@@ -979,7 +986,7 @@ export function InventorySuppliers() {
               </label>)}
             </div>}
           </div>
-          {hasPermission('tenant.procurement.suppliers.manage') && <button type="button" disabled={changingId === supplier.id || (!supplier.enabled && ((selectedOfferIds[supplier.id] ?? []).length === 0 || (selectedUnitIds[supplier.id] ?? []).length === 0))} onClick={() => void changeGlobalSupplier(supplier)} style={{ padding: '8px 13px', borderRadius: 9, border: supplier.enabled ? '1px solid #DC2626' : 0, background: supplier.enabled ? '#fff' : '#4F46E5', color: supplier.enabled ? '#DC2626' : '#fff', fontSize: 12, fontWeight: 700, cursor: changingId === supplier.id ? 'wait' : 'pointer' }}>
+          {hasPermission('tenant.procurement.suppliers.manage') && <button type="button" disabled={changingId === supplier.id || (!supplier.enabled && (!supplier.active || (selectedOfferIds[supplier.id] ?? []).length === 0 || (selectedUnitIds[supplier.id] ?? []).length === 0))} onClick={() => void changeGlobalSupplier(supplier)} style={{ padding: '8px 13px', borderRadius: 9, border: supplier.enabled ? '1px solid #DC2626' : 0, background: supplier.enabled ? '#fff' : '#4F46E5', color: supplier.enabled ? '#DC2626' : '#fff', fontSize: 12, fontWeight: 700, cursor: changingId === supplier.id ? 'wait' : 'pointer' }}>
             {supplier.enabled ? 'Desabilitar da rede' : 'Habilitar para a rede'}
           </button>}
         </article>)}

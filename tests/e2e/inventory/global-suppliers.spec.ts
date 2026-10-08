@@ -150,6 +150,92 @@ test('master pode liberar fornecedor para unidade retornada em pagina posterior'
   expect(enablePayload).toEqual({ offer_ids: [71], unit_ids: [201] });
 });
 
+test('fornecedor desativado globalmente continua revogavel, mas nao aceita nova habilitacao', async ({ page }) => {
+  await mockAuth(page);
+
+  let disabledSupplierId: string | null = null;
+
+  await page.route('**/api/company/inventory/items**', route => json(route, { data: [], meta: { total: 0 } }));
+  await page.route('**/api/company/inventory/categories**', route => json(route, { data: [], meta: { total: 0 } }));
+  await page.route('**/api/company/inventory/suppliers?per_page=100', route => json(route, { data: [], meta: { total: 0 } }));
+  await page.route('**/api/company/inventory/global-suppliers**', route => {
+    const request = route.request();
+    const pathname = new URL(request.url()).pathname;
+
+    if (request.method() === 'DELETE' && pathname.endsWith('/51/enable')) {
+      disabledSupplierId = '51';
+      return json(route, null, 204);
+    }
+
+    return json(route, { data: [
+      {
+        id: 51,
+        name: 'Cafes Orchestra Legado',
+        document: '12.345.678/0001-90',
+        active: false,
+        enabled: true,
+        offers: [{ id: 71, name: 'Cafe Especial 1kg', active: false }],
+      },
+      {
+        id: 52,
+        name: 'Fornecedor Inativo Nunca Habilitado',
+        document: '98.765.432/0001-10',
+        active: false,
+        enabled: false,
+        offers: [{ id: 72, name: 'Oferta Inativa', active: true }],
+      },
+    ] });
+  });
+
+  await page.goto('/inventory/suppliers');
+
+  const legacySupplier = page.getByRole('article').filter({ hasText: 'Cafes Orchestra Legado' });
+  await expect(legacySupplier.getByRole('button', { name: 'Desabilitar da rede' })).toBeVisible();
+  await legacySupplier.getByRole('button', { name: 'Desabilitar da rede' }).click();
+  expect(disabledSupplierId).toBe('51');
+
+  const inactiveSupplier = page.getByRole('article').filter({ hasText: 'Fornecedor Inativo Nunca Habilitado' });
+  await inactiveSupplier.getByRole('checkbox', { name: 'Oferta Inativa' }).check();
+  await inactiveSupplier.getByRole('checkbox', { name: 'BH Savassi' }).check();
+  await expect(inactiveSupplier.getByRole('button', { name: 'Habilitar para a rede' })).toBeDisabled();
+});
+
+test('falha ao consultar unidades preserva catalogo e revogacao de fornecedor habilitado', async ({ page }) => {
+  await mockAuth(page);
+
+  let disableRequests = 0;
+
+  await page.route('**/api/company/units**', route => json(route, { message: 'Forbidden' }, 403));
+  await page.route('**/api/company/inventory/items**', route => json(route, { data: [], meta: { total: 0 } }));
+  await page.route('**/api/company/inventory/categories**', route => json(route, { data: [], meta: { total: 0 } }));
+  await page.route('**/api/company/inventory/suppliers?per_page=100', route => json(route, { data: [], meta: { total: 0 } }));
+  await page.route('**/api/company/inventory/global-suppliers**', route => {
+    const request = route.request();
+    const pathname = new URL(request.url()).pathname;
+
+    if (request.method() === 'DELETE' && pathname.endsWith('/51/enable')) {
+      disableRequests += 1;
+      return json(route, null, 204);
+    }
+
+    return json(route, { data: [{
+      id: 51,
+      name: 'Cafes Orchestra Habilitado',
+      document: '12.345.678/0001-90',
+      active: true,
+      enabled: true,
+      offers: [{ id: 71, name: 'Cafe Especial 1kg', active: true }],
+    }] });
+  });
+
+  await page.goto('/inventory/suppliers');
+
+  const globalCatalog = page.getByTestId('global-suppliers-catalog');
+  await expect(globalCatalog).toContainText('Cafes Orchestra Habilitado');
+  await globalCatalog.getByRole('button', { name: 'Desabilitar da rede' }).click();
+  expect(disableRequests).toBe(1);
+});
+
 test('permissao delegada de unidade nao expoe o catalogo central nem controles de rede', async ({ page }) => {
   await mockAuth(page, [
     'tenant.inventory.view',
