@@ -189,3 +189,35 @@ test('historico separado normaliza os valores do backend e exibe a auditoria da 
   await expect(history).toContainText('PC-00193');
   await expect(history).toContainText('05/10/2026');
 });
+
+test('historico audita separadamente quando o dispatch foi enviado', async ({ page }) => {
+  await mockAuth(page);
+
+  await page.route('**/api/company/procurement/purchase-orders/193', route => json(route, { data: order }));
+  await page.route('**/api/company/procurement/policy', route => json(route, { data: policy }));
+  await page.route('**/api/company/procurement/purchase-orders/193/dispatches', route => json(route, {
+    data: [
+      {
+        id: 903,
+        purchase_order_id: 193,
+        channel: 'manual',
+        status: 'sent',
+        recipient: 'pedidos@fornecedor.test',
+        attempts: 1,
+        payload_snapshot: { order_number: 'PC-00193' },
+        external_reference: 'dispatch-ext-903',
+        last_error: null,
+        attempted_at: '2026-10-05T22:25:05Z',
+        sent_at: '2026-10-06T01:15:00Z',
+        created_at: '2026-10-05T22:25:05Z',
+        updated_at: '2026-10-06T01:15:00Z',
+      },
+    ],
+  }));
+
+  await page.goto('/inventory/purchase-orders/193');
+
+  const history = page.getByRole('region', { name: /Histórico de envios/i });
+  await expect(history).toContainText('Tentativa em 05/10/2026');
+  await expect(history).toContainText('Enviado em 06/10/2026');
+});

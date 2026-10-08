@@ -77,6 +77,11 @@ function DispatchHistory({ dispatches }: { dispatches: OrderDispatch[] }) {
               Tentativa em {formatDispatchDate(dispatch.attempted_at ?? dispatch.created_at)}
             </time>
           )}
+          {formatDispatchDate(dispatch.sent_at) && (
+            <time dateTime={dispatch.sent_at ?? undefined} style={{ color: '#64748B', fontSize: 13 }}>
+              Enviado em {formatDispatchDate(dispatch.sent_at)}
+            </time>
+          )}
         </article>
       ))}
     </section>
