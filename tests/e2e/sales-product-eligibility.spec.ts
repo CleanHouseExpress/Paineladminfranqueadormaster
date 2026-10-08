@@ -10,7 +10,8 @@ function json(route: Route, body: unknown) {
 }
 
 async function mockSalesSession(page: Page) {
-  const catalogRequests: string[] = [];
+  const commercialCatalogRequests: string[] = [];
+  const legacyCatalogRequests: string[] = [];
 
   await disableOnboarding(page);
   await page.addInitScript(() => {
@@ -39,45 +40,59 @@ async function mockSalesSession(page: Page) {
   ]));
   await page.route('**/api/company/contracts/options', route => json(route, []));
   await page.route('**/api/company/catalog/items/options**', route => {
-    const url = new URL(route.request().url());
-    catalogRequests.push(url.toString());
-
-    return json(route, url.searchParams.get('unit_id') === '101' ? [
-      {
-        value: 42,
-        label: 'Produto interno elegivel',
-        type: 'product',
-        price: 100,
-        catalog_visible: false,
-        eligible_for_sale: true,
-        blocking_reasons: [],
-      },
-      {
-        value: 43,
-        label: 'Produto visivel sem preco',
-        type: 'product',
-        price: null,
-        catalog_visible: true,
-        eligible_for_sale: false,
-        blocking_reasons: ['missing_effective_price'],
-      },
-    ] : []);
+    legacyCatalogRequests.push(route.request().url());
+    return json(route, []);
+  });
+  await page.route('**/api/company/units/*/commercial-catalog**', route => {
+    commercialCatalogRequests.push(route.request().url());
+    return json(route, {
+      data: [
+        {
+          catalog_item_id: 42,
+          name: 'Produto interno elegivel',
+          item_type: 'product',
+          catalog_visible: false,
+          effective_price: 123.45,
+          price_source: 'unit',
+          eligible_for_sale: true,
+          blocking_reasons: [],
+        },
+        {
+          catalog_item_id: 43,
+          name: 'Produto visivel sem preco',
+          item_type: 'product',
+          catalog_visible: true,
+          effective_price: null,
+          price_source: 'none',
+          eligible_for_sale: false,
+          blocking_reasons: ['missing_effective_price'],
+        },
+      ],
+      meta: { current_page: 1, last_page: 1, per_page: 100, total: 2 },
+    });
   });
 
-  return { catalogRequests };
+  return { commercialCatalogRequests, legacyCatalogRequests };
 }
 
-test('venda consulta elegibilidade da unidade e nao usa visibilidade como regra de venda', async ({ page }) => {
-  const { catalogRequests } = await mockSalesSession(page);
+test('venda usa o catalogo comercial canonico da unidade para preco e elegibilidade', async ({ page }) => {
+  const { commercialCatalogRequests, legacyCatalogRequests } = await mockSalesSession(page);
   await page.goto('/sales/new');
 
   await expect(page.getByRole('heading', { name: 'Nova venda' })).toBeVisible();
+  expect(commercialCatalogRequests).toHaveLength(0);
+  expect(legacyCatalogRequests).toHaveLength(0);
+
   await page.getByLabel('Unidade').selectOption('101');
-  await expect.poll(() => catalogRequests.some(
-    requestUrl => new URL(requestUrl).searchParams.get('unit_id') === '101',
+  await expect.poll(() => commercialCatalogRequests.some(
+    requestUrl => new URL(requestUrl).pathname === '/api/company/units/101/commercial-catalog',
   )).toBe(true);
+  expect(legacyCatalogRequests).toHaveLength(0);
 
   const catalog = page.locator('select').nth(3);
   await expect(catalog.getByRole('option', { name: 'Produto interno elegivel' })).toBeEnabled();
   await expect(catalog.getByRole('option', { name: 'Produto visivel sem preco' })).toBeDisabled();
+
+  await catalog.selectOption('42');
+  await expect(page.locator('input[type="number"]').nth(1)).toHaveValue('123.45');
 });

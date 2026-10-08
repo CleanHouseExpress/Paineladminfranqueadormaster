@@ -6,6 +6,14 @@ import type {
 interface ApiList<T> { data: T[]; meta: { current_page: number; last_page: number; per_page: number; total: number } }
 interface ApiItem<T> { data: T }
 type ApiOrder = Record<string, any>;
+interface ApiCommercialCatalogItem {
+  catalog_item_id: number | string;
+  name: string;
+  item_type?: string;
+  effective_price: number | string | null;
+  eligible_for_sale: boolean;
+  blocking_reasons?: string[];
+}
 
 function query(filters: SalesFilters = {}) {
   const params = new URLSearchParams();
@@ -74,12 +82,18 @@ export const salesService = {
   units: async () => normalizeOptions(await apiClient.get<Array<Record<string, any>>>('/api/company/units/options')),
   contracts: async () => normalizeOptions(await apiClient.get<Array<Record<string, any>>>('/api/company/contracts/options')),
   accounts: async () => normalizeOptions(await apiClient.get<Array<Record<string, any>>>('/api/company/financial/accounts/options')),
-  catalog: async (unitId: string): Promise<CatalogSalesOption[]> =>
-    (await apiClient.get<Array<Record<string, any>>>(`/api/company/catalog/items/options?unit_id=${encodeURIComponent(unitId)}`)).map(item => ({
-      id: String(item.value), label: item.label, type: item.type, price: Number(item.price ?? 0),
-      eligibleForSale: typeof item.eligible_for_sale === 'boolean' ? item.eligible_for_sale : undefined,
+  catalog: async (unitId: string): Promise<CatalogSalesOption[]> => {
+    const response = await apiClient.get<ApiList<ApiCommercialCatalogItem>>(
+      `/api/company/units/${encodeURIComponent(unitId)}/commercial-catalog`,
+    );
+
+    return response.data.map(item => ({
+      id: String(item.catalog_item_id), label: item.name, type: item.item_type,
+      price: item.effective_price === null ? 0 : Number(item.effective_price),
+      eligibleForSale: item.eligible_for_sale,
       blockingReasons: Array.isArray(item.blocking_reasons) ? item.blocking_reasons.map(String) : [],
-    })),
+    }));
+  },
   metadata: (entity: 'sales_orders' | 'sales_order_items') => apiClient.get<ApiItem<Record<string, any>>>(`/api/metadata/${entity}`),
   updateMetadata: (entity: 'sales_orders' | 'sales_order_items', payload: Record<string, any>) => apiClient.put<ApiItem<Record<string, any>>>(`/api/metadata/${entity}`, payload),
 };
