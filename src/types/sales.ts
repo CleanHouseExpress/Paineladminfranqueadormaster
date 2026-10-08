@@ -89,7 +89,7 @@ export interface SalesOption {
 export interface CatalogSalesOption extends SalesOption {
   type?: string;
   price: number;
-  eligibleForSale?: boolean;
+  eligibleForSale: boolean;
   blockingReasons: string[];
 }
 

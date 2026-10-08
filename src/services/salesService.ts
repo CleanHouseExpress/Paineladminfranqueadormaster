@@ -15,6 +15,15 @@ interface ApiCommercialCatalogItem {
   blocking_reasons?: string[];
 }
 
+const mapCommercialCatalogItem = (item: ApiCommercialCatalogItem): CatalogSalesOption => ({
+  id: String(item.catalog_item_id),
+  label: item.name,
+  type: item.item_type,
+  price: item.effective_price === null ? 0 : Number(item.effective_price),
+  eligibleForSale: item.eligible_for_sale === true,
+  blockingReasons: Array.isArray(item.blocking_reasons) ? item.blocking_reasons.map(String) : [],
+});
+
 function query(filters: SalesFilters = {}) {
   const params = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => { if (value) params.set(key, value); });
@@ -83,16 +92,20 @@ export const salesService = {
   contracts: async () => normalizeOptions(await apiClient.get<Array<Record<string, any>>>('/api/company/contracts/options')),
   accounts: async () => normalizeOptions(await apiClient.get<Array<Record<string, any>>>('/api/company/financial/accounts/options')),
   catalog: async (unitId: string): Promise<CatalogSalesOption[]> => {
-    const response = await apiClient.get<ApiList<ApiCommercialCatalogItem>>(
-      `/api/company/units/${encodeURIComponent(unitId)}/commercial-catalog`,
-    );
+    const catalog: CatalogSalesOption[] = [];
+    let page = 1;
+    let lastPage = 1;
 
-    return response.data.map(item => ({
-      id: String(item.catalog_item_id), label: item.name, type: item.item_type,
-      price: item.effective_price === null ? 0 : Number(item.effective_price),
-      eligibleForSale: item.eligible_for_sale,
-      blockingReasons: Array.isArray(item.blocking_reasons) ? item.blocking_reasons.map(String) : [],
-    }));
+    do {
+      const response = await apiClient.get<ApiList<ApiCommercialCatalogItem>>(
+        `/api/company/units/${encodeURIComponent(unitId)}/commercial-catalog?per_page=100&page=${page}`,
+      );
+      catalog.push(...response.data.map(mapCommercialCatalogItem));
+      lastPage = Math.max(1, Number(response.meta?.last_page) || 1);
+      page += 1;
+    } while (page <= lastPage);
+
+    return catalog;
   },
   metadata: (entity: 'sales_orders' | 'sales_order_items') => apiClient.get<ApiItem<Record<string, any>>>(`/api/metadata/${entity}`),
   updateMetadata: (entity: 'sales_orders' | 'sales_order_items', payload: Record<string, any>) => apiClient.put<ApiItem<Record<string, any>>>(`/api/metadata/${entity}`, payload),

@@ -9,7 +9,7 @@ function json(route: Route, body: unknown) {
   });
 }
 
-async function mockSalesSession(page: Page) {
+async function mockSalesSession(page: Page, options: { paginatedCatalog?: boolean } = {}) {
   const commercialCatalogRequests: string[] = [];
   const legacyCatalogRequests: string[] = [];
 
@@ -45,13 +45,33 @@ async function mockSalesSession(page: Page) {
   });
   await page.route('**/api/company/units/*/commercial-catalog**', route => {
     commercialCatalogRequests.push(route.request().url());
+    const pageNumber = new URL(route.request().url()).searchParams.get('page') ?? '1';
+
+    if (options.paginatedCatalog && pageNumber === '2') {
+      return json(route, {
+        data: [
+          {
+            catalog_item_id: 99,
+            name: 'Produto elegivel da segunda pagina',
+            item_type: 'product',
+            catalog_visible: true,
+            effective_price: 87.65,
+            price_source: 'network',
+            eligible_for_sale: true,
+            blocking_reasons: [],
+          },
+        ],
+        meta: { current_page: 2, last_page: 2, per_page: 1, total: 2 },
+      });
+    }
+
     return json(route, {
       data: [
         {
           catalog_item_id: 42,
-          name: 'Produto interno elegivel',
+          name: 'Produto elegivel',
           item_type: 'product',
-          catalog_visible: false,
+          catalog_visible: true,
           effective_price: 123.45,
           price_source: 'unit',
           eligible_for_sale: true,
@@ -68,7 +88,9 @@ async function mockSalesSession(page: Page) {
           blocking_reasons: ['missing_effective_price'],
         },
       ],
-      meta: { current_page: 1, last_page: 1, per_page: 100, total: 2 },
+      meta: options.paginatedCatalog
+        ? { current_page: 1, last_page: 2, per_page: 1, total: 2 }
+        : { current_page: 1, last_page: 1, per_page: 100, total: 2 },
     });
   });
 
@@ -90,9 +112,22 @@ test('venda usa o catalogo comercial canonico da unidade para preco e elegibilid
   expect(legacyCatalogRequests).toHaveLength(0);
 
   const catalog = page.locator('select').nth(3);
-  await expect(catalog.getByRole('option', { name: 'Produto interno elegivel' })).toBeEnabled();
+  await expect(catalog.getByRole('option', { name: 'Produto elegivel' })).toBeEnabled();
   await expect(catalog.getByRole('option', { name: 'Produto visivel sem preco' })).toBeDisabled();
 
   await catalog.selectOption('42');
   await expect(page.locator('input[type="number"]').nth(1)).toHaveValue('123.45');
+});
+
+test('venda carrega todos os produtos elegiveis de um catalogo comercial paginado', async ({ page }) => {
+  const { commercialCatalogRequests } = await mockSalesSession(page, { paginatedCatalog: true });
+  await page.goto('/sales/new');
+
+  await expect(page.getByRole('heading', { name: 'Nova venda' })).toBeVisible();
+  await page.getByLabel('Unidade').selectOption('101');
+
+  const catalog = page.locator('select').nth(3);
+  await expect(catalog.getByRole('option', { name: 'Produto elegivel da segunda pagina' })).toBeEnabled();
+  expect(commercialCatalogRequests.map(requestUrl => new URL(requestUrl).searchParams.get('page')))
+    .toContain('2');
 });
