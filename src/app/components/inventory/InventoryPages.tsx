@@ -869,6 +869,7 @@ export function InventorySuppliers() {
   );
   const [globalSuppliers, setGlobalSuppliers] = useState<GlobalSupplier[]>([]);
   const [units, setUnits] = useState<UnitOption[]>([]);
+  const [unitsError, setUnitsError] = useState('');
   const [globalLoading, setGlobalLoading] = useState(true);
   const [globalError, setGlobalError] = useState('');
   const [changingId, setChangingId] = useState<string | null>(null);
@@ -888,6 +889,7 @@ export function InventorySuppliers() {
   };
 
   const loadUnits = async () => {
+    setUnitsError('');
     try {
       const firstUnitsPage = await unitManagementService.listUnits({ per_page: 100 });
       const remainingUnitPages = Array.from(
@@ -904,6 +906,7 @@ export function InventorySuppliers() {
       setUnits(allUnits.map(unit => ({ value: unit.id, label: unit.name })));
     } catch {
       setUnits([]);
+      setUnitsError('Não foi possível carregar as unidades. A habilitação será aplicada a toda a rede.');
     }
   };
 
@@ -940,6 +943,7 @@ export function InventorySuppliers() {
       <p style={{ margin: '5px 0 16px', color: '#64748B', fontSize: 13 }}>Habilite explicitamente os fornecedores e ofertas disponíveis para esta rede.</p>
       {globalLoading && <p style={{ color: '#64748B', fontSize: 13 }}>Carregando catálogo...</p>}
       {globalError && <p role="alert" style={{ color: '#DC2626', fontSize: 13 }}>{globalError}</p>}
+      {unitsError && <p role="alert" style={{ color: '#B45309', fontSize: 13 }}>{unitsError}</p>}
       {!globalLoading && !globalError && globalSuppliers.length === 0 && <p style={{ color: '#64748B', fontSize: 13 }}>Nenhum fornecedor global disponível.</p>}
       <div style={{ display: 'grid', gap: 10 }}>
         {globalSuppliers.map(supplier => <article key={supplier.id} style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
@@ -986,7 +990,7 @@ export function InventorySuppliers() {
               </label>)}
             </div>}
           </div>
-          {hasPermission('tenant.procurement.suppliers.manage') && <button type="button" disabled={changingId === supplier.id || (!supplier.enabled && (!supplier.active || (selectedOfferIds[supplier.id] ?? []).length === 0 || (selectedUnitIds[supplier.id] ?? []).length === 0))} onClick={() => void changeGlobalSupplier(supplier)} style={{ padding: '8px 13px', borderRadius: 9, border: supplier.enabled ? '1px solid #DC2626' : 0, background: supplier.enabled ? '#fff' : '#4F46E5', color: supplier.enabled ? '#DC2626' : '#fff', fontSize: 12, fontWeight: 700, cursor: changingId === supplier.id ? 'wait' : 'pointer' }}>
+          {hasPermission('tenant.procurement.suppliers.manage') && <button type="button" disabled={changingId === supplier.id || (!supplier.enabled && (!supplier.active || (selectedOfferIds[supplier.id] ?? []).length === 0 || (!unitsError && (selectedUnitIds[supplier.id] ?? []).length === 0)))} onClick={() => void changeGlobalSupplier(supplier)} style={{ padding: '8px 13px', borderRadius: 9, border: supplier.enabled ? '1px solid #DC2626' : 0, background: supplier.enabled ? '#fff' : '#4F46E5', color: supplier.enabled ? '#DC2626' : '#fff', fontSize: 12, fontWeight: 700, cursor: changingId === supplier.id ? 'wait' : 'pointer' }}>
             {supplier.enabled ? 'Desabilitar da rede' : 'Habilitar para a rede'}
           </button>}
         </article>)}

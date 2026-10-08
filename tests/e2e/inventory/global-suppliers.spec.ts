@@ -200,10 +200,10 @@ test('fornecedor desativado globalmente continua revogavel, mas nao aceita nova 
   await expect(inactiveSupplier.getByRole('button', { name: 'Habilitar para a rede' })).toBeDisabled();
 });
 
-test('falha ao consultar unidades preserva catalogo e revogacao de fornecedor habilitado', async ({ page }) => {
+test('master sem tenant.units.view habilita fornecedor para toda a rede e recebe aviso sobre as unidades', async ({ page }) => {
   await mockAuth(page);
 
-  let disableRequests = 0;
+  let enablePayload: unknown = null;
 
   await page.route('**/api/company/units**', route => json(route, { message: 'Forbidden' }, 403));
   await page.route('**/api/company/inventory/items**', route => json(route, { data: [], meta: { total: 0 } }));
@@ -213,17 +213,18 @@ test('falha ao consultar unidades preserva catalogo e revogacao de fornecedor ha
     const request = route.request();
     const pathname = new URL(request.url()).pathname;
 
-    if (request.method() === 'DELETE' && pathname.endsWith('/51/enable')) {
-      disableRequests += 1;
-      return json(route, null, 204);
+    if (request.method() === 'POST' && pathname.endsWith('/51/enable')) {
+      const body = request.postData();
+      enablePayload = body ? JSON.parse(body) : null;
+      return json(route, { data: { id: 901, global_supplier_id: 51 } }, 201);
     }
 
     return json(route, { data: [{
       id: 51,
-      name: 'Cafes Orchestra Habilitado',
+      name: 'Cafes Orchestra',
       document: '12.345.678/0001-90',
       active: true,
-      enabled: true,
+      enabled: false,
       offers: [{ id: 71, name: 'Cafe Especial 1kg', active: true }],
     }] });
   });
@@ -231,9 +232,15 @@ test('falha ao consultar unidades preserva catalogo e revogacao de fornecedor ha
   await page.goto('/inventory/suppliers');
 
   const globalCatalog = page.getByTestId('global-suppliers-catalog');
-  await expect(globalCatalog).toContainText('Cafes Orchestra Habilitado');
-  await globalCatalog.getByRole('button', { name: 'Desabilitar da rede' }).click();
-  expect(disableRequests).toBe(1);
+  await expect(globalCatalog).toContainText('Cafes Orchestra');
+  await expect(globalCatalog.getByRole('alert')).toContainText(/unidades/i);
+
+  await globalCatalog.getByRole('checkbox', { name: 'Cafe Especial 1kg' }).check();
+  const enableButton = globalCatalog.getByRole('button', { name: 'Habilitar para a rede' });
+  await expect(enableButton).toBeEnabled();
+  await enableButton.click();
+
+  expect(enablePayload).toEqual({ offer_ids: [71], unit_ids: [] });
 });
 
 test('permissao delegada de unidade nao expoe o catalogo central nem controles de rede', async ({ page }) => {
