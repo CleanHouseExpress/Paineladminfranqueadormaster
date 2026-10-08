@@ -186,4 +186,6 @@ test('historico separado normaliza os valores do backend e exibe a auditoria da 
   await expect(history).toContainText('2 tentativas');
   await expect(history).toContainText('dispatch-ext-902');
   await expect(history).toContainText('Fornecedor indisponível');
+  await expect(history).toContainText('PC-00193');
+  await expect(history).toContainText('05/10/2026');
 });

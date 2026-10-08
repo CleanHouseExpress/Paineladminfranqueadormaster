@@ -9,9 +9,13 @@ export interface OrderDispatch {
   status: OrderDispatchStatus;
   recipient: string;
   attempts: number;
+  payload_snapshot: Record<string, unknown> | null;
   external_reference: string | null;
   last_error: string | null;
+  attempted_at: string | null;
+  sent_at: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface PurchaseOrder {

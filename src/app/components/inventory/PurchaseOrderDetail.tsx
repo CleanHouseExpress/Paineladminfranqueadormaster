@@ -35,6 +35,11 @@ const cardStyle: React.CSSProperties = {
   boxShadow: '0 1px 4px rgba(15,23,42,.04)', padding: 20,
 };
 
+function formatDispatchDate(value: string | null) {
+  if (!value) return null;
+  return new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' }).format(new Date(value));
+}
+
 function DispatchHistory({ dispatches }: { dispatches: OrderDispatch[] }) {
   return (
     <section aria-label="Histórico de envios" style={{ ...cardStyle, marginTop: 20 }}>
@@ -58,6 +63,19 @@ function DispatchHistory({ dispatches }: { dispatches: OrderDispatch[] }) {
             <span style={{ color: '#B91C1C', fontSize: 13 }}>
               Erro: {dispatch.last_error}
             </span>
+          )}
+          {dispatch.payload_snapshot && (
+            <span style={{ color: '#64748B', fontSize: 13 }}>
+              Payload: {JSON.stringify(dispatch.payload_snapshot)}
+            </span>
+          )}
+          {formatDispatchDate(dispatch.attempted_at ?? dispatch.created_at) && (
+            <time
+              dateTime={dispatch.attempted_at ?? dispatch.created_at}
+              style={{ color: '#64748B', fontSize: 13 }}
+            >
+              Tentativa em {formatDispatchDate(dispatch.attempted_at ?? dispatch.created_at)}
+            </time>
           )}
         </article>
       ))}
