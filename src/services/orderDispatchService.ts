@@ -31,7 +31,6 @@ export interface PurchaseOrder {
   } | null;
   unit: { id: number; name: string };
   total: number;
-  allowed_dispatch_channels?: string[];
 }
 
 export interface PurchaseOrderDispatchData extends PurchaseOrder {
@@ -41,6 +40,11 @@ export interface PurchaseOrderDispatchData extends PurchaseOrder {
 
 interface DataResponse<T> {
   data: T;
+}
+
+interface DispatchHistoryResponse {
+  data: Array<Omit<OrderDispatch, 'channel'> & { channel: string }>;
+  capabilities: Partial<Record<OrderDispatchChannel, boolean>>;
 }
 
 const procurementPath = '/api/company/procurement';
@@ -58,13 +62,17 @@ export const orderDispatchService = {
     const orderPath = `${procurementPath}/purchase-orders/${id}`;
     const [orderResponse, dispatchResponse] = await Promise.all([
       apiClient.get<DataResponse<PurchaseOrder>>(orderPath),
-      apiClient.get<DataResponse<Array<Omit<OrderDispatch, 'channel'> & { channel: string }>>>(`${orderPath}/dispatches`),
+      apiClient.get<DispatchHistoryResponse>(`${orderPath}/dispatches`),
     ]);
+
+    const allowedDispatchChannels = Object.entries(dispatchResponse.capabilities ?? {})
+      .filter(([, enabled]) => enabled === true)
+      .map(([channel]) => normalizeChannel(channel));
 
     return {
       ...orderResponse.data,
       status: orderResponse.data.status.toLowerCase(),
-      allowed_dispatch_channels: (orderResponse.data.allowed_dispatch_channels ?? []).map(normalizeChannel),
+      allowed_dispatch_channels: allowedDispatchChannels,
       dispatches: dispatchResponse.data.map(normalizeDispatch),
     };
   },
