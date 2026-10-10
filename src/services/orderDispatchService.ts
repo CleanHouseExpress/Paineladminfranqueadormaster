@@ -35,6 +35,7 @@ export interface PurchaseOrder {
 
 export interface PurchaseOrderDispatchData extends PurchaseOrder {
   allowed_dispatch_channels: OrderDispatchChannel[];
+  can_dispatch: boolean;
   dispatches: OrderDispatch[];
 }
 
@@ -45,6 +46,7 @@ interface DataResponse<T> {
 interface DispatchHistoryResponse {
   data: Array<Omit<OrderDispatch, 'channel'> & { channel: string }>;
   capabilities: Partial<Record<OrderDispatchChannel, boolean>>;
+  can_dispatch: boolean;
 }
 
 const procurementPath = '/api/company/procurement';
@@ -73,6 +75,7 @@ export const orderDispatchService = {
       ...orderResponse.data,
       status: orderResponse.data.status.toLowerCase(),
       allowed_dispatch_channels: allowedDispatchChannels,
+      can_dispatch: dispatchResponse.can_dispatch === true,
       dispatches: dispatchResponse.data.map(normalizeDispatch),
     };
   },
