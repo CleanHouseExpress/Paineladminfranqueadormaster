@@ -35,6 +35,12 @@ const cardStyle: React.CSSProperties = {
   boxShadow: '0 1px 4px rgba(15,23,42,.04)', padding: 20,
 };
 
+interface PendingDispatch {
+  idempotencyKey: string;
+  channel: OrderDispatchChannel;
+  recipient: string;
+}
+
 function formatDispatchDate(value: string | null) {
   if (!value) return null;
   return new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' }).format(new Date(value));
@@ -98,7 +104,7 @@ export function PurchaseOrderDetailPage() {
   const [channel, setChannel] = useState<OrderDispatchChannel | ''>('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
-  const idempotencyKey = useRef('');
+  const pendingDispatch = useRef<PendingDispatch | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -122,15 +128,25 @@ export function PurchaseOrderDetailPage() {
       ?? order.supplier.email
       ?? order.supplier_snapshot?.contact_name
       ?? order.supplier.name;
-    if (!idempotencyKey.current) {
-      idempotencyKey.current = typeof crypto.randomUUID === 'function'
-        ? crypto.randomUUID()
-        : `order-dispatch-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    if (!pendingDispatch.current) {
+      pendingDispatch.current = {
+        idempotencyKey: typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `order-dispatch-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        channel,
+        recipient,
+      };
     }
+    const dispatchRequest = pendingDispatch.current;
     setSubmitting(true);
     setSubmitError('');
     try {
-      const dispatch = await orderDispatchService.create(id, channel, recipient, idempotencyKey.current);
+      const dispatch = await orderDispatchService.create(
+        id,
+        dispatchRequest.channel,
+        dispatchRequest.recipient,
+        dispatchRequest.idempotencyKey,
+      );
       setOrder(current => current ? {
         ...current,
         dispatches: [dispatch, ...current.dispatches.filter(item => item.id !== dispatch.id)],
@@ -139,7 +155,7 @@ export function PurchaseOrderDetailPage() {
         setSubmitError(dispatch.last_error || 'Não foi possível enviar o pedido.');
         return;
       }
-      idempotencyKey.current = '';
+      pendingDispatch.current = null;
       setDialogOpen(false);
     } catch (requestError) {
       setSubmitError(getApiErrorMessage(requestError, 'Não foi possível enviar o pedido.'));
@@ -149,8 +165,8 @@ export function PurchaseOrderDetailPage() {
   }
 
   function setDispatchDialogOpen(open: boolean) {
+    if (!open && submitting) return;
     if (!open) {
-      idempotencyKey.current = '';
       setSubmitError('');
     }
     setDialogOpen(open);
@@ -196,9 +212,9 @@ export function PurchaseOrderDetailPage() {
               id="dispatch-channel"
               value={channel}
               onChange={event => {
-                idempotencyKey.current = '';
                 setChannel(event.target.value as OrderDispatchChannel);
               }}
+              disabled={submitting || pendingDispatch.current !== null}
               style={{ height: 38, border: '1px solid #CBD5E1', borderRadius: 8, padding: '0 10px', background: '#fff' }}
             >
               {order.allowed_dispatch_channels.map(item => (

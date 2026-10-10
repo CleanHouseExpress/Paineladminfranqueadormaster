@@ -138,6 +138,73 @@ test('dispatch falho retornado com 201 preserva a chave para retry do mesmo regi
   await expect(history).toContainText(/2 tentativas/i);
 });
 
+test('resposta perdida preserva chave e payload ao fechar e reabrir o modal para reconciliar o envio', async ({ page }) => {
+  await mockAuth(page);
+
+  const requests: Array<{ key: string | undefined; payload: unknown }> = [];
+
+  await page.route('**/api/company/procurement/purchase-orders/193', route => json(route, { data: order }));
+  await page.route('**/api/company/procurement/policy', route => json(route, { data: policy }));
+  await page.route('**/api/company/procurement/purchase-orders/193/dispatches', route => {
+    if (route.request().method() === 'GET') return json(route, {
+      data: [],
+      capabilities: {
+        manual: true,
+        email: false,
+        whatsapp: false,
+        api: false,
+      },
+      can_dispatch: true,
+    });
+
+    requests.push({
+      key: route.request().headers()['idempotency-key'],
+      payload: route.request().postDataJSON(),
+    });
+    if (requests.length === 1) {
+      // O servidor concluiu a operacao, mas a resposta nao chegou ao navegador.
+      return route.abort('failed');
+    }
+    return json(route, {
+      data: {
+        id: 904,
+        purchase_order_id: 193,
+        channel: 'manual',
+        status: 'sent',
+        recipient: 'pedidos@fornecedor.test',
+        attempts: 1,
+        payload_snapshot: { order_number: 'PC-00193' },
+        external_reference: null,
+        last_error: null,
+        attempted_at: '2026-10-10T15:30:39Z',
+        sent_at: '2026-10-10T15:30:39Z',
+        created_at: '2026-10-10T15:30:39Z',
+        updated_at: '2026-10-10T15:30:39Z',
+      },
+    }, 201);
+  });
+
+  await page.goto('/inventory/purchase-orders/193');
+  await page.getByRole('button', { name: /Enviar pedido/i }).click();
+
+  let dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: /Confirmar envio/i }).click();
+  await expect(dialog.getByRole('alert')).toContainText('Não foi possível enviar o pedido.');
+  await dialog.getByRole('button', { name: /Cancelar/i }).click();
+  await expect(dialog).toBeHidden();
+
+  await page.getByRole('button', { name: /Enviar pedido/i }).click();
+  dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: /Confirmar envio/i }).click();
+
+  await expect(dialog).toBeHidden();
+  expect(requests).toHaveLength(2);
+  expect(requests[0].key).toBeTruthy();
+  expect(requests[1].key).toBe(requests[0].key);
+  expect(requests[1].payload).toEqual(requests[0].payload);
+  await expect(page.getByRole('region', { name: /Histórico de envios/i })).toContainText('Enviado');
+});
+
 test('usuario com apenas permissoes do pedido acessa capacidades e historico de dispatch', async ({ page }) => {
   await mockAuth(page, [
     'tenant.inventory.view',
