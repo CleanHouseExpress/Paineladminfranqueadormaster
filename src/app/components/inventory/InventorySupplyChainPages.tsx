@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ArrowLeft, CheckCircle2, Plus, RotateCcw, Save, Truck, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -256,6 +256,8 @@ export function InventoryTransferDetailPage() {
   const [transfer, setTransfer] = useState<InventoryTransfer | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionPending, setActionPending] = useState(false);
+  const actionPendingRef = useRef(false);
 
   const load = async () => {
     if (!id) return;
@@ -278,12 +280,17 @@ export function InventoryTransferDetailPage() {
   useEffect(() => { void load(); }, [id]);
 
   const runAction = async (action: 'approve' | 'ship' | 'receive' | 'cancel') => {
-    if (!id) return;
+    if (!id || actionPendingRef.current) return;
+    actionPendingRef.current = true;
+    setActionPending(true);
     try {
       setTransfer(await inventoryService.transferAction(id, action));
       toast.success('Transferencia atualizada.');
     } catch (actionError) {
       toast.error(errorMessage(actionError));
+    } finally {
+      actionPendingRef.current = false;
+      setActionPending(false);
     }
   };
 
@@ -315,10 +322,10 @@ export function InventoryTransferDetailPage() {
         </table>
       </div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {transfer.status === 'requested' && hasPermission('tenant.inventory.transfer.approve') && <button style={button} onClick={() => void runAction('approve')}><CheckCircle2 size={15} />Aprovar</button>}
-        {transfer.status === 'approved' && hasPermission('tenant.inventory.transfer.approve') && <button style={button} onClick={() => void runAction('ship')}><Truck size={15} />Enviar</button>}
-        {transfer.status === 'in_transit' && hasPermission('tenant.inventory.transfer.receive') && <button style={button} onClick={() => void runAction('receive')}><CheckCircle2 size={15} />Receber</button>}
-        {['requested', 'approved'].includes(transfer.status) && hasPermission('tenant.inventory.transfer') && <button style={button} onClick={() => void runAction('cancel')}><XCircle size={15} />Cancelar</button>}
+        {transfer.status === 'requested' && hasPermission('tenant.inventory.transfer.approve') && <button disabled={actionPending} style={button} onClick={() => void runAction('approve')}><CheckCircle2 size={15} />Aprovar</button>}
+        {transfer.status === 'approved' && hasPermission('tenant.inventory.transfer.approve') && <button disabled={actionPending} style={button} onClick={() => void runAction('ship')}><Truck size={15} />Enviar</button>}
+        {transfer.status === 'in_transit' && hasPermission('tenant.inventory.transfer.receive') && <button disabled={actionPending} style={button} onClick={() => void runAction('receive')}><CheckCircle2 size={15} />Receber</button>}
+        {['requested', 'approved'].includes(transfer.status) && hasPermission('tenant.inventory.transfer') && <button disabled={actionPending} style={button} onClick={() => void runAction('cancel')}><XCircle size={15} />Cancelar</button>}
       </div>
     </Shell>
   );

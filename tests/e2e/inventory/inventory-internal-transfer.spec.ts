@@ -127,6 +127,52 @@ test('@release @inventory usa PATCH e endpoints canonicos nas acoes da transfere
   ]);
 });
 
+test('@release @inventory impede recebimento duplicado enquanto a operacao esta em andamento', async ({ page }) => {
+  await mockAuthenticatedInventoryUser(page);
+  await page.route('**/api/company/inventory/settings', route => json(route, inventorySettings(true)));
+
+  let receiveRequests = 0;
+  let releaseReceive!: () => void;
+  const receivePending = new Promise<void>(resolve => { releaseReceive = resolve; });
+  const transfer = (status: string) => ({ data: {
+    id: 196,
+    origin_unit_id: 101,
+    origin_unit_name: 'CD Central',
+    destination_unit_id: 202,
+    destination_unit_name: 'Unidade Centro',
+    status,
+    requested_at: '2026-10-06T09:00:00.000Z',
+    items: [{ id: 1, inventory_item_id: 10, item_name: 'Cafe em graos', quantity: 12, unit_cost: 20 }],
+  } });
+
+  await page.route('**/api/company/inventory/transfers/196**', async route => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (request.method() === 'GET' && path.endsWith('/196')) return json(route, transfer('in_transit'));
+    if (request.method() === 'PATCH' && path.endsWith('/receive')) {
+      receiveRequests += 1;
+      await receivePending;
+      return json(route, transfer('received'));
+    }
+    return route.fallback();
+  });
+
+  await page.goto('/inventory/transfers/196');
+  const receiveButton = page.getByRole('button', { name: 'Receber' });
+  await expect(receiveButton).toBeVisible();
+
+  await receiveButton.evaluate((button: HTMLButtonElement) => {
+    button.click();
+    button.click();
+  });
+  await expect.poll(() => receiveRequests).toBeGreaterThan(0);
+  await page.waitForTimeout(100);
+  expect(receiveRequests).toBe(1);
+
+  releaseReceive();
+  await expect(page.getByText('Status: Recebida')).toBeVisible();
+});
+
 test('@release @inventory oculta custo sem permissao financeira', async ({ page }) => {
   await mockAuthenticatedInventoryUser(page, ['tenant.inventory.view', 'tenant.inventory.transfer']);
   await page.route('**/api/company/inventory/settings', route => json(route, inventorySettings(true)));
