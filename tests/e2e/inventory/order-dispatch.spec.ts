@@ -174,6 +174,12 @@ test('historico separado normaliza os valores do backend e exibe a auditoria da 
   await page.route('**/api/company/procurement/purchase-orders/193', route => json(route, { data: order }));
   await page.route('**/api/company/procurement/policy', route => json(route, { data: policy }));
   await page.route('**/api/company/procurement/purchase-orders/193/dispatches', route => json(route, {
+    capabilities: {
+      manual: true,
+      email: false,
+      whatsapp: false,
+      api: false,
+    },
     data: [
       {
         id: 902,
@@ -211,6 +217,12 @@ test('historico audita separadamente quando o dispatch foi enviado', async ({ pa
   await page.route('**/api/company/procurement/purchase-orders/193', route => json(route, { data: order }));
   await page.route('**/api/company/procurement/policy', route => json(route, { data: policy }));
   await page.route('**/api/company/procurement/purchase-orders/193/dispatches', route => json(route, {
+    capabilities: {
+      manual: true,
+      email: false,
+      whatsapp: false,
+      api: false,
+    },
     data: [
       {
         id: 903,
