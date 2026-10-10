@@ -159,7 +159,7 @@ export function PurchaseOrderDetailPage() {
   if (loading) return <ModuleStateView state="loading" />;
   if (error || !order) return <ModuleStateView state="error" errorMessage={error || 'Pedido não encontrado.'} />;
 
-  const canDispatch = order.status === 'approved'
+  const canDispatch = order.can_dispatch
     && order.allowed_dispatch_channels.length > 0
     && hasPermission('tenant.procurement.purchase_orders.dispatch');
 
