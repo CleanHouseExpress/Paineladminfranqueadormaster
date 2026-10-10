@@ -43,10 +43,6 @@ export interface ReplenishmentUnit {
   name: string;
 }
 
-interface UnitsResponse {
-  data: ReplenishmentUnit[];
-}
-
 export interface PurchaseOrderItem {
   supplier_offer_id: number;
   quantity: number;
@@ -58,9 +54,8 @@ export interface CreatePurchaseOrdersPayload {
 }
 
 export const replenishmentService = {
-  listAccessibleUnits: async () => (
-    await apiClient.get<UnitsResponse>('/api/me/units')
-  ).data,
+  listAccessibleUnits: () =>
+    apiClient.get<ReplenishmentUnit[]>('/api/me/units'),
 
   listSuggestions: async (unitId: number) => (
     await apiClient.get<SuggestionsResponse>(

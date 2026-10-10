@@ -19,7 +19,7 @@ async function mockAuth(
   ] }));
   await page.route('**/api/me/roles', route => json(route, { data: [{ id: 1, name: 'unit_manager' }] }));
   await page.route('**/api/me/permissions', route => json(route, { data: permissions }));
-  await page.route('**/api/me/units', route => json(route, { data: units }));
+  await page.route('**/api/me/units', route => json(route, units));
   await page.route('**/api/company/units/options', route => json(route, units.map(unit => ({ value: String(unit.id), label: unit.name }))));
 }
 
