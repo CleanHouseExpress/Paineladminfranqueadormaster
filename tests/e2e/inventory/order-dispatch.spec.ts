@@ -70,6 +70,7 @@ test('dispatch falho retornado com 201 preserva a chave para retry do mesmo regi
         whatsapp: false,
         api: false,
       },
+      can_dispatch: true,
     });
 
     dispatchAttempts += 1;
@@ -154,6 +155,7 @@ test('usuario com apenas permissoes do pedido acessa capacidades e historico de 
       whatsapp: false,
       api: false,
     },
+    can_dispatch: true,
   }));
   await page.route('**/api/company/procurement/policy', route => {
     policyRequests += 1;
@@ -168,6 +170,29 @@ test('usuario com apenas permissoes do pedido acessa capacidades e historico de 
   expect(policyRequests).toBe(0);
 });
 
+test('pedido submitted sem aprovacao obrigatoria usa elegibilidade derivada do backend para permitir dispatch', async ({ page }) => {
+  await mockAuth(page);
+
+  await page.route('**/api/company/procurement/purchase-orders/193', route => json(route, {
+    data: { ...order, status: 'submitted' },
+  }));
+  await page.route('**/api/company/procurement/purchase-orders/193/dispatches', route => json(route, {
+    data: [],
+    capabilities: {
+      manual: true,
+      email: false,
+      whatsapp: false,
+      api: false,
+    },
+    can_dispatch: true,
+  }));
+
+  await page.goto('/inventory/purchase-orders/193');
+
+  await expect(page.getByRole('heading', { name: 'PC-00193' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Enviar pedido/i })).toBeVisible();
+});
+
 test('historico separado normaliza os valores do backend e exibe a auditoria da tentativa', async ({ page }) => {
   await mockAuth(page);
 
@@ -180,6 +205,7 @@ test('historico separado normaliza os valores do backend e exibe a auditoria da 
       whatsapp: false,
       api: false,
     },
+    can_dispatch: true,
     data: [
       {
         id: 902,
@@ -223,6 +249,7 @@ test('historico audita separadamente quando o dispatch foi enviado', async ({ pa
       whatsapp: false,
       api: false,
     },
+    can_dispatch: true,
     data: [
       {
         id: 903,
