@@ -41,7 +41,6 @@ const order = {
   },
   unit: { id: 101, name: 'Unidade Centro', code: 'CENTRO' },
   total: 1250,
-  allowed_dispatch_channels: ['manual'],
 };
 
 const policy = {
@@ -63,7 +62,15 @@ test('dispatch falho retornado com 201 preserva a chave para retry do mesmo regi
   await page.route('**/api/company/procurement/purchase-orders/193', route => json(route, { data: order }));
   await page.route('**/api/company/procurement/policy', route => json(route, { data: policy }));
   await page.route('**/api/company/procurement/purchase-orders/193/dispatches', route => {
-    if (route.request().method() === 'GET') return json(route, { data: [] });
+    if (route.request().method() === 'GET') return json(route, {
+      data: [],
+      capabilities: {
+        manual: true,
+        email: false,
+        whatsapp: false,
+        api: false,
+      },
+    });
 
     dispatchAttempts += 1;
     dispatchPayload = route.request().postDataJSON() as Record<string, unknown>;
@@ -139,7 +146,15 @@ test('usuario com apenas permissoes do pedido acessa capacidades e historico de 
 
   let policyRequests = 0;
   await page.route('**/api/company/procurement/purchase-orders/193', route => json(route, { data: order }));
-  await page.route('**/api/company/procurement/purchase-orders/193/dispatches', route => json(route, { data: [] }));
+  await page.route('**/api/company/procurement/purchase-orders/193/dispatches', route => json(route, {
+    data: [],
+    capabilities: {
+      manual: true,
+      email: false,
+      whatsapp: false,
+      api: false,
+    },
+  }));
   await page.route('**/api/company/procurement/policy', route => {
     policyRequests += 1;
     return json(route, { message: 'Forbidden' }, 403);
