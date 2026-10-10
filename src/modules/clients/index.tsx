@@ -458,7 +458,8 @@ export function CustomerSettingsPage() {
                 <TableCell>
                   <Switch
                     checked={field.visible !== false}
-                    disabled={saving || field.key === 'name'}
+                    disabled={saving || field.key === 'name' || field.required === true}
+                    title={field.required ? 'Campos obrigatórios permanecem visíveis.' : undefined}
                     onCheckedChange={checked => updateField(field.key, { visible: checked })}
                   />
                 </TableCell>

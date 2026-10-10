@@ -153,14 +153,18 @@ export function DynamicFormRenderer({
   const formValues = (values ?? value ?? {}) as FormValues;
   const blocked = readOnly || disabled;
   const [remoteOptions, setRemoteOptions] = useState<Record<string, DynamicFieldOption[]>>({});
+  const visibleSchema = useMemo(
+    () => schema.filter(field => !('visible' in field) || field.visible !== false),
+    [schema],
+  );
 
   const optionSources = useMemo(
-    () => schema.filter((field): field is DynamicFieldSchema => (
+    () => visibleSchema.filter((field): field is DynamicFieldSchema => (
       'options_source' in field
       && Boolean(field.options_source)
       && ['select', 'multiselect', 'product', 'supplier', 'unit', 'customer', 'employee'].includes(fieldType(field))
     )),
-    [schema],
+    [visibleSchema],
   );
 
   useEffect(() => {
@@ -191,14 +195,14 @@ export function DynamicFormRenderer({
 
   const sections = useMemo(() => {
     const map = new Map<string | null, SupportedField[]>();
-    const sorted = [...schema].sort((a, b) => fieldOrder(a) - fieldOrder(b));
+    const sorted = [...visibleSchema].sort((a, b) => fieldOrder(a) - fieldOrder(b));
     for (const field of sorted) {
       const key = sectionLabel(field);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(field);
     }
     return map;
-  }, [schema]);
+  }, [visibleSchema]);
 
   const fieldInputId = (key: string, index: number) => `${instanceId}-${key}-${index}`.replace(/[^a-zA-Z0-9_-]/g, '-');
 
@@ -436,11 +440,11 @@ export function DynamicFormRenderer({
   };
 
   if (layout === 'plain') {
-    const sorted = [...schema].sort((a, b) => fieldOrder(a) - fieldOrder(b));
+    const sorted = [...visibleSchema].sort((a, b) => fieldOrder(a) - fieldOrder(b));
 
     return (
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-        {showProgress ? <ProgressBar schema={schema} values={formValues} /> : null}
+        {showProgress ? <ProgressBar schema={visibleSchema} values={formValues} /> : null}
         {sorted.map((field, index) => renderField(field, index))}
       </div>
     );
@@ -448,7 +452,7 @@ export function DynamicFormRenderer({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: compact ? '10px' : '14px' }}>
-      {showProgress ? <ProgressBar schema={schema} values={formValues} /> : null}
+      {showProgress ? <ProgressBar schema={visibleSchema} values={formValues} /> : null}
 
       {Array.from(sections.entries()).map(([label, fields]) => (
         <div
