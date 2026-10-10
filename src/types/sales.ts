@@ -89,6 +89,8 @@ export interface SalesOption {
 export interface CatalogSalesOption extends SalesOption {
   type?: string;
   price: number;
+  eligibleForSale: boolean;
+  blockingReasons: string[];
 }
 
 export const SALES_ORDER_STATUS_CONFIG = {
