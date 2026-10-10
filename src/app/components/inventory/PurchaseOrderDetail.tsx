@@ -104,6 +104,7 @@ export function PurchaseOrderDetailPage() {
   const [channel, setChannel] = useState<OrderDispatchChannel | ''>('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [submitNotice, setSubmitNotice] = useState('');
   const pendingDispatch = useRef<PendingDispatch | null>(null);
 
   useEffect(() => {
@@ -140,6 +141,7 @@ export function PurchaseOrderDetailPage() {
     const dispatchRequest = pendingDispatch.current;
     setSubmitting(true);
     setSubmitError('');
+    setSubmitNotice('');
     try {
       const dispatch = await orderDispatchService.create(
         id,
@@ -155,6 +157,10 @@ export function PurchaseOrderDetailPage() {
         setSubmitError(dispatch.last_error || 'Não foi possível enviar o pedido.');
         return;
       }
+      if (dispatch.status === 'pending') {
+        setSubmitNotice('O envio continua em processamento. Confirme novamente para atualizar o resultado.');
+        return;
+      }
       pendingDispatch.current = null;
       setDialogOpen(false);
     } catch (requestError) {
@@ -168,6 +174,7 @@ export function PurchaseOrderDetailPage() {
     if (!open && submitting) return;
     if (!open) {
       setSubmitError('');
+      setSubmitNotice('');
     }
     setDialogOpen(open);
   }
@@ -200,7 +207,7 @@ export function PurchaseOrderDetailPage() {
 
       <DispatchHistory dispatches={order.dispatches} />
 
-      <Dialog open={dialogOpen} onOpenChange={setDispatchDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={setDispatchDialogOpen} modal={false}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Despachar pedido</DialogTitle>
@@ -223,6 +230,7 @@ export function PurchaseOrderDetailPage() {
             </select>
           </label>
           {submitError && <p role="alert" style={{ margin: 0, color: '#B91C1C', fontSize: 13 }}>{submitError}</p>}
+          {submitNotice && <p role="status" style={{ margin: 0, color: '#475569', fontSize: 13 }}>{submitNotice}</p>}
           <DialogFooter>
             <Button variant="outline" onClick={() => setDispatchDialogOpen(false)} disabled={submitting}>Cancelar</Button>
             <Button onClick={() => void confirmDispatch()} disabled={!channel || submitting}>

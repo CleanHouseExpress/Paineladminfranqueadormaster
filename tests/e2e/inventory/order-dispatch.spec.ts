@@ -205,6 +205,67 @@ test('resposta perdida preserva chave e payload ao fechar e reabrir o modal para
   await expect(page.getByRole('region', { name: /Histórico de envios/i })).toContainText('Enviado');
 });
 
+test('dispatch pendente preserva chave e payload ate a reconciliacao confirmar o envio', async ({ page }) => {
+  await mockAuth(page);
+
+  const requests: Array<{ key: string | undefined; payload: unknown }> = [];
+
+  await page.route('**/api/company/procurement/purchase-orders/193', route => json(route, { data: order }));
+  await page.route('**/api/company/procurement/policy', route => json(route, { data: policy }));
+  await page.route('**/api/company/procurement/purchase-orders/193/dispatches', route => {
+    if (route.request().method() === 'GET') return json(route, {
+      data: [],
+      capabilities: {
+        manual: true,
+        email: false,
+        whatsapp: false,
+        api: false,
+      },
+      can_dispatch: true,
+    });
+
+    requests.push({
+      key: route.request().headers()['idempotency-key'],
+      payload: route.request().postDataJSON(),
+    });
+    const pending = requests.length === 1;
+    return json(route, {
+      data: {
+        id: 905,
+        purchase_order_id: 193,
+        channel: 'manual',
+        status: pending ? 'pending' : 'sent',
+        recipient: 'pedidos@fornecedor.test',
+        attempts: 1,
+        payload_snapshot: { order_number: 'PC-00193' },
+        external_reference: null,
+        last_error: null,
+        attempted_at: '2026-10-10T17:20:00Z',
+        sent_at: pending ? null : '2026-10-10T17:20:01Z',
+        created_at: '2026-10-10T17:20:00Z',
+        updated_at: pending ? '2026-10-10T17:20:00Z' : '2026-10-10T17:20:01Z',
+      },
+    }, 201);
+  });
+
+  await page.goto('/inventory/purchase-orders/193');
+  await page.getByRole('button', { name: /Enviar pedido/i }).click();
+
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: /Confirmar envio/i }).click();
+
+  await expect(dialog).toBeVisible();
+  await expect(page.getByRole('region', { name: /Histórico de envios/i })).toContainText('Pendente');
+  await dialog.getByRole('button', { name: /Confirmar envio/i }).click();
+
+  await expect(dialog).toBeHidden();
+  expect(requests).toHaveLength(2);
+  expect(requests[0].key).toBeTruthy();
+  expect(requests[1].key).toBe(requests[0].key);
+  expect(requests[1].payload).toEqual(requests[0].payload);
+  await expect(page.getByRole('region', { name: /Histórico de envios/i })).toContainText('Enviado');
+});
+
 test('usuario com apenas permissoes do pedido acessa capacidades e historico de dispatch', async ({ page }) => {
   await mockAuth(page, [
     'tenant.inventory.view',
