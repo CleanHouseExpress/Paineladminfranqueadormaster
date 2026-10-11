@@ -43,8 +43,13 @@ interface DataResponse<T> {
   data: T;
 }
 
+type OrderDispatchResponse = Omit<OrderDispatch, 'channel' | 'status'> & {
+  channel: string;
+  status: string;
+};
+
 interface DispatchHistoryResponse {
-  data: Array<Omit<OrderDispatch, 'channel'> & { channel: string }>;
+  data: OrderDispatchResponse[];
   capabilities: Partial<Record<OrderDispatchChannel, boolean>>;
   can_dispatch: boolean;
 }
@@ -55,8 +60,16 @@ function normalizeChannel(channel: string): OrderDispatchChannel {
   return channel.toLowerCase() as OrderDispatchChannel;
 }
 
-function normalizeDispatch(dispatch: Omit<OrderDispatch, 'channel'> & { channel: string }): OrderDispatch {
-  return { ...dispatch, channel: normalizeChannel(dispatch.channel) };
+function normalizeStatus(status: string): OrderDispatchStatus {
+  return status.toLowerCase() as OrderDispatchStatus;
+}
+
+function normalizeDispatch(dispatch: OrderDispatchResponse): OrderDispatch {
+  return {
+    ...dispatch,
+    channel: normalizeChannel(dispatch.channel),
+    status: normalizeStatus(dispatch.status),
+  };
 }
 
 export const orderDispatchService = {
@@ -86,7 +99,7 @@ export const orderDispatchService = {
     recipient: string,
     idempotencyKey: string,
   ) => normalizeDispatch((
-    await apiClient.post<DataResponse<Omit<OrderDispatch, 'channel'> & { channel: string }>>(
+    await apiClient.post<DataResponse<OrderDispatchResponse>>(
       `${procurementPath}/purchase-orders/${purchaseOrderId}/dispatches`,
       { channel, recipient },
       { headers: { 'Idempotency-Key': idempotencyKey } },

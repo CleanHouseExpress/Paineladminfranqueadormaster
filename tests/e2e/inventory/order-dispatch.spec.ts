@@ -545,3 +545,41 @@ test('historico audita separadamente quando o dispatch foi enviado', async ({ pa
   await expect(history).toContainText('Tentativa em 05/10/2026');
   await expect(history).toContainText('Enviado em 06/10/2026');
 });
+
+test('historico normaliza enums em maiusculas retornados pelo backend', async ({ page }) => {
+  await mockAuth(page);
+
+  await page.route('**/api/company/procurement/purchase-orders/193', route => json(route, { data: order }));
+  await page.route('**/api/company/procurement/purchase-orders/193/dispatches', route => json(route, {
+    capabilities: {
+      MANUAL: true,
+      EMAIL: false,
+      WHATSAPP: false,
+      API: false,
+    },
+    can_dispatch: true,
+    data: [
+      {
+        id: 906,
+        purchase_order_id: 193,
+        channel: 'MANUAL',
+        status: 'SENT',
+        recipient: 'pedidos@fornecedor.test',
+        attempts: 1,
+        payload_snapshot: { order_number: 'PC-00193' },
+        external_reference: null,
+        last_error: null,
+        attempted_at: '2026-10-06T01:15:00Z',
+        sent_at: '2026-10-06T01:15:00Z',
+        created_at: '2026-10-06T01:15:00Z',
+        updated_at: '2026-10-06T01:15:00Z',
+      },
+    ],
+  }));
+
+  await page.goto('/inventory/purchase-orders/193');
+
+  const history = page.getByRole('region', { name: /Histórico de envios/i });
+  await expect(history).toContainText('Manual');
+  await expect(history.getByText('Enviado', { exact: true })).toBeVisible();
+});
