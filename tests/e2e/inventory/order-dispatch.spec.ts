@@ -1,0 +1,547 @@
+import { expect, test, type Page, type Route } from '@playwright/test';
+import { disableOnboarding } from '../support/auth';
+
+function json(route: Route, body: unknown, status = 200) {
+  return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+}
+
+async function mockAuth(page: Page, permissions = [
+  'tenant.inventory.view',
+  'tenant.procurement.purchase_orders.view',
+  'tenant.procurement.purchase_orders.dispatch',
+  'tenant.procurement.policy.view',
+]) {
+  await disableOnboarding(page);
+  await page.addInitScript(() => {
+    window.localStorage.setItem('orchestra_auth_token', 'order-dispatch-token');
+    window.sessionStorage.clear();
+  });
+  await page.route('**/api/me', route => json(route, { data: { id: 1, name: 'Admin Master', email: 'admin@orchestra.test' } }));
+  await page.route('**/api/me/company', route => json(route, { data: { id: 1, name: 'Orchestra E2E', plan: 'enterprise' } }));
+  await page.route('**/api/me/modules**', route => json(route, { data: [
+    { module_id: 'inventory', name: 'Estoque & Suprimentos', status: 'active' },
+  ] }));
+  await page.route('**/api/me/roles', route => json(route, { data: [{ id: 1, name: 'company_admin' }] }));
+  await page.route('**/api/me/permissions', route => json(route, { data: permissions }));
+  await page.route('**/api/me/units', route => json(route, []));
+}
+
+const order = {
+  id: 193,
+  number: 'PC-00193',
+  status: 'approved',
+  supplier: { id: 31, name: 'Fornecedor Central', document: '12345678000199' },
+  supplier_snapshot: {
+    id: 31,
+    name: 'Fornecedor Central',
+    document: '12345678000199',
+    email: 'pedidos@fornecedor.test',
+    phone: null,
+    contact_name: 'Equipe de compras',
+  },
+  unit: { id: 101, name: 'Unidade Centro', code: 'CENTRO' },
+  total: 1250,
+};
+
+const secondOrder = {
+  ...order,
+  id: 194,
+  number: 'PC-00194',
+  supplier: { id: 32, name: 'Fornecedor Regional', document: '98765432000199' },
+  supplier_snapshot: {
+    id: 32,
+    name: 'Fornecedor Regional',
+    document: '98765432000199',
+    email: 'compras@regional.test',
+    phone: null,
+    contact_name: 'Equipe regional',
+  },
+};
+
+const policy = {
+  procurement_enabled: true,
+  manual_dispatch_enabled: true,
+  email_dispatch_enabled: false,
+  whatsapp_dispatch_enabled: false,
+  api_dispatch_enabled: false,
+  effective: { procurement_enabled: true, supplier_management_enabled: true },
+};
+
+test('dispatch falho retornado com 201 preserva a chave para retry do mesmo registro', async ({ page }) => {
+  await mockAuth(page);
+
+  let dispatchPayload: Record<string, unknown> | undefined;
+  const idempotencyKeys: Array<string | undefined> = [];
+  let dispatchAttempts = 0;
+
+  await page.route('**/api/company/procurement/purchase-orders/193', route => json(route, { data: order }));
+  await page.route('**/api/company/procurement/policy', route => json(route, { data: policy }));
+  await page.route('**/api/company/procurement/purchase-orders/193/dispatches', route => {
+    if (route.request().method() === 'GET') return json(route, {
+      data: [],
+      capabilities: {
+        manual: true,
+        email: false,
+        whatsapp: false,
+        api: false,
+      },
+      can_dispatch: true,
+    });
+
+    dispatchAttempts += 1;
+    dispatchPayload = route.request().postDataJSON() as Record<string, unknown>;
+    idempotencyKeys.push(route.request().headers()['idempotency-key']);
+    if (dispatchAttempts === 1) {
+      return json(route, {
+        data: {
+          id: 901,
+          purchase_order_id: 193,
+          channel: 'manual',
+          status: 'failed',
+          recipient: 'pedidos@fornecedor.test',
+          attempts: 1,
+          payload_snapshot: { order_number: 'PC-00193' },
+          external_reference: null,
+          last_error: 'Falha temporária no dispatch.',
+          attempted_at: '2026-10-05T22:20:05Z',
+          sent_at: null,
+          created_at: '2026-10-05T22:20:05Z',
+          updated_at: '2026-10-05T22:20:05Z',
+        },
+      }, 201);
+    }
+    return json(route, {
+      data: {
+        id: 901,
+        purchase_order_id: 193,
+        channel: 'manual',
+        status: 'sent',
+        recipient: 'pedidos@fornecedor.test',
+        attempts: 2,
+        payload_snapshot: { order_number: 'PC-00193' },
+        external_reference: null,
+        last_error: null,
+        attempted_at: '2026-10-05T22:20:05Z',
+        sent_at: '2026-10-05T22:20:05Z',
+        created_at: '2026-10-05T22:20:05Z',
+        updated_at: '2026-10-05T22:20:05Z',
+      },
+    }, 201);
+  });
+
+  await page.goto('/inventory/purchase-orders/193');
+  await expect(page.getByRole('heading', { name: 'PC-00193' })).toBeVisible();
+  await expect(page.getByText('Aprovado', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: /Enviar pedido/i }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('heading', { name: /Despachar pedido/i })).toBeVisible();
+  await expect(dialog.getByLabel(/Canal/i)).toHaveValue('manual');
+  await expect(dialog.getByRole('option', { name: /E-mail|WhatsApp|API/i })).toHaveCount(0);
+  await dialog.getByRole('button', { name: /Confirmar envio/i }).click();
+  await expect(dialog.getByRole('alert')).toContainText('Falha temporária no dispatch.');
+  await dialog.getByRole('button', { name: /Confirmar envio/i }).click();
+
+  expect(dispatchAttempts).toBe(2);
+  expect(dispatchPayload).toEqual({ channel: 'manual', recipient: 'pedidos@fornecedor.test' });
+  expect(idempotencyKeys[0]).toBeTruthy();
+  expect(idempotencyKeys[1]).toBe(idempotencyKeys[0]);
+  const history = page.getByRole('region', { name: /Histórico de envios/i });
+  await expect(history).toContainText('Manual');
+  await expect(history).toContainText('Enviado');
+  await expect(history).toContainText('pedidos@fornecedor.test');
+  await expect(history).toContainText(/2 tentativas/i);
+});
+
+test('resposta perdida preserva chave e payload ao fechar e reabrir o modal para reconciliar o envio', async ({ page }) => {
+  await mockAuth(page);
+
+  const requests: Array<{ key: string | undefined; payload: unknown }> = [];
+
+  await page.route('**/api/company/procurement/purchase-orders/193', route => json(route, { data: order }));
+  await page.route('**/api/company/procurement/policy', route => json(route, { data: policy }));
+  await page.route('**/api/company/procurement/purchase-orders/193/dispatches', route => {
+    if (route.request().method() === 'GET') return json(route, {
+      data: [],
+      capabilities: {
+        manual: true,
+        email: false,
+        whatsapp: false,
+        api: false,
+      },
+      can_dispatch: true,
+    });
+
+    requests.push({
+      key: route.request().headers()['idempotency-key'],
+      payload: route.request().postDataJSON(),
+    });
+    if (requests.length === 1) {
+      // O servidor concluiu a operacao, mas a resposta nao chegou ao navegador.
+      return route.abort('failed');
+    }
+    return json(route, {
+      data: {
+        id: 904,
+        purchase_order_id: 193,
+        channel: 'manual',
+        status: 'sent',
+        recipient: 'pedidos@fornecedor.test',
+        attempts: 1,
+        payload_snapshot: { order_number: 'PC-00193' },
+        external_reference: null,
+        last_error: null,
+        attempted_at: '2026-10-10T15:30:39Z',
+        sent_at: '2026-10-10T15:30:39Z',
+        created_at: '2026-10-10T15:30:39Z',
+        updated_at: '2026-10-10T15:30:39Z',
+      },
+    }, 201);
+  });
+
+  await page.goto('/inventory/purchase-orders/193');
+  await page.getByRole('button', { name: /Enviar pedido/i }).click();
+
+  let dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: /Confirmar envio/i }).click();
+  await expect(dialog.getByRole('alert')).toContainText('Não foi possível enviar o pedido.');
+  await dialog.getByRole('button', { name: /Cancelar/i }).click();
+  await expect(dialog).toBeHidden();
+
+  await page.getByRole('button', { name: /Enviar pedido/i }).click();
+  dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: /Confirmar envio/i }).click();
+
+  await expect(dialog).toBeHidden();
+  expect(requests).toHaveLength(2);
+  expect(requests[0].key).toBeTruthy();
+  expect(requests[1].key).toBe(requests[0].key);
+  expect(requests[1].payload).toEqual(requests[0].payload);
+  await expect(page.getByRole('region', { name: /Histórico de envios/i })).toContainText('Enviado');
+});
+
+test('dispatch pendente preserva chave e payload ate a reconciliacao confirmar o envio', async ({ page }) => {
+  await mockAuth(page);
+
+  const requests: Array<{ key: string | undefined; payload: unknown }> = [];
+
+  await page.route('**/api/company/procurement/purchase-orders/193', route => json(route, { data: order }));
+  await page.route('**/api/company/procurement/policy', route => json(route, { data: policy }));
+  await page.route('**/api/company/procurement/purchase-orders/193/dispatches', route => {
+    if (route.request().method() === 'GET') return json(route, {
+      data: [],
+      capabilities: {
+        manual: true,
+        email: false,
+        whatsapp: false,
+        api: false,
+      },
+      can_dispatch: true,
+    });
+
+    requests.push({
+      key: route.request().headers()['idempotency-key'],
+      payload: route.request().postDataJSON(),
+    });
+    const pending = requests.length === 1;
+    return json(route, {
+      data: {
+        id: 905,
+        purchase_order_id: 193,
+        channel: 'manual',
+        status: pending ? 'pending' : 'sent',
+        recipient: 'pedidos@fornecedor.test',
+        attempts: 1,
+        payload_snapshot: { order_number: 'PC-00193' },
+        external_reference: null,
+        last_error: null,
+        attempted_at: '2026-10-10T17:20:00Z',
+        sent_at: pending ? null : '2026-10-10T17:20:01Z',
+        created_at: '2026-10-10T17:20:00Z',
+        updated_at: pending ? '2026-10-10T17:20:00Z' : '2026-10-10T17:20:01Z',
+      },
+    }, 201);
+  });
+
+  await page.goto('/inventory/purchase-orders/193');
+  await page.getByRole('button', { name: /Enviar pedido/i }).click();
+
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: /Confirmar envio/i }).click();
+
+  await expect(dialog).toBeVisible();
+  await expect(page.getByRole('region', { name: /Histórico de envios/i })).toContainText('Pendente');
+  await dialog.getByRole('button', { name: /Confirmar envio/i }).click();
+
+  await expect(dialog).toBeHidden();
+  expect(requests).toHaveLength(2);
+  expect(requests[0].key).toBeTruthy();
+  expect(requests[1].key).toBe(requests[0].key);
+  expect(requests[1].payload).toEqual(requests[0].payload);
+  await expect(page.getByRole('region', { name: /Histórico de envios/i })).toContainText('Enviado');
+});
+
+test('dispatch pendente nao reutiliza destinatario nem idempotencia ao navegar para outro pedido', async ({ page }) => {
+  await mockAuth(page);
+
+  const requests: Array<{ orderId: string; key: string | undefined; payload: unknown }> = [];
+
+  for (const currentOrder of [order, secondOrder]) {
+    const orderId = String(currentOrder.id);
+    await page.route(`**/api/company/procurement/purchase-orders/${orderId}`, route => json(route, { data: currentOrder }));
+    await page.route(`**/api/company/procurement/purchase-orders/${orderId}/dispatches`, route => {
+      if (route.request().method() === 'GET') return json(route, {
+        data: [],
+        capabilities: { manual: true, email: false, whatsapp: false, api: false },
+        can_dispatch: true,
+      });
+
+      requests.push({
+        orderId,
+        key: route.request().headers()['idempotency-key'],
+        payload: route.request().postDataJSON(),
+      });
+      return json(route, {
+        data: {
+          id: currentOrder.id + 800,
+          purchase_order_id: currentOrder.id,
+          channel: 'manual',
+          status: 'pending',
+          recipient: currentOrder.supplier_snapshot.email,
+          attempts: 1,
+          payload_snapshot: { order_number: currentOrder.number },
+          external_reference: null,
+          last_error: null,
+          attempted_at: '2026-10-10T18:00:00Z',
+          sent_at: null,
+          created_at: '2026-10-10T18:00:00Z',
+          updated_at: '2026-10-10T18:00:00Z',
+        },
+      }, 201);
+    });
+  }
+
+  await page.goto('/inventory/purchase-orders/193');
+  await page.getByRole('button', { name: /Enviar pedido/i }).click();
+  const firstDialog = page.getByRole('dialog');
+  await firstDialog.getByRole('button', { name: /Confirmar envio/i }).click();
+  await expect(page.getByRole('status')).toContainText('continua em processamento');
+  await firstDialog.getByRole('button', { name: /Cancelar/i }).click();
+  await expect(firstDialog).toBeHidden();
+
+  await page.evaluate(() => {
+    window.history.pushState({}, '', '/inventory/purchase-orders/194');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+  await expect(page.getByRole('heading', { name: 'PC-00194' })).toBeVisible();
+  await page.getByRole('button', { name: /Enviar pedido/i }).click();
+  await page.getByRole('dialog').getByRole('button', { name: /Confirmar envio/i }).click();
+
+  expect(requests).toHaveLength(2);
+  expect(requests[1].orderId).toBe('194');
+  expect(requests[1].payload).toEqual({ channel: 'manual', recipient: 'compras@regional.test' });
+  expect(requests[1].key).toBeTruthy();
+  expect(requests[1].key).not.toBe(requests[0].key);
+});
+
+test('resposta de dispatch em voo nao altera o historico apos navegar para outro pedido', async ({ page }) => {
+  await mockAuth(page);
+
+  let releaseDispatch!: () => void;
+  const dispatchCanFinish = new Promise<void>(resolve => { releaseDispatch = resolve; });
+
+  await page.route('**/api/company/procurement/purchase-orders/193', route => json(route, { data: order }));
+  await page.route('**/api/company/procurement/purchase-orders/194', route => json(route, { data: secondOrder }));
+  await page.route('**/api/company/procurement/purchase-orders/*/dispatches', async route => {
+    if (route.request().method() === 'GET') return json(route, {
+      data: [],
+      capabilities: { manual: true, email: false, whatsapp: false, api: false },
+      can_dispatch: true,
+    });
+
+    await dispatchCanFinish;
+    return json(route, {
+      data: {
+        id: 1093,
+        purchase_order_id: 193,
+        channel: 'manual',
+        status: 'sent',
+        recipient: 'pedidos@fornecedor.test',
+        attempts: 1,
+        payload_snapshot: { order_number: 'PC-00193' },
+        external_reference: null,
+        last_error: null,
+        attempted_at: '2026-10-10T18:10:00Z',
+        sent_at: '2026-10-10T18:10:00Z',
+        created_at: '2026-10-10T18:10:00Z',
+        updated_at: '2026-10-10T18:10:00Z',
+      },
+    }, 201);
+  });
+
+  await page.goto('/inventory/purchase-orders/193');
+  await page.getByRole('button', { name: /Enviar pedido/i }).click();
+  const dispatchRequest = page.waitForRequest(request => (
+    request.method() === 'POST' && request.url().endsWith('/purchase-orders/193/dispatches')
+  ));
+  await page.getByRole('dialog').getByRole('button', { name: /Confirmar envio/i }).click();
+  await dispatchRequest;
+
+  await page.evaluate(() => {
+    window.history.pushState({}, '', '/inventory/purchase-orders/194');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+  await expect(page.getByRole('heading', { name: 'PC-00194' })).toBeVisible();
+
+  const dispatchResponse = page.waitForResponse(response => (
+    response.request().method() === 'POST' && response.url().endsWith('/purchase-orders/193/dispatches')
+  ));
+  releaseDispatch();
+  await dispatchResponse;
+  await page.evaluate(() => new Promise<void>(resolve => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
+
+  const history = page.getByRole('region', { name: /Histórico de envios/i });
+  await expect(history).toContainText('Nenhum envio registrado.');
+  await expect(history).not.toContainText('pedidos@fornecedor.test');
+  await expect(history).not.toContainText('PC-00193');
+});
+
+test('usuario com apenas permissoes do pedido acessa capacidades e historico de dispatch', async ({ page }) => {
+  await mockAuth(page, [
+    'tenant.inventory.view',
+    'tenant.procurement.purchase_orders.view',
+    'tenant.procurement.purchase_orders.dispatch',
+  ]);
+
+  let policyRequests = 0;
+  await page.route('**/api/company/procurement/purchase-orders/193', route => json(route, { data: order }));
+  await page.route('**/api/company/procurement/purchase-orders/193/dispatches', route => json(route, {
+    data: [],
+    capabilities: {
+      manual: true,
+      email: false,
+      whatsapp: false,
+      api: false,
+    },
+    can_dispatch: true,
+  }));
+  await page.route('**/api/company/procurement/policy', route => {
+    policyRequests += 1;
+    return json(route, { message: 'Forbidden' }, 403);
+  });
+
+  await page.goto('/inventory/purchase-orders/193');
+
+  await expect(page.getByRole('heading', { name: 'PC-00193' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Enviar pedido/i })).toBeVisible();
+  await expect(page.getByRole('region', { name: /Histórico de envios/i })).toContainText('Nenhum envio registrado.');
+  expect(policyRequests).toBe(0);
+});
+
+test('pedido submitted sem aprovacao obrigatoria usa elegibilidade derivada do backend para permitir dispatch', async ({ page }) => {
+  await mockAuth(page);
+
+  await page.route('**/api/company/procurement/purchase-orders/193', route => json(route, {
+    data: { ...order, status: 'submitted' },
+  }));
+  await page.route('**/api/company/procurement/purchase-orders/193/dispatches', route => json(route, {
+    data: [],
+    capabilities: {
+      manual: true,
+      email: false,
+      whatsapp: false,
+      api: false,
+    },
+    can_dispatch: true,
+  }));
+
+  await page.goto('/inventory/purchase-orders/193');
+
+  await expect(page.getByRole('heading', { name: 'PC-00193' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Enviar pedido/i })).toBeVisible();
+});
+
+test('historico separado normaliza os valores do backend e exibe a auditoria da tentativa', async ({ page }) => {
+  await mockAuth(page);
+
+  await page.route('**/api/company/procurement/purchase-orders/193', route => json(route, { data: order }));
+  await page.route('**/api/company/procurement/policy', route => json(route, { data: policy }));
+  await page.route('**/api/company/procurement/purchase-orders/193/dispatches', route => json(route, {
+    capabilities: {
+      manual: true,
+      email: false,
+      whatsapp: false,
+      api: false,
+    },
+    can_dispatch: true,
+    data: [
+      {
+        id: 902,
+        purchase_order_id: 193,
+        channel: 'api',
+        status: 'failed',
+        recipient: 'Fornecedor Central',
+        attempts: 2,
+        payload_snapshot: { order_number: 'PC-00193' },
+        external_reference: 'dispatch-ext-902',
+        last_error: 'Fornecedor indisponível',
+        attempted_at: '2026-10-05T22:25:05Z',
+        sent_at: null,
+        created_at: '2026-10-05T22:25:05Z',
+        updated_at: '2026-10-05T22:26:05Z',
+      },
+    ],
+  }));
+
+  await page.goto('/inventory/purchase-orders/193');
+
+  const history = page.getByRole('region', { name: /Histórico de envios/i });
+  await expect(history).toContainText('API');
+  await expect(history).toContainText('Falhou');
+  await expect(history).toContainText('2 tentativas');
+  await expect(history).toContainText('dispatch-ext-902');
+  await expect(history).toContainText('Fornecedor indisponível');
+  await expect(history).toContainText('PC-00193');
+  await expect(history).toContainText('05/10/2026');
+});
+
+test('historico audita separadamente quando o dispatch foi enviado', async ({ page }) => {
+  await mockAuth(page);
+
+  await page.route('**/api/company/procurement/purchase-orders/193', route => json(route, { data: order }));
+  await page.route('**/api/company/procurement/policy', route => json(route, { data: policy }));
+  await page.route('**/api/company/procurement/purchase-orders/193/dispatches', route => json(route, {
+    capabilities: {
+      manual: true,
+      email: false,
+      whatsapp: false,
+      api: false,
+    },
+    can_dispatch: true,
+    data: [
+      {
+        id: 903,
+        purchase_order_id: 193,
+        channel: 'manual',
+        status: 'sent',
+        recipient: 'pedidos@fornecedor.test',
+        attempts: 1,
+        payload_snapshot: { order_number: 'PC-00193' },
+        external_reference: 'dispatch-ext-903',
+        last_error: null,
+        attempted_at: '2026-10-05T22:25:05Z',
+        sent_at: '2026-10-06T01:15:00Z',
+        created_at: '2026-10-05T22:25:05Z',
+        updated_at: '2026-10-06T01:15:00Z',
+      },
+    ],
+  }));
+
+  await page.goto('/inventory/purchase-orders/193');
+
+  const history = page.getByRole('region', { name: /Histórico de envios/i });
+  await expect(history).toContainText('Tentativa em 05/10/2026');
+  await expect(history).toContainText('Enviado em 06/10/2026');
+});

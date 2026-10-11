@@ -1,0 +1,258 @@
+import { useEffect, useRef, useState } from 'react';
+import { useParams } from 'react-router';
+import { Send } from 'lucide-react';
+
+import { ModuleStateView } from '../../../shared/components/ModuleStateView';
+import { usePermission } from '../../../shared/hooks/usePermission';
+import { getApiErrorMessage } from '../../../services/apiClient';
+import {
+  orderDispatchService,
+  type OrderDispatch,
+  type OrderDispatchChannel,
+  type PurchaseOrderDispatchData,
+} from '../../../services/orderDispatchService';
+import { Button } from '../ui/button';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '../ui/dialog';
+
+const channelLabels: Record<OrderDispatchChannel, string> = {
+  manual: 'Manual',
+  email: 'E-mail',
+  whatsapp: 'WhatsApp',
+  api: 'API',
+};
+
+const statusLabels: Record<OrderDispatch['status'], string> = {
+  pending: 'Pendente',
+  sent: 'Enviado',
+  failed: 'Falhou',
+};
+
+const pageStyle: React.CSSProperties = { padding: 24, background: '#F8FAFC', minHeight: '100%' };
+const cardStyle: React.CSSProperties = {
+  background: '#fff', border: '1px solid rgba(0,0,0,.07)', borderRadius: 14,
+  boxShadow: '0 1px 4px rgba(15,23,42,.04)', padding: 20,
+};
+
+interface PendingDispatch {
+  purchaseOrderId: string;
+  idempotencyKey: string;
+  channel: OrderDispatchChannel;
+  recipient: string;
+}
+
+function formatDispatchDate(value: string | null) {
+  if (!value) return null;
+  return new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' }).format(new Date(value));
+}
+
+function DispatchHistory({ dispatches }: { dispatches: OrderDispatch[] }) {
+  return (
+    <section aria-label="Histórico de envios" style={{ ...cardStyle, marginTop: 20 }}>
+      <h2 style={{ margin: '0 0 16px', fontSize: 17 }}>Histórico de envios</h2>
+      {dispatches.length === 0 ? (
+        <p style={{ margin: 0, color: '#64748B', fontSize: 13 }}>Nenhum envio registrado.</p>
+      ) : dispatches.map(dispatch => (
+        <article key={dispatch.id} style={{ display: 'grid', gap: 5, padding: '12px 0', borderTop: '1px solid #E2E8F0' }}>
+          <strong>{channelLabels[dispatch.channel]}</strong>
+          <span>{statusLabels[dispatch.status]}</span>
+          <span style={{ color: '#475569' }}>{dispatch.recipient}</span>
+          <span style={{ color: '#64748B', fontSize: 13 }}>
+            {dispatch.attempts} {dispatch.attempts === 1 ? 'tentativa' : 'tentativas'}
+          </span>
+          {dispatch.external_reference && (
+            <span style={{ color: '#64748B', fontSize: 13 }}>
+              Referência externa: {dispatch.external_reference}
+            </span>
+          )}
+          {dispatch.last_error && (
+            <span style={{ color: '#B91C1C', fontSize: 13 }}>
+              Erro: {dispatch.last_error}
+            </span>
+          )}
+          {dispatch.payload_snapshot && (
+            <span style={{ color: '#64748B', fontSize: 13 }}>
+              Payload: {JSON.stringify(dispatch.payload_snapshot)}
+            </span>
+          )}
+          {formatDispatchDate(dispatch.attempted_at ?? dispatch.created_at) && (
+            <time
+              dateTime={dispatch.attempted_at ?? dispatch.created_at}
+              style={{ color: '#64748B', fontSize: 13 }}
+            >
+              Tentativa em {formatDispatchDate(dispatch.attempted_at ?? dispatch.created_at)}
+            </time>
+          )}
+          {formatDispatchDate(dispatch.sent_at) && (
+            <time dateTime={dispatch.sent_at ?? undefined} style={{ color: '#64748B', fontSize: 13 }}>
+              Enviado em {formatDispatchDate(dispatch.sent_at)}
+            </time>
+          )}
+        </article>
+      ))}
+    </section>
+  );
+}
+
+export function PurchaseOrderDetailPage() {
+  const { id = '' } = useParams();
+  const { hasPermission } = usePermission();
+  const [order, setOrder] = useState<PurchaseOrderDispatchData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [channel, setChannel] = useState<OrderDispatchChannel | ''>('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [submitNotice, setSubmitNotice] = useState('');
+  const pendingDispatch = useRef<PendingDispatch | null>(null);
+  const currentPurchaseOrderId = useRef(id);
+  currentPurchaseOrderId.current = id;
+
+  useEffect(() => {
+    let active = true;
+    pendingDispatch.current = null;
+    setDialogOpen(false);
+    setSubmitting(false);
+    setSubmitError('');
+    setSubmitNotice('');
+    setError('');
+    setLoading(true);
+    orderDispatchService.getPurchaseOrder(id)
+      .then(data => {
+        if (!active) return;
+        setOrder(data);
+        setChannel(data.allowed_dispatch_channels[0] ?? '');
+      })
+      .catch(requestError => {
+        if (active) setError(getApiErrorMessage(requestError, 'Não foi possível carregar o pedido.'));
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [id]);
+
+  async function confirmDispatch() {
+    if (!channel || !order) return;
+    const purchaseOrderId = id;
+    const recipient = order.supplier_snapshot?.email
+      ?? order.supplier.email
+      ?? order.supplier_snapshot?.contact_name
+      ?? order.supplier.name;
+    if (pendingDispatch.current?.purchaseOrderId !== purchaseOrderId) {
+      pendingDispatch.current = {
+        purchaseOrderId,
+        idempotencyKey: typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `order-dispatch-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        channel,
+        recipient,
+      };
+    }
+    const dispatchRequest = pendingDispatch.current;
+    setSubmitting(true);
+    setSubmitError('');
+    setSubmitNotice('');
+    try {
+      const dispatch = await orderDispatchService.create(
+        purchaseOrderId,
+        dispatchRequest.channel,
+        dispatchRequest.recipient,
+        dispatchRequest.idempotencyKey,
+      );
+      if (currentPurchaseOrderId.current !== purchaseOrderId) return;
+      setOrder(current => current && String(current.id) === purchaseOrderId ? {
+        ...current,
+        dispatches: [dispatch, ...current.dispatches.filter(item => item.id !== dispatch.id)],
+      } : current);
+      if (dispatch.status === 'failed') {
+        setSubmitError(dispatch.last_error || 'Não foi possível enviar o pedido.');
+        return;
+      }
+      if (dispatch.status === 'pending') {
+        setSubmitNotice('O envio continua em processamento. Confirme novamente para atualizar o resultado.');
+        return;
+      }
+      pendingDispatch.current = null;
+      setDialogOpen(false);
+    } catch (requestError) {
+      if (currentPurchaseOrderId.current === purchaseOrderId) {
+        setSubmitError(getApiErrorMessage(requestError, 'Não foi possível enviar o pedido.'));
+      }
+    } finally {
+      if (currentPurchaseOrderId.current === purchaseOrderId) setSubmitting(false);
+    }
+  }
+
+  function setDispatchDialogOpen(open: boolean) {
+    if (!open && submitting) return;
+    if (!open) {
+      setSubmitError('');
+      setSubmitNotice('');
+    }
+    setDialogOpen(open);
+  }
+
+  if (loading) return <ModuleStateView state="loading" />;
+  if (error || !order) return <ModuleStateView state="error" errorMessage={error || 'Pedido não encontrado.'} />;
+
+  const canDispatch = order.can_dispatch
+    && order.allowed_dispatch_channels.length > 0
+    && hasPermission('tenant.procurement.purchase_orders.dispatch');
+
+  return (
+    <div style={pageStyle}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 25 }}>{order.number}</h1>
+          <span style={{ display: 'inline-block', marginTop: 8, padding: '5px 10px', borderRadius: 99, background: '#DCFCE7', color: '#166534', fontSize: 12, fontWeight: 700 }}>
+            {order.status === 'approved' ? 'Aprovado' : order.status}
+          </span>
+        </div>
+        {canDispatch && (
+          <Button onClick={() => setDispatchDialogOpen(true)}><Send /> Enviar pedido</Button>
+        )}
+      </div>
+
+      <div style={{ ...cardStyle, marginTop: 20 }}>
+        <div><strong>Fornecedor:</strong> {order.supplier.name}</div>
+        <div style={{ marginTop: 8 }}><strong>Unidade:</strong> {order.unit.name}</div>
+      </div>
+
+      <DispatchHistory dispatches={order.dispatches} />
+
+      <Dialog open={dialogOpen} onOpenChange={setDispatchDialogOpen} modal={false}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Despachar pedido</DialogTitle>
+            <DialogDescription>Selecione um canal permitido para registrar o envio.</DialogDescription>
+          </DialogHeader>
+          <label htmlFor="dispatch-channel" style={{ display: 'grid', gap: 7, fontSize: 13, fontWeight: 600 }}>
+            Canal
+            <select
+              id="dispatch-channel"
+              value={channel}
+              onChange={event => {
+                setChannel(event.target.value as OrderDispatchChannel);
+              }}
+              disabled={submitting || pendingDispatch.current !== null}
+              style={{ height: 38, border: '1px solid #CBD5E1', borderRadius: 8, padding: '0 10px', background: '#fff' }}
+            >
+              {order.allowed_dispatch_channels.map(item => (
+                <option key={item} value={item}>{channelLabels[item]}</option>
+              ))}
+            </select>
+          </label>
+          {submitError && <p role="alert" style={{ margin: 0, color: '#B91C1C', fontSize: 13 }}>{submitError}</p>}
+          {submitNotice && <p role="status" style={{ margin: 0, color: '#475569', fontSize: 13 }}>{submitNotice}</p>}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDispatchDialogOpen(false)} disabled={submitting}>Cancelar</Button>
+            <Button onClick={() => void confirmDispatch()} disabled={!channel || submitting}>
+              {submitting ? 'Enviando...' : 'Confirmar envio'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
