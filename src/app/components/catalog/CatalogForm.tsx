@@ -13,7 +13,10 @@ import type { ChecklistFieldSchema } from '../../../types/checklist';
 import { createItem, getCatalogConfig, getItem, updateItem } from '../../../services/catalogService';
 import { inventoryService } from '../../../services/inventoryService';
 import { getApiErrorMessage } from '../../../services/apiClient';
+import { ApiError } from '../../../services/apiClient';
 import type { InventorySupplier } from '../../../types/inventory';
+import { usePermission } from '../../../shared/hooks/usePermission';
+import { useAuth } from '../../../shared/context/AuthContext';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -169,20 +172,23 @@ function Toggle({
   label,
   description,
   testId,
+  disabled = false,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   label: string;
   description?: string;
   testId?: string;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
+      disabled={disabled}
       data-testid={testId}
-      style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer', border: 0, background: 'transparent', padding: 0, textAlign: 'left', width: '100%' }}
+      style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.65 : 1, border: 0, background: 'transparent', padding: 0, textAlign: 'left', width: '100%' }}
       onClick={() => onChange(!checked)}
     >
       <div
@@ -223,6 +229,8 @@ function Toggle({
 export function CatalogForm() {
   const { id } = useParams<{ id?: string }>();
   const navigate = useNavigate();
+  const { hasPermission } = usePermission();
+  const { refreshPermissions } = useAuth();
 
   const isEdit  = !!id && id !== 'new';
   const [labels, setLabels] = useState(DEFAULT_CATALOG_LABELS);
@@ -245,6 +253,7 @@ export function CatalogForm() {
   const [selectedSupplierId, setSelectedSupplierId] = useState(existingItem?.supplierId ?? '');
   const [tracksInventory, setTracksInventory] = useState(false);
   const [catalogVisible, setCatalogVisible] = useState(true);
+  const [sellable, setSellable] = useState(true);
   const [price,       setPrice]       = useState(existingItem?.price?.toString() ?? '');
   const [typeFields,  setTypeFields]  = useState<Record<string, unknown>>(existingItem?.typeFields ?? {});
   const [metadataValues, setMetadataValues] = useState<Record<string, unknown>>(() => {
@@ -273,7 +282,8 @@ export function CatalogForm() {
       setSelectedSupplierId(item.supplierId ?? '');
       setTracksInventory(item.tracksInventory);
       setCatalogVisible(item.catalogVisible);
-      setPrice(String(item.price));
+      setSellable(item.sellable);
+      setPrice(item.price == null ? '' : String(item.price));
       setTypeFields(item.typeFields);
       setMetadataValues(Object.fromEntries(item.metadata.map(field => [field.key, field.value])));
     })().catch(() => setFormError('Nao foi possivel carregar os dados do catalogo.'));
@@ -334,6 +344,7 @@ export function CatalogForm() {
       supplierId: STOCKABLE_FORM_TYPES.has(selectedType) ? (selectedSupplierId || null) : (existingItem?.supplierId ? null : undefined),
       tracksInventory,
       catalogVisible,
+      ...(hasPermission('tenant.catalog.sellability.update') ? { sellable } : {}),
       price: price.trim() === '' ? undefined : Number(price),
       confirmInventoryDisable: isDisablingInventory,
       typeFields,
@@ -349,9 +360,8 @@ export function CatalogForm() {
       const saved = isEdit && id ? await updateItem(id, payload) : await createItem(payload);
       navigate(`/catalog/${saved.id}`);
     } catch (error) {
-      if (existingItem) {
-        setTracksInventory(existingItem.tracksInventory);
-        setCatalogVisible(existingItem.catalogVisible);
+      if (error instanceof ApiError && error.status === 403) {
+        await refreshPermissions().catch(() => undefined);
       }
       setFormError(getApiErrorMessage(error, 'Nao foi possivel salvar o item. Revise os campos e tente novamente.'));
     } finally {
@@ -669,17 +679,17 @@ export function CatalogForm() {
 
           {/* Card: Configurações Específicas (dynamic) */}
           <SectionCard title="Comportamento do Item" subtitle="Comercializacao e estoque sao configuracoes independentes.">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 14 }}>
               <div style={{ padding: 14, borderRadius: 10, border: '1px solid #E2E8F0', background: '#F8FAFC' }}>
                 <div style={{ marginBottom: 10 }}>
-                  <strong style={{ display: 'block', fontSize: 13, color: '#0F172A' }}>Comercializacao</strong>
-                  <span style={{ fontSize: 11, color: '#64748B' }}>Este item deve aparecer para venda ou selecao comercial?</span>
+                  <strong style={{ display: 'block', fontSize: 13, color: '#0F172A' }}>Visibilidade</strong>
+                  <span style={{ fontSize: 11, color: '#64748B' }}>Este item deve aparecer no catalogo?</span>
                 </div>
                 <Toggle
                   checked={catalogVisible}
                   onChange={setCatalogVisible}
                   label="Visivel no catalogo"
-                  description="Define se o item podera aparecer no catalogo e nas selecoes comerciais."
+                  description="Controla somente a descoberta e exibicao no catalogo."
                   testId="catalog-visible-switch"
                 />
                 {!catalogVisible && (
@@ -688,6 +698,22 @@ export function CatalogForm() {
                   </p>
                 )}
               </div>
+              {(isEdit || hasPermission('tenant.catalog.sellability.update')) && (
+                <div style={{ padding: 14, borderRadius: 10, border: '1px solid #E2E8F0', background: '#F8FAFC' }}>
+                  <div style={{ marginBottom: 10 }}>
+                    <strong style={{ display: 'block', fontSize: 13, color: '#0F172A' }}>Venda</strong>
+                    <span style={{ fontSize: 11, color: '#64748B' }}>Este item esta comercialmente disponivel para venda?</span>
+                  </div>
+                  <Toggle
+                    checked={sellable}
+                    onChange={setSellable}
+                    label="Disponível para venda"
+                    description="Controla a decisao comercial sem depender de preco, estoque ou visibilidade."
+                    disabled={!hasPermission('tenant.catalog.sellability.update')}
+                    testId="catalog-sellable-switch"
+                  />
+                </div>
+              )}
               <div style={{ padding: 14, borderRadius: 10, border: '1px solid #E2E8F0', background: '#F8FAFC' }}>
                 <div style={{ marginBottom: 10 }}>
                   <strong style={{ display: 'block', fontSize: 13, color: '#0F172A' }}>Estoque</strong>

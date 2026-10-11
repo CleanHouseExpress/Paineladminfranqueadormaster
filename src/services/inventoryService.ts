@@ -10,6 +10,7 @@ import type {
   InventoryItemUnitSetting,
   InventoryPayload,
   InventorySupplier,
+  GlobalSupplier,
   StockBalance,
   StockLocation,
   MovementType,
@@ -111,6 +112,19 @@ interface ApiSupplier {
   metadata?: Record<string, unknown> | null;
   created_at?: string | null;
   updated_at?: string | null;
+}
+
+interface ApiGlobalSupplier {
+  id: number | string;
+  name: string;
+  document?: string | null;
+  active: boolean;
+  enabled: boolean;
+  offers?: Array<{
+    id: number | string;
+    name: string;
+    active: boolean;
+  }>;
 }
 
 interface ApiMovement {
@@ -355,6 +369,21 @@ function toSupplier(supplier: ApiSupplier): InventorySupplier {
   };
 }
 
+function toGlobalSupplier(supplier: ApiGlobalSupplier): GlobalSupplier {
+  return {
+    id: String(supplier.id),
+    name: supplier.name,
+    document: supplier.document,
+    active: supplier.active,
+    enabled: supplier.enabled,
+    offers: (supplier.offers ?? []).map(offer => ({
+      id: String(offer.id),
+      name: offer.name,
+      active: offer.active,
+    })),
+  };
+}
+
 function toMovement(movement: ApiMovement): InventoryMovement {
   const firstItem = movement.items?.[0];
   const itemId = movement.inventory_item_id ?? firstItem?.inventory_item_id ?? '';
@@ -595,6 +624,15 @@ export const inventoryService = {
     contact_name: payload.contactName ?? payload.contact_name,
   })).data),
   deleteSupplier: (id: string) => apiClient.delete<void>(`/api/company/inventory/suppliers/${id}`),
+  listGlobalSuppliers: async () => (await apiClient.get<ListResponse<ApiGlobalSupplier>>('/api/company/inventory/global-suppliers')).data.map(toGlobalSupplier),
+  enableGlobalSupplier: (id: string, offerIds: string[], unitIds: Array<string | number>) => apiClient.post<DataResponse<ApiSupplier>>(
+    `/api/company/inventory/global-suppliers/${id}/enable`,
+    {
+      offer_ids: offerIds.map(offerId => /^\d+$/.test(offerId) ? Number(offerId) : offerId),
+      unit_ids: unitIds.map(unitId => typeof unitId === 'string' && /^\d+$/.test(unitId) ? Number(unitId) : unitId),
+    },
+  ),
+  disableGlobalSupplier: (id: string) => apiClient.delete<void>(`/api/company/inventory/global-suppliers/${id}/enable`),
 
   listMovements: async (filters: InventoryMovementFilters = {}) => {
     const response = await apiClient.get<ListResponse<ApiMovement>>(`/api/company/inventory/movements${queryString({

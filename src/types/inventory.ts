@@ -50,6 +50,21 @@ export interface InventorySupplier {
   updatedAt?: string | null;
 }
 
+export interface GlobalSupplierOffer {
+  id: string;
+  name: string;
+  active: boolean;
+}
+
+export interface GlobalSupplier {
+  id: string;
+  name: string;
+  document?: string | null;
+  active: boolean;
+  enabled: boolean;
+  offers: GlobalSupplierOffer[];
+}
+
 export interface StockBalance {
   id: string;
   itemId: string;

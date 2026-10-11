@@ -20,8 +20,10 @@ import { CatalogGuideMiniCard, CatalogOnboardingGuide } from './CatalogOnboardin
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+function formatCurrency(value: number | null): string {
+  return value == null
+    ? '—'
+    : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 }
 
 function formatDate(dateStr: string): string {
@@ -47,7 +49,7 @@ const TYPE_ICONS: Record<CatalogItemType, React.ReactNode> = {
   custom:       <Boxes size={12} />,
 };
 
-function BehaviorBadges({ tracksInventory, catalogVisible }: { tracksInventory: boolean; catalogVisible: boolean }) {
+function BehaviorBadges({ tracksInventory, catalogVisible, sellable }: { tracksInventory: boolean; catalogVisible: boolean; sellable: boolean }) {
   const badge = (active: boolean, label: string, inactiveLabel: string) => (
     <span
       style={{
@@ -71,6 +73,7 @@ function BehaviorBadges({ tracksInventory, catalogVisible }: { tracksInventory: 
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
       {badge(tracksInventory, 'Controla estoque', 'Sem controle de estoque')}
       {badge(catalogVisible, 'Visivel no catalogo', 'Oculto no catalogo')}
+      {badge(sellable, 'Disponível para venda', 'Indisponível para venda')}
     </div>
   );
 }
@@ -174,8 +177,8 @@ export function CatalogList() {
       const matchScope = !scopeFilter || item.scope === scopeFilter;
       const matchApproval = !approvalFilter || item.approvalStatus === approvalFilter;
       const matchSku    = !skuFilter    || (item.sku ?? '').toLowerCase().includes(skuFilter.toLowerCase());
-      const matchMin    = !priceMin     || item.price >= parseFloat(priceMin);
-      const matchMax    = !priceMax     || item.price <= parseFloat(priceMax);
+      const matchMin    = !priceMin || (item.price != null && item.price >= parseFloat(priceMin));
+      const matchMax    = !priceMax || (item.price != null && item.price <= parseFloat(priceMax));
       const matchInventory = !inventoryFilter || item.tracksInventory === (inventoryFilter === 'true');
       const matchCatalogVisible = !catalogVisibleFilter || item.catalogVisible === (catalogVisibleFilter === 'true');
       return matchSearch && matchType && matchStatus && matchScope && matchApproval && matchSku && matchMin && matchMax && matchInventory && matchCatalogVisible;
@@ -286,6 +289,7 @@ export function CatalogList() {
         <BehaviorBadges
           tracksInventory={Boolean(row.tracksInventory)}
           catalogVisible={Boolean(row.catalogVisible)}
+          sellable={Boolean(row.sellable)}
         />
       ),
     },
@@ -404,6 +408,7 @@ export function CatalogList() {
         approvalStatus: item.approvalStatus ?? 'approved',
         tracksInventory: item.tracksInventory,
         catalogVisible: item.catalogVisible,
+        sellable: item.sellable,
         price: item.price,
         unit: item.unit,
         sku: item.sku,

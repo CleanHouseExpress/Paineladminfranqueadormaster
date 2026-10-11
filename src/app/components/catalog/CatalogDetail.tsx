@@ -35,8 +35,10 @@ function formatRelative(iso: string): string {
   return years === 1 ? '1 ano atrás' : `${years} anos atrás`;
 }
 
-function formatPrice(value: number): string {
-  return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function formatPrice(value: number | null): string {
+  return value == null
+    ? '—'
+    : value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function formatDuration(minutes: number): string {
@@ -673,6 +675,9 @@ export function CatalogDetail() {
               <PropRow label="Visibilidade comercial">
                 <YesNoBadge value={item.catalogVisible} trueLabel="Visivel no catalogo" falseLabel="Oculto no catalogo" />
               </PropRow>
+              <PropRow label="Disponibilidade para venda">
+                <YesNoBadge value={item.sellable} trueLabel="Disponível para venda" falseLabel="Indisponível para venda" />
+              </PropRow>
               <PropRow label="Status do item">
                 <span style={{ fontWeight: 600 }}>{statusCfg.label}</span>
               </PropRow>
@@ -819,7 +824,7 @@ export function CatalogDetail() {
                     <span style={{ color: '#64748B' }}>Custo</span>
                     <span style={{ fontWeight: 600, color: '#0F172A' }}>R$ {formatPrice(f.custo)}</span>
                   </div>
-                  {item.price > 0 && (
+                  {item.price != null && item.price > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                       <span style={{ color: '#64748B' }}>Margem</span>
                       <span style={{

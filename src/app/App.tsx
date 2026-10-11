@@ -66,6 +66,7 @@ const InventoryTransfersPage = lazyPage(() => import('./components/inventory/Inv
 const InventoryTransferDetailPage = lazyPage(() => import('./components/inventory/InventorySupplyChainPages'), 'InventoryTransferDetailPage');
 const InventoryCountsPage = lazyPage(() => import('./components/inventory/InventorySupplyChainPages'), 'InventoryCountsPage');
 const InventoryCountDetailPage = lazyPage(() => import('./components/inventory/InventorySupplyChainPages'), 'InventoryCountDetailPage');
+const InventoryReplenishmentPage = lazyPage(() => import('../modules/inventory'), 'ReplenishmentPage');
 const AnalyticsDashboardPage = lazyPage(() => import('./components/analytics/AnalyticsDashboard'), 'AnalyticsDashboard');
 const AnalyticsTemplatesPage = lazyPage(() => import('./components/analytics/AnalyticsTemplates'), 'AnalyticsTemplatesPage');
 const AnalyticsTemplateDetailPage = lazyPage(() => import('./components/analytics/AnalyticsTemplates'), 'AnalyticsTemplateDetailPage');
@@ -213,6 +214,7 @@ const COMPONENT_MAP: Record<string, ComponentType> = {
   'inventory-transfer-detail': InventoryTransferDetailPage,
   'inventory-counts': InventoryCountsPage,
   'inventory-count-detail': InventoryCountDetailPage,
+  'inventory-replenishment': InventoryReplenishmentPage,
   'analytics-dashboard': AnalyticsDashboardPage,
   'analytics-templates': AnalyticsTemplatesPage,
   'analytics-template-detail': AnalyticsTemplateDetailPage,

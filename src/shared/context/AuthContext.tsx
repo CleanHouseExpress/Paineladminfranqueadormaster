@@ -36,6 +36,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   hydrateSession: () => Promise<void>;
+  refreshPermissions: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -315,6 +316,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [hydrateTenant, refreshTheme, resetTenant]);
 
+  const refreshPermissions = useCallback(async () => {
+    const permissionsPayload = unwrap<AuthPermission[]>(await authService.getMePermissions()) ?? [];
+    setPermissions(Array.isArray(permissionsPayload) ? permissionsPayload : []);
+  }, []);
+
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
     setError(null);
@@ -407,7 +413,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     logout,
     hydrateSession,
-  }), [company, context, error, hydrateSession, isLoading, login, logout, modules, permissions, roles, token, user]);
+    refreshPermissions,
+  }), [company, context, error, hydrateSession, isLoading, login, logout, modules, permissions, refreshPermissions, roles, token, user]);
 
   return (
     <AuthContext.Provider value={value}>

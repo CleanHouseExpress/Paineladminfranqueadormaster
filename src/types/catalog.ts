@@ -123,7 +123,8 @@ export interface CatalogItem {
   promotedFromItemId?: string | number | null;
   tracksInventory: boolean;
   catalogVisible: boolean;
-  price: number;               // base price in BRL
+  sellable: boolean;
+  price: number | null;        // base price in BRL; null means no price was defined
   sku?: string;                // SKU or internal code
   unit?: string;               // "un", "h", "mês", "sessão", etc.
   supplierId?: string | null;
@@ -229,6 +230,7 @@ export const CATALOG_PERMISSIONS = [
   'tenant.catalog.delete',
   'tenant.catalog.archive',
   'tenant.catalog.configure',
+  'tenant.catalog.sellability.update',
 ] as const;
 
 export type CatalogPermission = typeof CATALOG_PERMISSIONS[number];
