@@ -36,6 +36,7 @@ const cardStyle: React.CSSProperties = {
 };
 
 interface PendingDispatch {
+  purchaseOrderId: string;
   idempotencyKey: string;
   channel: OrderDispatchChannel;
   recipient: string;
@@ -106,9 +107,17 @@ export function PurchaseOrderDetailPage() {
   const [submitError, setSubmitError] = useState('');
   const [submitNotice, setSubmitNotice] = useState('');
   const pendingDispatch = useRef<PendingDispatch | null>(null);
+  const currentPurchaseOrderId = useRef(id);
+  currentPurchaseOrderId.current = id;
 
   useEffect(() => {
     let active = true;
+    pendingDispatch.current = null;
+    setDialogOpen(false);
+    setSubmitting(false);
+    setSubmitError('');
+    setSubmitNotice('');
+    setError('');
     setLoading(true);
     orderDispatchService.getPurchaseOrder(id)
       .then(data => {
@@ -125,12 +134,14 @@ export function PurchaseOrderDetailPage() {
 
   async function confirmDispatch() {
     if (!channel || !order) return;
+    const purchaseOrderId = id;
     const recipient = order.supplier_snapshot?.email
       ?? order.supplier.email
       ?? order.supplier_snapshot?.contact_name
       ?? order.supplier.name;
-    if (!pendingDispatch.current) {
+    if (pendingDispatch.current?.purchaseOrderId !== purchaseOrderId) {
       pendingDispatch.current = {
+        purchaseOrderId,
         idempotencyKey: typeof crypto.randomUUID === 'function'
           ? crypto.randomUUID()
           : `order-dispatch-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -144,12 +155,13 @@ export function PurchaseOrderDetailPage() {
     setSubmitNotice('');
     try {
       const dispatch = await orderDispatchService.create(
-        id,
+        purchaseOrderId,
         dispatchRequest.channel,
         dispatchRequest.recipient,
         dispatchRequest.idempotencyKey,
       );
-      setOrder(current => current ? {
+      if (currentPurchaseOrderId.current !== purchaseOrderId) return;
+      setOrder(current => current && String(current.id) === purchaseOrderId ? {
         ...current,
         dispatches: [dispatch, ...current.dispatches.filter(item => item.id !== dispatch.id)],
       } : current);
@@ -164,9 +176,11 @@ export function PurchaseOrderDetailPage() {
       pendingDispatch.current = null;
       setDialogOpen(false);
     } catch (requestError) {
-      setSubmitError(getApiErrorMessage(requestError, 'Não foi possível enviar o pedido.'));
+      if (currentPurchaseOrderId.current === purchaseOrderId) {
+        setSubmitError(getApiErrorMessage(requestError, 'Não foi possível enviar o pedido.'));
+      }
     } finally {
-      setSubmitting(false);
+      if (currentPurchaseOrderId.current === purchaseOrderId) setSubmitting(false);
     }
   }
 
