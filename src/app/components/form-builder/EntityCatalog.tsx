@@ -55,6 +55,29 @@ const filterLabels: Record<FilterKey, { label: string; icon: typeof Zap }> = {
   attachments: { label: 'Com anexos/fotos', icon: Camera },
 };
 
+const FIELD_VISIBILITY_ENTITIES = [
+  {
+    key: 'customers',
+    label: 'Clientes',
+    description: 'Configure quais campos aparecem nos cadastros de clientes.',
+  },
+  {
+    key: 'units',
+    label: 'Unidades',
+    description: 'Configure quais campos aparecem nos cadastros de unidades.',
+  },
+  {
+    key: 'users',
+    label: 'Usuários',
+    description: 'Configure quais campos aparecem nos cadastros de usuários.',
+  },
+  {
+    key: 'suppliers',
+    label: 'Fornecedores',
+    description: 'Configure quais campos aparecem nos cadastros de fornecedores.',
+  },
+];
+
 function normalize(value: unknown) {
   return String(value ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
@@ -323,6 +346,25 @@ export function EntityCatalog() {
         </div>
         <Button asChild><Link to="/settings/form-builder/new"><Plus className="size-4" />Novo template</Link></Button>
       </div>
+
+      <section className="rounded-lg border bg-card p-4">
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold tracking-normal">Configuração de campos</h2>
+          <p className="text-sm text-muted-foreground">Escolha uma entidade para configurar quais campos ficam visíveis nos formulários deste tenant.</p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {FIELD_VISIBILITY_ENTITIES.map(entity => (
+            <Link
+              key={entity.key}
+              to={`/settings/form-builder/${entity.key}`}
+              className="rounded-md border p-4 transition hover:border-primary/40 hover:bg-muted/30"
+            >
+              <div className="font-medium">{entity.label}</div>
+              <div className="mt-1 text-sm text-muted-foreground">{entity.description}</div>
+            </Link>
+          ))}
+        </div>
+      </section>
 
       {importedTemplate ? (
         <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
